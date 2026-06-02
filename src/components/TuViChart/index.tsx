@@ -7,7 +7,8 @@
  *   row3: [Dần] [Sửu] [Tý]  [Hợi]
  */
 import React, { forwardRef, useRef } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useContentWidth } from '../../lib/platform';
 import type { TuViChart as TuViChartType, BirthInfo } from '../../types';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import HouseCell from './HouseCell';
@@ -75,7 +76,7 @@ function menhCucRelation(menhEl: string, cucSo: number): string {
 }
 
 const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress }, ref) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const lastTap = useRef<{ idx: number; time: number }>({ idx: -1, time: 0 });
 
   const handleCellPress = (branchIdx: number) => {

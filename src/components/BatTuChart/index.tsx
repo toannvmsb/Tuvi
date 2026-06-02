@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { BatTuChart, Pillar, FiveElement } from '../../types';
+import { useContentWidth } from '../../lib/platform';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import RadarChart, { type RadarPoint } from '../RadarChart';
 
@@ -45,7 +46,7 @@ interface Props {
 }
 
 export default function BatTuChartComponent({ chart }: Props) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const total = Object.values(chart.elementCounts).reduce((a, b) => a + b, 0) || 1;
   const radarSize = Math.min(width - 80, 320);
 

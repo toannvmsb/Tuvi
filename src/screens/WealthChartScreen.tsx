@@ -5,7 +5,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +19,7 @@ import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
+import { useContentWidth } from '../lib/platform';
 import ScreenHeader from '../components/ScreenHeader';
 import AIProgressBar from '../components/AIProgressBar';
 
@@ -36,7 +36,7 @@ function barColor(v: number): string {
 
 export default function WealthChartScreen({ route, navigation }: Props) {
   const { result } = route.params;
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const scores = useMemo(() => scoreAllDaiVan(result).slice(0, 10), [result]);
   const currentAge = result.tuViChart.viewingAge;
   const taiBach = result.tuViChart.houses.find(h => h.palaceName === 'Tài Bạch');

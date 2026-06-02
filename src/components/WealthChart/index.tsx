@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useContentWidth } from '../../lib/platform';
 import type { DaiVan } from '../../types';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 
@@ -13,7 +14,7 @@ const ELEMENT_COLORS: Record<string, string> = {
 };
 
 export default function WealthChart({ daiVans, currentAge }: Props) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const chartWidth = width - SPACING.lg * 2;
   const maxBarHeight = 120;
   const barWidth = Math.max(28, Math.floor((chartWidth - SPACING.md * 2) / daiVans.length) - 4);
