@@ -12,6 +12,7 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
 import { exportChartAsImage, shareImageFile, saveImageToGallery } from '../utils/exportChart';
 import { buildResult } from '../core/buildResult';
+import { navigationRef } from '../navigation/AppNavigator';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TuViChart'>;
 
@@ -73,7 +74,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader
         title="Lá Số"
-        onBack={() => navigation.getParent()?.navigate('Home' as any)}
+        onBack={() => navigationRef.navigate('Home')}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Toolbar */}
@@ -100,7 +101,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.aiChartBtn}
-            onPress={() => navigation.getParent()?.navigate('FullChartAI', { result: fullChartResult })}
+            onPress={() => navigationRef.navigate('FullChartAI', { result: fullChartResult })}
             activeOpacity={0.85}
           >
             <Text style={styles.aiChartBtnText}>🤖 Phân tích AI toàn lá số (PRO) · năm {viewYear}</Text>
@@ -141,7 +142,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           birthInfo={fullChartResult.birthInfo}
           showLuuStars={showLuuTieuVan}
           onPalacePress={(branchIndex) =>
-            navigation.getParent()?.navigate('PalaceDetail', { result: fullChartResult, branchIndex })
+            navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex })
           }
         />
 
@@ -184,7 +185,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         {/* Tài Lộc */}
         <TouchableOpacity
           style={styles.dayBtn}
-          onPress={() => navigation.getParent()?.navigate('WealthChart', { result })}
+          onPress={() => navigationRef.navigate('WealthChart', { result })}
           activeOpacity={0.85}
         >
           <Text style={styles.dayBtnText}>💰 Tài Lộc (xu hướng tài lộc cả đời)</Text>
@@ -193,7 +194,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         {/* Xem theo ngày */}
         <TouchableOpacity
           style={styles.dayBtn}
-          onPress={() => navigation.getParent()?.navigate('DailyView', { result })}
+          onPress={() => navigationRef.navigate('DailyView', { result })}
           activeOpacity={0.85}
         >
           <Text style={styles.dayBtnText}>📅 Xem theo ngày (tốt/xấu, nên/không nên)</Text>
@@ -202,7 +203,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         {/* Xem ngày tốt cho việc cụ thể */}
         <TouchableOpacity
           style={styles.dayBtn}
-          onPress={() => navigation.getParent()?.navigate('DayPicker', { result })}
+          onPress={() => navigationRef.navigate('DayPicker', { result })}
           activeOpacity={0.85}
         >
           <Text style={styles.dayBtnText}>🧭 Xem ngày tốt cho việc cụ thể</Text>

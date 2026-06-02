@@ -1,17 +1,30 @@
 /**
  * Trình xem ảnh trong ứng dụng — phóng to bằng cử chỉ (pinch), kéo di chuyển,
- * chạm 2 lần để reset. Dùng react-native-gesture-handler (đã có sẵn) + Animated,
- * không cần thêm package.
+ * chạm 2 lần để reset.
+ * Mobile: dùng react-native-gesture-handler + Animated.
+ * Web: hiển thị ảnh đơn giản trong scrollable container (không cần gesture native).
  */
 
 import React, { useRef } from 'react';
 import {
-  Modal, View, StyleSheet, TouchableOpacity, Text, Animated, Dimensions,
+  Modal, View, StyleSheet, TouchableOpacity, Text, Animated, Dimensions, Platform, ScrollView, Image,
 } from 'react-native';
-import {
-  PinchGestureHandler, PanGestureHandler, TapGestureHandler, State,
-} from 'react-native-gesture-handler';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
+
+// Lazy-import gesture handlers chỉ trên native để tránh lỗi trên web.
+let PinchGestureHandler: any = View;
+let PanGestureHandler: any = View;
+let TapGestureHandler: any = View;
+let State: any = {};
+if (Platform.OS !== 'web') {
+  try {
+    const gh = require('react-native-gesture-handler');
+    PinchGestureHandler = gh.PinchGestureHandler;
+    PanGestureHandler = gh.PanGestureHandler;
+    TapGestureHandler = gh.TapGestureHandler;
+    State = gh.State;
+  } catch {}
+}
 
 interface Props {
   visible: boolean;
@@ -104,6 +117,40 @@ export default function ImageViewerModal({ visible, uri, onClose, onShare, onSav
       }
     }
   };
+
+  // Web: modal đơn giản, scroll để xem ảnh to
+  if (Platform.OS === 'web') {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+        <View style={styles.backdrop}>
+          <View style={styles.topBar}>
+            <Text style={styles.hint}>Cuộn để xem ảnh · nhấn Đóng khi xong</Text>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
+              <Text style={styles.closeText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.webScroll}>
+            {uri ? <Image source={{ uri }} resizeMode="contain" style={styles.webImage} /> : null}
+          </ScrollView>
+          <View style={styles.bottomBar}>
+            {onSave ? (
+              <TouchableOpacity style={[styles.actionBtn, styles.actionSave]} onPress={onSave}>
+                <Text style={styles.actionText}>💾 Lưu ảnh</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onShare ? (
+              <TouchableOpacity style={styles.actionBtn} onPress={onShare}>
+                <Text style={styles.actionText}>📤 Chia sẻ</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity style={[styles.actionBtn, styles.actionPrimary]} onPress={handleClose}>
+              <Text style={[styles.actionText, { color: '#1a0a00' }]}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -201,4 +248,6 @@ const styles = StyleSheet.create({
   actionSave: { backgroundColor: 'rgba(34,197,94,0.6)' },
   actionPrimary: { backgroundColor: COLORS.gold },
   actionText: { color: '#fff', fontSize: FONTS.size.md, fontWeight: '700' },
+  webScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.md },
+  webImage: { width: '100%' as any, height: 500 },
 });
