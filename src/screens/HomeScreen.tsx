@@ -202,6 +202,7 @@ const styles = StyleSheet.create({
   },
   twoBtnRow: {
     flexDirection: 'row', gap: SPACING.sm,
+    width: '100%',
     marginTop: SPACING.lg, marginBottom: SPACING.sm,
   },
   halfBtn: {
