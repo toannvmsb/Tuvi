@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
-  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform,
+  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -23,7 +23,9 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const [exporting, setExporting] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [webChartOpen, setWebChartOpen] = useState(false);
+  const [webExporting, setWebExporting] = useState(false);
   const chartRef = useRef<View>(null);
+  const webChartContainerRef = useRef<View>(null);
 
   // NĂM XEM — chỉ ảnh hưởng PHÂN TÍCH TOÀN BỘ LÁ SỐ (đổi sao lưu của năm).
   // Các tab khác (Bát Tự, Đại/Tiểu/Nguyệt Vận, Xem theo ngày) KHÔNG bị ảnh hưởng.
@@ -75,6 +77,81 @@ export default function TuViChartScreen({ route, navigation }: Props) {
       Alert.alert('Lỗi', e?.message || String(e));
     }
   };
+
+  /** Web: tải ảnh PNG bằng html2canvas */
+  const handleWebExportPNG = useCallback(async () => {
+    if (webExporting) return;
+    setWebExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const node = webChartContainerRef.current as any;
+      const domNode: HTMLElement = node?._nativeTag ?? node;
+      if (!domNode || typeof domNode.getBoundingClientRect !== 'function') {
+        Alert.alert('Lỗi', 'Không thể xác định vùng lá số. Thử lại sau.');
+        return;
+      }
+      const canvas = await html2canvas(domNode, {
+        backgroundColor: '#0a0a1a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      const name = (birthInfo.name || 'laso').replace(/\s+/g, '-');
+      a.download = `laso-tuvi-${name}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e: any) {
+      Alert.alert('Lỗi xuất ảnh', e?.message || 'Không tạo được ảnh PNG.');
+    } finally {
+      setWebExporting(false);
+    }
+  }, [webExporting, birthInfo.name]);
+
+  /** Web: in / xuất PDF bằng window.print() */
+  const handleWebPrint = useCallback(() => {
+    const name = birthInfo.name || 'Lá số Tử Vi';
+    const printStyle = document.createElement('style');
+    printStyle.id = '__tuvi_print_style';
+    printStyle.textContent = `
+      @media print {
+        body > * { display: none !important; }
+        body > #root { display: flex !important; }
+        #root > * { display: none !important; }
+        #__tuvi_print_root { display: block !important; }
+      }
+    `;
+    document.head.appendChild(printStyle);
+
+    // Tạo div in ấn ngoài React tree
+    const printDiv = document.createElement('div');
+    printDiv.id = '__tuvi_print_root';
+    printDiv.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;background:#0a0a1a;z-index:99999;padding:20px;box-sizing:border-box;';
+
+    const node = webChartContainerRef.current as any;
+    const domNode: HTMLElement = node?._nativeTag ?? node;
+    if (domNode && typeof domNode.cloneNode === 'function') {
+      const clone = domNode.cloneNode(true) as HTMLElement;
+      clone.style.cssText = 'width:100%;max-width:600px;margin:0 auto;';
+      const title = document.createElement('h2');
+      title.textContent = `Lá số Tử Vi — ${name}`;
+      title.style.cssText = 'color:#b8860b;font-family:sans-serif;text-align:center;margin-bottom:12px;';
+      printDiv.appendChild(title);
+      printDiv.appendChild(clone);
+    }
+    document.body.appendChild(printDiv);
+
+    window.print();
+
+    // Dọn dẹp sau khi in
+    setTimeout(() => {
+      document.getElementById('__tuvi_print_style')?.remove();
+      document.getElementById('__tuvi_print_root')?.remove();
+    }, 1000);
+  }, [birthInfo.name]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -235,16 +312,46 @@ export default function TuViChartScreen({ route, navigation }: Props) {
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.webChartScroll}>
-              <TuViChart
-                chart={fullChartResult.tuViChart}
-                birthInfo={fullChartResult.birthInfo}
-                showLuuStars={showLuuTieuVan}
-                onPalacePress={(branchIndex) => {
-                  setWebChartOpen(false);
-                  setTimeout(() => navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex }), 200);
-                }}
-              />
+              <View ref={webChartContainerRef} collapsable={false}>
+                <TuViChart
+                  chart={fullChartResult.tuViChart}
+                  birthInfo={fullChartResult.birthInfo}
+                  showLuuStars={showLuuTieuVan}
+                  onPalacePress={(branchIndex) => {
+                    setWebChartOpen(false);
+                    setTimeout(() => navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex }), 200);
+                  }}
+                />
+              </View>
             </ScrollView>
+
+            {/* Nút xuất file */}
+            <View style={styles.webChartActions}>
+              <TouchableOpacity
+                style={[styles.webActionBtn, styles.webActionPNG, webExporting && { opacity: 0.6 }]}
+                onPress={handleWebExportPNG}
+                disabled={webExporting}
+                activeOpacity={0.8}
+              >
+                {webExporting
+                  ? <ActivityIndicator size="small" color="#1a0a00" />
+                  : <Text style={styles.webActionTxt}>🖼️ Tải ảnh PNG</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.webActionBtn, styles.webActionPDF]}
+                onPress={handleWebPrint}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.webActionTxt}>🖨️ In / Xuất PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.webActionBtn, styles.webActionClose]}
+                onPress={() => setWebChartOpen(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.webActionTxt, { color: COLORS.textSecondary }]}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
       )}
@@ -335,4 +442,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   webChartScroll: { padding: SPACING.sm, alignItems: 'center' },
+  webChartActions: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
+    padding: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border,
+    justifyContent: 'center',
+  },
+  webActionBtn: {
+    paddingHorizontal: SPACING.lg, paddingVertical: 10,
+    borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    minWidth: 130,
+  },
+  webActionPNG: { backgroundColor: COLORS.gold },
+  webActionPDF: { backgroundColor: '#7c3aed' },
+  webActionClose: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.border },
+  webActionTxt: { color: '#1a0a00', fontSize: FONTS.size.md, fontWeight: '700' },
 });
