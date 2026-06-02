@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,6 +9,18 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { loadLanguage } from './src/i18n';
 import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
+
+// Web: căn giữa + giới hạn chiều rộng 480px để dễ đọc trên desktop.
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    body { background: ${COLORS.background}; display: flex; justify-content: center; }
+    #root { max-width: 480px; width: 100%; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+    * { -webkit-tap-highlight-color: transparent; }
+    input, textarea { font-size: 16px !important; }
+  `;
+  document.head.appendChild(style);
+}
 
 /**
  * Khởi động: tải ngôn ngữ (core) + kiểm tra phiên/hồ sơ (auth) song song,
