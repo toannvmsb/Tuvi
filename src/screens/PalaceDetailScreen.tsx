@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   },
   freeTag: { color: COLORS.green, fontSize: FONTS.size.xs, fontWeight: '700' },
   subHead: { color: COLORS.goldLight, fontSize: FONTS.size.md, fontWeight: '700', marginTop: SPACING.sm },
-  bodyText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 22 },
+  bodyText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 22, textAlign: 'justify' },
   bodyTextDim: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontStyle: 'italic', marginTop: SPACING.xs },
   relDetail: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20 },
   relTag: { color: COLORS.goldLight, fontWeight: '800' },
