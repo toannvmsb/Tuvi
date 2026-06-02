@@ -87,7 +87,7 @@ function Bars({ data, currentAge }: { data: DaiVanScore[]; currentAge?: number }
 
 export default function DaiVanScreen({ route }: Props) {
   const { result } = route.params;
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cellW = Math.min(width - SPACING.lg * 2 - SPACING.md * 2, 320);
   const cellH = Math.round(cellW * 1.18);
   // Chỉ tới ~100 tuổi → tối đa 10 đại vận (10 cột).
