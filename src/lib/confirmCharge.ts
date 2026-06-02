@@ -2,12 +2,11 @@
  * Hỏi xác nhận trước khi TRỪ XU để mở một mục trả phí.
  *  - Đã mở khóa trước đó → trả 'free' ngay (không hỏi, không trừ).
  *  - Chưa mở → hiện hộp thoại: cần bao nhiêu xu, số dư hiện tại, hỏi đồng ý.
- *      • Đồng ý + đủ xu → trừ, trả 'ok'.
- *      • Đồng ý + thiếu xu → trả 'nofund'.
- *      • Từ chối → trả 'cancel'.
+ *
+ * Web: dùng webAlert (React modal) thay vì Alert.alert() để tránh window.confirm() bị block.
  */
-import { Alert } from 'react-native';
 import { isUnlocked, useFeature, chargeAgain, PREMIUM, wallet, type FeatureKind } from '../constants/premium';
+import { webAlert } from './webAlert';
 
 export type ChargeResult = 'free' | 'ok' | 'cancel' | 'nofund';
 
@@ -15,7 +14,7 @@ export function confirmAndUnlock(key: string, kind: FeatureKind, cost: number = 
   return new Promise((resolve) => {
     if (isUnlocked(key)) { resolve('free'); return; }
     const kindLabel = kind === 'ai' ? 'Phân tích AI' : 'Nâng cao';
-    Alert.alert(
+    webAlert.alert(
       `Mở ${kindLabel}`,
       `Mục này cần ${cost.toLocaleString('vi-VN')} xu để mở.\n` +
       `Số dư hiện tại: ${wallet.balance.toLocaleString('vi-VN')} xu.\n\n` +
@@ -31,7 +30,6 @@ export function confirmAndUnlock(key: string, kind: FeatureKind, cost: number = 
           },
         },
       ],
-      { cancelable: true, onDismiss: () => resolve('cancel') },
     );
   });
 }
@@ -42,9 +40,9 @@ export function confirmAndUnlock(key: string, kind: FeatureKind, cost: number = 
  */
 export function confirmReanalyze(key: string, kind: FeatureKind, cost: number = PREMIUM.COST[kind]): Promise<ChargeResult> {
   return new Promise((resolve) => {
-    if (PREMIUM.UNLOCKED) { resolve('free'); return; }   // chế độ mở miễn phí
+    if (PREMIUM.UNLOCKED) { resolve('free'); return; }
     const kindLabel = kind === 'ai' ? 'Phân tích AI' : 'Nâng cao';
-    Alert.alert(
+    webAlert.alert(
       `Phân tích lại (${kindLabel})`,
       `Phân tích lại sẽ chạy AI mới và TRỪ THÊM ${cost.toLocaleString('vi-VN')} xu.\n` +
       `Số dư hiện tại: ${wallet.balance.toLocaleString('vi-VN')} xu.\n\n` +
@@ -59,7 +57,6 @@ export function confirmReanalyze(key: string, kind: FeatureKind, cost: number = 
           },
         },
       ],
-      { cancelable: true, onDismiss: () => resolve('cancel') },
     );
   });
 }

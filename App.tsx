@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { loadLanguage } from './src/i18n';
 import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
+import WebAlertHost from './src/components/WebAlertHost';
 
 // Web: căn giữa + giới hạn chiều rộng 480px để dễ đọc trên desktop.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -52,6 +53,7 @@ export default function App() {
         <AuthProvider>
           <Boot />
         </AuthProvider>
+        <WebAlertHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

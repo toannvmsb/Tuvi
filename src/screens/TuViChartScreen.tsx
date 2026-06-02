@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
-  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList,
+  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -22,6 +22,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const [showLuuTieuVan, setShowLuuTieuVan] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [webChartOpen, setWebChartOpen] = useState(false);
   const chartRef = useRef<View>(null);
 
   // NĂM XEM — chỉ ảnh hưởng PHÂN TÍCH TOÀN BỘ LÁ SỐ (đổi sao lưu của năm).
@@ -40,6 +41,11 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   );
 
   const handleExport = async () => {
+    // Web: react-native-view-shot không hỗ trợ → mở modal render chart trực tiếp
+    if (Platform.OS === 'web') {
+      setWebChartOpen(true);
+      return;
+    }
     setExporting(true);
     try {
       const r = await exportChartAsImage(chartRef, `laso-${birthInfo.name || 'tuvi'}.png`);
@@ -217,6 +223,31 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         onShare={handleShare}
         onClose={() => setViewerUri(null)}
       />
+
+      {/* Web: modal phóng to lá số — render trực tiếp TuViChart (không cần capture) */}
+      {Platform.OS === 'web' && (
+        <Modal visible={webChartOpen} transparent animationType="fade" onRequestClose={() => setWebChartOpen(false)}>
+          <View style={styles.webChartBackdrop}>
+            <View style={styles.webChartHeader}>
+              <Text style={styles.webChartTitle}>Lá số Tử Vi — {birthInfo.name || 'Chưa đặt tên'}</Text>
+              <TouchableOpacity onPress={() => setWebChartOpen(false)} style={styles.webChartClose}>
+                <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.webChartScroll}>
+              <TuViChart
+                chart={fullChartResult.tuViChart}
+                birthInfo={fullChartResult.birthInfo}
+                showLuuStars={showLuuTieuVan}
+                onPalacePress={(branchIndex) => {
+                  setWebChartOpen(false);
+                  setTimeout(() => navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex }), 200);
+                }}
+              />
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -291,4 +322,17 @@ const styles = StyleSheet.create({
   },
   birthSummaryTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '700', marginBottom: SPACING.sm },
   birthSummaryText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, marginTop: 3 },
+  webChartBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+  webChartHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  webChartTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700', flex: 1 },
+  webChartClose: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  webChartScroll: { padding: SPACING.sm, alignItems: 'center' },
 });
