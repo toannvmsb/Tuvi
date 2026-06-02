@@ -1,0 +1,427 @@
+/**
+ * Màn hình "Kho Xu của tôi" — xem số dư & NẠP XU qua chuyển khoản VietQR.
+ *
+ * Luồng: chọn gói → sinh mã đơn (nội dung CK) → hiện QR VietQR + thông tin tài
+ * khoản → người dùng chuyển khoản → hệ thống (webhook SePay/Casso) tự cộng xu.
+ * App POLL trạng thái đơn; khi 'paid' thì cập nhật số dư.
+ *
+ * BẢN TEST: còn nút Admin để nạp/giả lập thanh toán phục vụ kiểm thử.
+ */
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../components/ScreenHeader';
+import { wallet, deposit, resetWallet, seedWallet, PREMIUM } from '../constants/premium';
+import { BANK, XU_PACKS, makeTopupCode, vietQrImageUrl, type XuPack } from '../constants/payment';
+import { createTopupOrder, checkTopupStatus, fetchServerBalance, listTopupOrders, deleteTopupOrder, type TopupRow } from '../lib/topup';
+import { notifyLocal } from '../lib/notifications';
+import { isOnlineMode } from '../lib/auth';
+import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
+import ComboOffer from '../components/ComboOffer';
+import type { AstrologyResult } from '../types';
+import { isIapAvailable, initIap, getXuProducts, buyXuPack, endIap } from '../lib/iap';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { isWeb, downloadToCache, saveImageOrDownload } from '../lib/platform';
+
+interface Order { code: string; pack: XuPack; }
+
+export default function WalletScreen() {
+  const navigation = useNavigation<any>();
+  const [bal, setBal] = useState(wallet.balance);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [status, setStatus] = useState<'idle' | 'pending' | 'paid'>('idle');
+  const [checking, setChecking] = useState(false);
+  const [savingQr, setSavingQr] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [history, setHistory] = useState<TopupRow[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  useEffect(() => () => stopPoll(), []);
+
+  const loadHistory = useCallback(async () => {
+    setHistory(await listTopupOrders());
+  }, []);
+  useEffect(() => { void loadHistory(); }, [loadHistory]);
+
+  // IAP (chỉ bật ở bản build store có react-native-iap).
+  const [iapReady, setIapReady] = useState(false);
+  const [iapProducts, setIapProducts] = useState<any[]>([]);
+  useEffect(() => {
+    if (!isIapAvailable()) return;
+    let alive = true;
+    (async () => {
+      const ok = await initIap({
+        onCredited: (_pack, balance) => { setBal(balance); setMsg('✓ Nạp xu qua cửa hàng thành công!'); void notifyLocal('Nạp xu thành công 🎉', 'Số dư của bạn đã được cập nhật.'); },
+        onError: (m) => setMsg('⚠ ' + m),
+      });
+      if (!alive) return;
+      setIapReady(ok);
+      if (ok) setIapProducts(await getXuProducts());
+    })();
+    return () => { alive = false; void endIap(); };
+  }, []);
+
+  // Lá số để áp gói combo (combo mở khóa theo TỪNG lá số).
+  const [charts, setCharts] = useState<SavedChartRow[]>(() => getCachedCharts() ?? []);
+  const [comboChartId, setComboChartId] = useState<string | null>(null);
+  const [comboResult, setComboResult] = useState<AstrologyResult | null>(null);
+  const pickChart = useCallback((row: SavedChartRow) => {
+    setComboChartId(row.id);
+    try { setComboResult(rowToResult(row)); } catch { setComboResult(null); }
+  }, []);
+  useEffect(() => { (async () => { try { setCharts(await listCharts()); } catch {} })(); }, []);
+  useEffect(() => {
+    if (!comboChartId && charts.length) pickChart(charts[0]);
+  }, [charts, comboChartId, pickChart]);
+
+  // Khi đơn ở trạng thái chờ → poll trạng thái mỗi 8 giây.
+  useEffect(() => {
+    stopPoll();
+    if (order && status === 'pending') {
+      pollRef.current = setInterval(() => { void verify(order, true); }, 8000);
+    }
+    return () => stopPoll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order, status]);
+
+  const startTopup = async (pack: XuPack) => {
+    const code = makeTopupCode();
+    const o = { code, pack };
+    setOrder(o);
+    setStatus('pending');
+    setMsg('');
+    await createTopupOrder(code, pack.vnd, pack.xu);
+  };
+
+  const onPaid = async (o: Order) => {
+    stopPoll();
+    setStatus('paid');
+    // Cập nhật số dư từ server (webhook đã cộng xu). Nếu không lấy được thì giữ nguyên.
+    const serverBal = await fetchServerBalance();
+    if (typeof serverBal === 'number') { seedWallet({ balance: serverBal }); setBal(serverBal); }
+    setMsg(`✓ Đã nhận thanh toán — cộng ${o.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản.`);
+    void notifyLocal('Nạp xu thành công 🎉', `Đã cộng ${o.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.`);
+    void loadHistory();
+  };
+
+  // Tải ảnh QR về Thư viện để chủ động upload lên app ngân hàng.
+  const saveQr = async (o: Order) => {
+    setSavingQr(true);
+    try {
+      const uri = await downloadToCache(vietQrImageUrl(o.pack.vnd, o.code), `QR-${o.code}.png`);
+      await saveImageOrDownload(uri, `QR-${o.code}.png`);
+      Alert.alert('✓ Đã lưu', isWeb ? 'Ảnh QR đã được tải xuống. Mở app ngân hàng → chọn/upload ảnh QR này để chuyển khoản nhanh.' : 'Ảnh QR đã lưu vào Thư viện ảnh. Mở app ngân hàng → chọn/upload ảnh QR này để chuyển khoản nhanh.');
+    } catch (e: any) {
+      Alert.alert('Lỗi', e?.message || 'Không lưu được ảnh QR.');
+    } finally { setSavingQr(false); }
+  };
+
+  const verify = async (o: Order, silent = false) => {
+    if (!silent) setChecking(true);
+    const st = await checkTopupStatus(o.code);
+    if (!silent) setChecking(false);
+    if (st === 'paid') { await onPaid(o); }
+    else if (!silent) setMsg('⏳ Chưa nhận được thanh toán. Sau khi chuyển khoản 1–2 phút, hệ thống sẽ tự cộng xu.');
+  };
+
+  const cancelOrder = () => { stopPoll(); setOrder(null); setStatus('idle'); setMsg(''); };
+
+  // ----- Admin/test -----
+  const testReset = () => { const b = resetWallet(); setBal(b); setMsg('↻ Đã reset 100.000 xu (Admin · test).'); };
+  const testSimulatePaid = () => {
+    if (!order) return;
+    const b = deposit(order.pack.xu);   // cộng cục bộ để kiểm thử
+    setBal(b);
+    stopPoll(); setStatus('paid');
+    setMsg(`✓ (Test) Giả lập đã thanh toán — cộng ${order.pack.xu.toLocaleString('vi-VN')} xu.`);
+    void notifyLocal('Nạp xu thành công 🎉', `Đã cộng ${order.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.`);
+    void loadHistory();
+  };
+
+  const STATUS_LABEL: Record<string, { txt: string; color: string }> = {
+    paid: { txt: 'Đã nạp', color: COLORS.green },
+    pending: { txt: 'Chờ TT', color: COLORS.gold },
+    expired: { txt: 'Hết hạn', color: COLORS.textMuted },
+  };
+  const fmtDate = (s: string) => {
+    try { const d = new Date(s); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; } catch { return ''; }
+  };
+  const removeHistory = (h: TopupRow) => {
+    Alert.alert('Xóa lịch sử nạp', `Xóa đơn ${h.code} khỏi lịch sử?`, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa', style: 'destructive',
+        onPress: async () => { setHistory(prev => prev.filter(x => x.code !== h.code)); await deleteTopupOrder(h.code); },
+      },
+    ]);
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScreenHeader title="Kho Xu của tôi" onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Số dư */}
+        <View style={styles.balCard}>
+          <Text style={styles.balLabel}>Số dư hiện tại</Text>
+          <Text style={styles.balValue}>{bal.toLocaleString('vi-VN')} xu</Text>
+          <Text style={styles.balUser}>👤 {wallet.userName}{wallet.isAdmin ? ' (Admin · test)' : ''}</Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.infoText}>
+            Quy đổi: 10.000đ = 100 xu (1 xu = 100đ).{'\n'}
+            Biểu phí: Nâng cao {PREMIUM.COST.advanced}–{PREMIUM.COST.advancedMajor} xu/lần ·
+            Phân tích AI {PREMIUM.COST.ai}–{PREMIUM.COST.aiLarge} xu/lần.{'\n'}
+            Mỗi mục mở rồi thì đọc lại miễn phí.
+          </Text>
+        </View>
+
+        {/* GÓI LUẬN TRỌN ĐỜI (combo — mở khóa theo từng lá số) */}
+        <View style={styles.comboBox}>
+          <Text style={styles.section}>💎 Gói Luận Trọn Đời</Text>
+          {!isOnlineMode() ? (
+            <Text style={styles.note}>Đăng nhập và lưu lá số để mua gói (gói mở khóa AI theo từng lá số).</Text>
+          ) : charts.length === 0 ? (
+            <Text style={styles.note}>Bạn chưa có lá số đã lưu. Hãy lập một lá số (tự động lưu) rồi quay lại đây để mua gói.</Text>
+          ) : (
+            <>
+              <Text style={styles.note}>Chọn lá số áp dụng gói:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.chartChips}>
+                  {charts.map(c => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.chartChip, c.id === comboChartId && styles.chartChipActive]}
+                      onPress={() => pickChart(c)}
+                    >
+                      <Text style={[styles.chartChipTxt, c.id === comboChartId && styles.chartChipTxtActive]}>
+                        {(c.name || 'Không tên')} · {c.birth_day}/{c.birth_month}/{c.birth_year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              {comboResult && <ComboOffer result={comboResult} onBought={() => setBal(wallet.balance)} />}
+            </>
+          )}
+        </View>
+
+        {/* NẠP XU QUA CỬA HÀNG (App Store / CH Play) — chỉ bản build store, ẩn trên web */}
+        {iapReady && !isWeb && (
+          <View style={styles.comboBox}>
+            <Text style={styles.section}>Nạp xu qua App Store / CH Play</Text>
+            <View style={styles.packGrid}>
+              {XU_PACKS.map(p => {
+                const prod = iapProducts.find((x: any) => (x.productId || x.id) === p.productId);
+                const priceTxt = prod?.localizedPrice || `${p.vnd.toLocaleString('vi-VN')}đ`;
+                return (
+                  <TouchableOpacity key={p.productId} style={styles.pack} onPress={() => buyXuPack(p.productId).catch((e: any) => setMsg('⚠ ' + (e?.message || 'Lỗi mua hàng')))} activeOpacity={0.85}>
+                    {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
+                    <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
+                    <Text style={styles.packGia}>{priceTxt}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.note}>Thanh toán an toàn qua tài khoản App Store / Google Play của bạn.</Text>
+          </View>
+        )}
+
+        {/* CHỌN GÓI NẠP (chuyển khoản VietQR) */}
+        {(!iapReady || isWeb) && !order && (
+          <>
+            <Text style={styles.section}>Nạp xu qua chuyển khoản (VietQR)</Text>
+            <View style={styles.packGrid}>
+              {XU_PACKS.map(p => (
+                <TouchableOpacity key={p.xu} style={styles.pack} onPress={() => startTopup(p)} activeOpacity={0.85}>
+                  {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
+                  <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
+                  <Text style={styles.packGia}>{p.vnd.toLocaleString('vi-VN')}đ</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.note}>
+              Sau khi chọn gói, quét mã QR hoặc chuyển khoản đúng số tiền & đúng nội dung. Hệ thống tự
+              cộng xu khi nhận được tiền (thường 1–2 phút).
+            </Text>
+          </>
+        )}
+
+        {/* ĐƠN NẠP — QR + thông tin chuyển khoản */}
+        {(!iapReady || isWeb) && order && (
+          <View style={styles.orderCard}>
+            <Text style={styles.section}>Chuyển khoản để nạp {order.pack.xu.toLocaleString('vi-VN')} xu</Text>
+
+            {status !== 'paid' && (
+              <>
+                <Image
+                  source={{ uri: vietQrImageUrl(order.pack.vnd, order.code) }}
+                  style={styles.qr}
+                  resizeMode="contain"
+                />
+                <TouchableOpacity style={styles.qrSaveBtn} onPress={() => saveQr(order)} disabled={savingQr} activeOpacity={0.85}>
+                  {savingQr
+                    ? <View style={styles.row}><ActivityIndicator color={COLORS.gold} size="small" /><Text style={styles.qrSaveTxt}>Đang lưu…</Text></View>
+                    : <Text style={styles.qrSaveTxt}>⬇️ Tải ảnh QR về máy</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+
+            <View style={styles.kv}><Text style={styles.k}>Ngân hàng</Text><Text style={styles.v}>{BANK.bankLabel}</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Số tài khoản</Text><Text style={styles.v}>{BANK.accountNo}</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Chủ tài khoản</Text><Text style={styles.v}>{BANK.accountName}</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Số tiền</Text><Text style={styles.vGold}>{order.pack.vnd.toLocaleString('vi-VN')}đ</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Nội dung CK</Text><Text style={styles.vGold}>{order.code}</Text></View>
+
+            <Text style={styles.warn}>
+              ⚠ Bắt buộc ghi đúng nội dung <Text style={styles.bold}>{order.code}</Text> để hệ thống tự khớp và cộng xu.
+            </Text>
+
+            {status === 'pending' && (
+              <>
+                <TouchableOpacity style={styles.checkBtn} onPress={() => verify(order)} disabled={checking} activeOpacity={0.85}>
+                  {checking
+                    ? <View style={styles.row}><ActivityIndicator color="#1a0a00" size="small" /><Text style={styles.checkTxt}>Đang kiểm tra…</Text></View>
+                    : <Text style={styles.checkTxt}>Tôi đã chuyển khoản — Kiểm tra</Text>}
+                </TouchableOpacity>
+                <View style={styles.pollRow}>
+                  <ActivityIndicator color={COLORS.gold} size="small" />
+                  <Text style={styles.pollTxt}>Đang chờ thanh toán… hệ thống tự cập nhật khi nhận được tiền.</Text>
+                </View>
+                <TouchableOpacity onPress={cancelOrder}><Text style={styles.cancel}>Hủy / Chọn gói khác</Text></TouchableOpacity>
+              </>
+            )}
+
+            {status === 'paid' && (
+              <TouchableOpacity style={styles.checkBtn} onPress={cancelOrder} activeOpacity={0.85}>
+                <Text style={styles.checkTxt}>✓ Hoàn tất — Quay lại nạp tiếp</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {!!msg && <Text style={styles.msg}>{msg}</Text>}
+
+        {/* LỊCH SỬ NẠP */}
+        {isOnlineMode() && (
+          <View style={styles.histBox}>
+            <View style={styles.histHead}>
+              <Text style={styles.section}>Lịch sử nạp</Text>
+              <TouchableOpacity onPress={() => loadHistory()}><Text style={styles.refresh}>🔄 Làm mới</Text></TouchableOpacity>
+            </View>
+            {history.length === 0 ? (
+              <Text style={styles.note}>Chưa có giao dịch nạp nào.</Text>
+            ) : (
+              // Hiện ~5 dòng gần nhất; cuộn trong khung để xem các lần trước.
+              <ScrollView style={styles.histScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+                {history.map(h => {
+                  const st = STATUS_LABEL[h.status] || STATUS_LABEL.pending;
+                  return (
+                    <View key={h.code} style={styles.histRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.histCode}>{h.code}</Text>
+                        <Text style={styles.histSub}>{fmtDate(h.created_at)} · +{h.xu.toLocaleString('vi-VN')} xu · {h.amount_vnd.toLocaleString('vi-VN')}đ</Text>
+                      </View>
+                      <Text style={[styles.histStatus, { color: st.color, borderColor: st.color }]}>{st.txt}</Text>
+                      <TouchableOpacity onPress={() => removeHistory(h)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={styles.histDel}>🗑</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            {history.length > 5 && <Text style={styles.histHint}>Cuộn trong khung để xem các lần nạp trước.</Text>}
+          </View>
+        )}
+
+        {/* Khu vực TEST (Admin) */}
+        {wallet.isAdmin && (
+          <View style={styles.testBox}>
+            <Text style={styles.testTitle}>Khu vực thử nghiệm (Admin)</Text>
+            {order && status === 'pending' && (
+              <TouchableOpacity style={styles.testBtn} onPress={testSimulatePaid}>
+                <Text style={styles.testTxt}>✓ Giả lập đã thanh toán đơn này</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.testBtn} onPress={testReset}>
+              <Text style={styles.testTxt}>↻ Reset 100.000 xu</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Text style={styles.foot}>
+          {isOnlineMode()
+            ? 'Việc cộng xu tự động sẽ hoạt động sau khi kết nối dịch vụ đối soát ngân hàng (SePay/Casso). Hiện anh có thể dùng nút thử nghiệm ở trên.'
+            : 'Đang ở chế độ khách. Đăng nhập để nạp & đồng bộ số dư.'}
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  balCard: {
+    backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.lg,
+    borderWidth: 1, borderColor: COLORS.gold, alignItems: 'center', gap: 4,
+  },
+  balLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  balValue: { color: COLORS.gold, fontSize: FONTS.size.xxl, fontWeight: '900' },
+  balUser: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  infoCard: { backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: COLORS.gold },
+  infoText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
+  section: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  packGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  pack: {
+    width: '47%', backgroundColor: COLORS.card, borderRadius: 10, padding: SPACING.md,
+    alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 4,
+  },
+  packTag: { color: '#1a0a00', backgroundColor: COLORS.gold, fontSize: FONTS.size.xs, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
+  packXu: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.md },
+  packGia: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  note: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', lineHeight: 18 },
+
+  orderCard: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.gold, gap: SPACING.sm },
+  qr: { width: 220, height: 220, alignSelf: 'center', backgroundColor: '#fff', borderRadius: 8 },
+  qrSaveBtn: { alignSelf: 'center', borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, paddingHorizontal: SPACING.md, paddingVertical: 6, backgroundColor: COLORS.gold + '14' },
+  qrSaveTxt: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800' },
+  kv: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2 },
+  k: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  v: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700' },
+  vGold: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  warn: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20, backgroundColor: COLORS.gold + '14', borderRadius: 6, padding: SPACING.sm },
+  bold: { color: COLORS.gold, fontWeight: '800' },
+  checkBtn: { backgroundColor: COLORS.gold, borderRadius: 10, padding: SPACING.md, alignItems: 'center', marginTop: 4 },
+  checkTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pollRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
+  pollTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, flex: 1 },
+  cancel: { color: COLORS.purple, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center', marginTop: 4 },
+
+  msg: { color: COLORS.green, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
+  histBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.xs },
+  histHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  refresh: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700' },
+  comboBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
+  chartChips: { flexDirection: 'row', gap: SPACING.xs, paddingVertical: 2 },
+  chartChip: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: 16, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  chartChipActive: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
+  chartChipTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
+  chartChipTxtActive: { color: '#1a0a00' },
+  histScroll: { maxHeight: 260 },
+  histRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 6, borderTopWidth: 0.5, borderTopColor: COLORS.border },
+  histCode: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '700' },
+  histSub: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, marginTop: 1 },
+  histStatus: { fontSize: FONTS.size.xs, fontWeight: '800', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
+  histDel: { fontSize: 20, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: '#ff6b6b22', borderWidth: 1, borderColor: '#ff8a8a', overflow: 'hidden' },
+  histHint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', marginTop: 2 },
+  testBox: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: SPACING.sm, gap: SPACING.xs },
+  testTitle: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
+  testBtn: { borderWidth: 1, borderColor: COLORS.purple, borderRadius: 8, padding: SPACING.sm, alignItems: 'center' },
+  testTxt: { color: COLORS.purple, fontWeight: '700', fontSize: FONTS.size.sm },
+  foot: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', lineHeight: 18 },
+});

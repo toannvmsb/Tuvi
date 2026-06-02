@@ -1,0 +1,133 @@
+export default {
+  // App
+  appName: 'Tử Vi & Bát Tự',
+  loading: 'Đang tính toán...',
+  calculate: 'Xem Lá Số',
+  back: 'Quay lại',
+  settings: 'Cài đặt',
+  save: 'Lưu',
+  cancel: 'Hủy',
+
+  // Home
+  homeTitle: 'Tử Vi & Bát Tự',
+  homeSubtitle: 'Khám phá vận mệnh và phong thủy\ntheo Tử Vi và Bát Tự',
+  newChart: 'Lập lá số mới',
+  recentCharts: 'Lá số gần đây',
+  homeFeatureTuVi: 'Lá số Tử Vi\ncác trường phái',
+  homeFeatureBatTu: 'Bát Tự Tứ Trụ\nNgũ Hành Vượng Suy',
+  homeFeatureAI: 'Phân tích lá số theo\nModel AI hiện đại nhất',
+  homeFeatureWealth: 'Biểu đồ Tài Lộc\ntheo Đại Vận 100 tuổi',
+  homeCredit: 'Ứng dụng Tử Vi & Bát Tự đa trường phái',
+
+  // Input Form
+  inputTitle: 'Lập lá số mới',
+  name: 'Họ và tên',
+  namePlaceholder: 'Nhập họ và tên',
+  gender: 'Giới tính',
+  male: 'Nam',
+  female: 'Nữ',
+  birthplace: 'Nơi sinh',
+  birthplacePlaceholder: 'Ví dụ: Hà Nội, Việt Nam',
+  calendarType: 'Lịch',
+  solar: 'Dương lịch',
+  lunar: 'Âm lịch',
+  birthDate: 'Ngày sinh',
+  birthYear: 'Năm sinh',
+  birthMonth: 'Tháng sinh',
+  birthDay: 'Ngày sinh',
+  birthHour: 'Giờ sinh',
+  birthMinute: 'Phút',
+  leapMonth: 'Tháng nhuận',
+  unknownHour: 'Không biết giờ sinh',
+
+  // Hour names
+  hourTy: 'Giờ Tý (23:00-01:00)',
+  hourSuu: 'Giờ Sửu (01:00-03:00)',
+  hourDan: 'Giờ Dần (03:00-05:00)',
+  hourMao: 'Giờ Mão (05:00-07:00)',
+  hourThin: 'Giờ Thìn (07:00-09:00)',
+  hourTi: 'Giờ Tị (09:00-11:00)',
+  hourNgo: 'Giờ Ngọ (11:00-13:00)',
+  hourMui: 'Giờ Mùi (13:00-15:00)',
+  hourThan: 'Giờ Thân (15:00-17:00)',
+  hourDau: 'Giờ Dậu (17:00-19:00)',
+  hourTuat: 'Giờ Tuất (19:00-21:00)',
+  hourHoi: 'Giờ Hợi (21:00-23:00)',
+
+  // Tabs
+  tabTuVi: 'Lá Số',
+  tabBatTu: 'Bát Tự',
+  tabAnalysis: 'Phân Tích',
+  tabDaiVan: 'Đại Vận',
+  tabTieuVan: 'Tiểu Vận',
+  tabWealth: 'Tài Lộc',
+
+  // Chart header
+  chartTitle: 'Lá Số Tử Vi',
+  cucSo: 'Cục số',
+  menhCung: 'Cung Mệnh',
+  thanCung: 'Cung Thân',
+  lunarBirth: 'Sinh âm lịch',
+  showLuuTieuVan: 'Hiện Lưu Tiểu Vận',
+  showLuuDaiVan: 'Hiện Lưu Đại Vận',
+  school: 'Trường phái',
+  namPhai: 'Nam Phái (Lê Quang Lăng)',
+
+  // Analysis
+  analysisOverview: 'Tổng quan vận mệnh',
+  analysisHouses: '12 Cung',
+  analysisDaiVan: 'Đại Vận',
+  analysisTieuVan: 'Tiểu Vận',
+  generating: 'Đang phân tích lá số...',
+  aiPowered: 'Phân tích bởi Claude AI',
+  noApiKey: 'Chưa cài đặt API key. Vào Cài đặt để nhập API key Anthropic.',
+
+  // Wealth chart
+  wealthTitle: 'Biểu đồ Tài Lộc',
+  wealthSubtitle: 'Chỉ số tài lộc theo Đại Vận (1-100 tuổi)',
+  wealthScore: 'Chỉ số tài lộc',
+  age: 'Tuổi',
+
+  // Dai Van
+  daiVanTitle: 'Đại Vận',
+  daiVanFrom: 'Từ tuổi',
+  daiVanTo: 'đến',
+  tieuVanTitle: 'Tiểu Vận',
+  year: 'Năm',
+  daiVanOverview: 'Tổng quan Đại Vận',
+
+  // Settings
+  settingsTitle: 'Cài đặt',
+  apiKeyTitle: 'Anthropic API Key',
+  apiKeyDesc: 'Nhập API key để sử dụng phân tích AI',
+  apiKeyPlaceholder: 'sk-ant-...',
+  language: 'Ngôn ngữ',
+  vietnamese: 'Tiếng Việt',
+  english: 'English',
+
+  // Palace names
+  palaceMenh: 'Mệnh',
+  palacePhuMau: 'Phụ Mẫu',
+  palacePhucDuc: 'Phúc Đức',
+  palaceDienTrach: 'Điền Trạch',
+  palaceQuanLoc: 'Quan Lộc',
+  palaceNoBoc: 'Nô Bộc',
+  palaceThienDi: 'Thiên Di',
+  palaceTatAch: 'Tật Ách',
+  palaceTaiBach: 'Tài Bạch',
+  palaceTuTuc: 'Tử Tức',
+  palacePhuThe: 'Phu Thê',
+  palaceHuynhDe: 'Huynh Đệ',
+
+  // Bat tu
+  batTuTitle: 'Lá Số Bát Tự',
+  yearPillar: 'Trụ Năm',
+  monthPillar: 'Trụ Tháng',
+  dayPillar: 'Trụ Ngày',
+  hourPillar: 'Trụ Giờ',
+  dayMaster: 'Nhật Chủ',
+  hiddenStems: 'Tàng Can',
+  fiveElements: 'Ngũ Hành',
+  favorableElements: 'Dụng Thần',
+  unfavorableElements: 'Kỵ Thần',
+};

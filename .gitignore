@@ -1,0 +1,56 @@
+# ─── Dependencies ───
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Expo ───
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.tsbuildinfo
+
+# ─── Native build outputs ───
+ios/Pods/
+ios/build/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# ─── Env / secrets ───
+# KHÔNG commit file env có chứa API key (OpenAI, Anthropic, Supabase service key…)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
+
+# ─── Logs ───
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.expo/web/cache/
+
+# ─── IDE / OS ───
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ─── Bundled / cached art outputs ───
+# (file art.txt, art_lines.txt là test output cũ, không cần track)
+art.txt
+art_lines.txt
+
+# ─── Coverage / test outputs ───
+coverage/
+.nyc_output/
+
+# ─── Local Claude Code / agent metadata ───
+.claude/

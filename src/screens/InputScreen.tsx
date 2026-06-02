@@ -1,0 +1,412 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, Switch, Alert, ActivityIndicator, Modal, FlatList,
+  KeyboardAvoidingView, Platform, Keyboard,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList, BirthInfo, AstrologyResult, Gender, CalendarType } from '../types';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { t } from '../i18n';
+import { buildResult } from '../core/buildResult';
+import { saveChart } from '../lib/charts';
+import ScreenHeader from '../components/ScreenHeader';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Input'>;
+
+const HOUR_OPTIONS = [
+  { label: '23:00-01:00 (Tý)', value: 0 },
+  { label: '01:00-03:00 (Sửu)', value: 2 },
+  { label: '03:00-05:00 (Dần)', value: 4 },
+  { label: '05:00-07:00 (Mão)', value: 6 },
+  { label: '07:00-09:00 (Thìn)', value: 8 },
+  { label: '09:00-11:00 (Tị)', value: 10 },
+  { label: '11:00-13:00 (Ngọ)', value: 12 },
+  { label: '13:00-15:00 (Mùi)', value: 14 },
+  { label: '15:00-17:00 (Thân)', value: 16 },
+  { label: '17:00-19:00 (Dậu)', value: 18 },
+  { label: '19:00-21:00 (Tuất)', value: 20 },
+  { label: '21:00-23:00 (Hợi)', value: 22 },
+];
+
+export default function InputScreen({ navigation }: Props) {
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState<Gender>('nam');
+  const [calendarType, setCalendarType] = useState<CalendarType>('solar');
+  const [year, setYear] = useState('1990');
+  const [month, setMonth] = useState('1');
+  const [day, setDay] = useState('1');
+  const [hour, setHour] = useState(12);
+  const [isLeapMonth, setIsLeapMonth] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState<null | 'day' | 'month' | 'year' | 'viewingYear'>(null);
+
+  const currentYear = new Date().getFullYear();
+  const [viewingYear, setViewingYear] = useState(String(currentYear));
+  const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => currentYear - i);
+  // Năm xem: 1900 → currentYear + 100, sort giảm dần (mới nhất ở đầu)
+  const viewingYearOptions = Array.from({ length: (currentYear + 100) - 1900 + 1 }, (_, i) => (currentYear + 100) - i);
+  const [viewingYearSearch, setViewingYearSearch] = useState('');
+
+  async function handleCalculate() {
+    if (!name.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập họ và tên'); return; }
+    const y = parseInt(year); const m = parseInt(month); const d = parseInt(day);
+    if (!y || !m || !d || m < 1 || m > 12 || d < 1 || d > 31) {
+      Alert.alert('Lỗi', 'Ngày sinh không hợp lệ');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const apiKey = await AsyncStorage.getItem('anthropicApiKey') ?? '';
+      const oaiKey = await AsyncStorage.getItem('openaiApiKey') ?? '';
+      const aiProv = (await AsyncStorage.getItem('aiProvider') ?? 'auto') as 'auto' | 'claude' | 'openai';
+      const birthInfo: BirthInfo = {
+        name: name.trim(), gender, birthplace: '',
+        calendarType, year: y, month: m, day: d,
+        hour, minute: 0, isLeapMonth,
+        language: 'vi',
+        anthropicApiKey: apiKey || undefined,
+        openaiApiKey: oaiKey || undefined,
+        aiProvider: aiProv,
+        viewingYear: parseInt(viewingYear) || undefined,
+      };
+
+      const result = buildResult(birthInfo, birthInfo.viewingYear);
+
+      // Đăng nhập rồi → lưu lá số lên server (đọc lại sau không phải nhập lại).
+      try {
+        const id = await saveChart(result);
+        if (id) result.birthInfo.chartId = id;
+      } catch {}
+
+      navigation.navigate('MainTabs', { result });
+    } catch (e: any) {
+      Alert.alert('Lỗi tính toán', e?.message ?? 'Không thể tính lá số. Vui lòng kiểm tra thông tin nhập.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScreenHeader title={t('inputTitle')} onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Name */}
+        <Section title="👤 Họ và tên">
+          <TextInput
+            style={styles.input} value={name} onChangeText={setName}
+            placeholder={t('namePlaceholder')} placeholderTextColor={COLORS.textMuted}
+          />
+        </Section>
+
+        {/* Gender */}
+        <Section title="⚥ Giới tính">
+          <Row>
+            {(['nam', 'nu'] as Gender[]).map(g => (
+              <TouchableOpacity
+                key={g} style={[styles.choice, gender === g && styles.choiceActive]}
+                onPress={() => setGender(g)}
+              >
+                <Text style={[styles.choiceText, gender === g && styles.choiceTextActive]}>
+                  {g === 'nam' ? '♂ Nam' : '♀ Nữ'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </Row>
+        </Section>
+
+
+        {/* Năm xem — đặt phía trên Loại lịch */}
+        <Section title="🔭 Năm xem">
+          <TouchableOpacity
+            style={[styles.input, styles.pickerBtn]}
+            onPress={() => { setViewingYearSearch(''); setPickerOpen('viewingYear'); }}
+          >
+            <Text style={styles.pickerBtnText}>{viewingYear}</Text>
+            <Text style={styles.pickerArrow}>▾</Text>
+          </TouchableOpacity>
+        </Section>
+
+        {/* Calendar type */}
+        <Section title="📅 Loại lịch">
+          <Row>
+            {(['solar', 'lunar'] as CalendarType[]).map(c => (
+              <TouchableOpacity
+                key={c} style={[styles.choice, calendarType === c && styles.choiceActive]}
+                onPress={() => setCalendarType(c)}
+              >
+                <Text style={[styles.choiceText, calendarType === c && styles.choiceTextActive]}>
+                  {c === 'solar' ? '☀ Dương lịch' : '🌙 Âm lịch'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </Row>
+        </Section>
+
+        {/* Date — scroll picker thay vì TextInput số */}
+        <Section title="🗓 Ngày sinh">
+          <Row>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Ngày</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.pickerBtn, styles.dateInput]}
+                onPress={() => setPickerOpen('day')}
+              >
+                <Text style={styles.pickerBtnText}>{day}</Text>
+                <Text style={styles.pickerArrow}>▾</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Tháng</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.pickerBtn, styles.dateInput]}
+                onPress={() => setPickerOpen('month')}
+              >
+                <Text style={styles.pickerBtnText}>{month}</Text>
+                <Text style={styles.pickerArrow}>▾</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.dateField, { flex: 1.5 }]}>
+              <Text style={styles.dateLabel}>Năm</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.pickerBtn, styles.dateInput]}
+                onPress={() => setPickerOpen('year')}
+              >
+                <Text style={styles.pickerBtnText}>{year}</Text>
+                <Text style={styles.pickerArrow}>▾</Text>
+              </TouchableOpacity>
+            </View>
+          </Row>
+          {calendarType === 'lunar' && (
+            <Row style={{ marginTop: SPACING.sm }}>
+              <Text style={styles.label}>Tháng nhuận</Text>
+              <Switch
+                value={isLeapMonth} onValueChange={setIsLeapMonth}
+                trackColor={{ true: COLORS.gold }} thumbColor={COLORS.textPrimary}
+              />
+            </Row>
+          )}
+        </Section>
+
+        {/* Birth hour */}
+        <Section title="⏰ Giờ sinh">
+          <View style={styles.hourGrid}>
+            {HOUR_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.hourChip, hour === opt.value && styles.hourChipActive]}
+                onPress={() => setHour(opt.value)}
+              >
+                <Text style={[styles.hourChipText, hour === opt.value && styles.hourChipTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Section>
+
+        {/* Calculate button */}
+        <TouchableOpacity
+          style={[styles.calcBtn, loading && styles.calcBtnDisabled]}
+          onPress={handleCalculate} disabled={loading}
+          activeOpacity={0.8}
+        >
+          {loading
+            ? <ActivityIndicator color="#1a0a00" />
+            : <Text style={styles.calcBtnText}>☯  {t('calculate')}</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Date picker modal — dùng chung cho day / month / year */}
+      <Modal
+        visible={pickerOpen !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPickerOpen(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {pickerOpen === 'day' ? 'Chọn ngày'
+                  : pickerOpen === 'month' ? 'Chọn tháng'
+                  : pickerOpen === 'viewingYear' ? 'Chọn năm xem'
+                  : 'Chọn năm sinh'}
+              </Text>
+              <TouchableOpacity onPress={() => setPickerOpen(null)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {pickerOpen === 'viewingYear' && (
+              <TextInput
+                style={[styles.input, { marginHorizontal: SPACING.md, marginBottom: SPACING.sm }]}
+                value={viewingYearSearch}
+                onChangeText={(text) => {
+                  setViewingYearSearch(text);
+                  // Cho phép user tự nhập năm: nếu là số 4 chữ số → set ngay
+                  const n = parseInt(text, 10);
+                  if (!isNaN(n) && text.length === 4 && n >= 1800 && n <= 2200) {
+                    setViewingYear(String(n));
+                  }
+                }}
+                placeholder="Nhập năm (vd 2026)..."
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            )}
+            <FlatList
+              keyboardShouldPersistTaps="handled"
+              data={
+                pickerOpen === 'day' ? dayOptions
+                : pickerOpen === 'month' ? monthOptions
+                : pickerOpen === 'year' ? yearOptions
+                : pickerOpen === 'viewingYear'
+                  ? (viewingYearSearch
+                      ? viewingYearOptions.filter(y => String(y).includes(viewingYearSearch.trim()))
+                      : viewingYearOptions)
+                : []
+              }
+              keyExtractor={(item) => String(item)}
+              initialScrollIndex={(() => {
+                if (pickerOpen === 'day') return Math.max(0, parseInt(day) - 1);
+                if (pickerOpen === 'month') return Math.max(0, parseInt(month) - 1);
+                if (pickerOpen === 'year') return Math.max(0, currentYear - parseInt(year));
+                if (pickerOpen === 'viewingYear') return Math.max(0, (currentYear + 100) - parseInt(viewingYear));
+                return 0;
+              })()}
+              getItemLayout={(_, index) => ({ length: 52, offset: 52 * index, index })}
+              renderItem={({ item }) => {
+                const current = pickerOpen === 'day' ? day
+                  : pickerOpen === 'month' ? month
+                  : pickerOpen === 'viewingYear' ? viewingYear
+                  : year;
+                const isActive = String(item) === current;
+                return (
+                  <TouchableOpacity
+                    style={[styles.provinceItem, isActive && styles.provinceItemActive]}
+                    onPress={() => {
+                      const v = String(item);
+                      if (pickerOpen === 'day') setDay(v);
+                      else if (pickerOpen === 'month') setMonth(v);
+                      else if (pickerOpen === 'year') setYear(v);
+                      else if (pickerOpen === 'viewingYear') setViewingYear(v);
+                      setPickerOpen(null);
+                      // Sau khi chọn xong → đóng luôn bàn phím (nếu đang mở do ô tìm kiếm)
+                      // để người dùng dễ thao tác các nút bên dưới (Tính lá số).
+                      Keyboard.dismiss();
+                    }}
+                  >
+                    <Text style={[styles.provinceText, isActive && styles.provinceTextActive]}>
+                      {item}
+                    </Text>
+                    {isActive && <Text style={styles.provinceCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function Row({ children, style }: { children: React.ReactNode; style?: any }) {
+  return <View style={[{ flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' }, style]}>{children}</View>;
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  section: {
+    backgroundColor: COLORS.card, borderRadius: 12,
+    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+  },
+  sectionTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700', marginBottom: SPACING.sm },
+  input: {
+    backgroundColor: COLORS.surface, color: COLORS.textPrimary,
+    borderRadius: 8, padding: SPACING.md, fontSize: FONTS.size.lg,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  label: { color: COLORS.textSecondary, fontSize: FONTS.size.md },
+  choice: {
+    flex: 1, padding: SPACING.md, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+  },
+  choiceActive: { backgroundColor: COLORS.gold + '33', borderColor: COLORS.gold },
+  choiceText: { color: COLORS.textSecondary, fontSize: FONTS.size.md },
+  choiceTextActive: { color: COLORS.gold, fontWeight: '600' },
+  dateField: { flex: 1 },
+  dateLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, marginBottom: 4 },
+  dateInput: { justifyContent: 'center' },
+  hourGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  hourChip: {
+    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md,
+    borderRadius: 6, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  hourChipActive: { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold },
+  hourChipText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  hourChipTextActive: { color: COLORS.gold, fontWeight: '600' },
+  calcBtn: {
+    backgroundColor: COLORS.gold, borderRadius: 16,
+    padding: SPACING.lg, alignItems: 'center', marginTop: SPACING.md,
+  },
+  calcBtnDisabled: { opacity: 0.7 },
+  calcBtnText: { fontSize: FONTS.size.xl, fontWeight: 'bold', color: '#1a0a00' },
+
+  // Province picker
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickerBtnText: { color: COLORS.textPrimary, fontSize: FONTS.size.md },
+  pickerArrow: { color: COLORS.gold, fontSize: 16, fontWeight: '700' },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    paddingTop: SPACING.md, paddingBottom: SPACING.lg,
+    maxHeight: '80%',
+    borderWidth: 1, borderColor: COLORS.gold,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    marginBottom: SPACING.sm,
+  },
+  modalTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '700' },
+  modalClose: { color: COLORS.textPrimary, fontSize: 22, fontWeight: '700', paddingHorizontal: SPACING.sm },
+  provinceItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 0.5, borderBottomColor: COLORS.border,
+  },
+  provinceItemActive: { backgroundColor: COLORS.gold + '22' },
+  provinceText: { color: COLORS.textPrimary, fontSize: FONTS.size.md },
+  provinceTextActive: { color: COLORS.gold, fontWeight: '700' },
+  provinceCheck: { color: COLORS.gold, fontSize: 18, fontWeight: '700' },
+});

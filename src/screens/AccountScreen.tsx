@@ -1,0 +1,182 @@
+/**
+ * Màn "Thông tin tài khoản" — thay cho Cài đặt cũ.
+ * Gồm: lời chào + email + số dư xu; đổi TÊN HIỂN THỊ; đổi MẬT KHẨU; chọn ngôn ngữ;
+ * và đăng xuất. (Chế độ khách/offline: chỉ hiện ngôn ngữ + phiên bản.)
+ */
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../components/ScreenHeader';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import { updateDisplayName, updatePassword } from '../lib/auth';
+import { wallet } from '../constants/premium';
+import { APP_VERSION, COPYRIGHT } from '../constants/appInfo';
+
+export default function AccountScreen() {
+  const navigation = useNavigation<any>();
+  const { online, user, refresh, logout } = useAuth();
+
+  const [name, setName] = useState(user?.displayName || wallet.userName || '');
+  const [savingName, setSavingName] = useState(false);
+
+  const [pwOld, setPwOld] = useState('');
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [savingPw, setSavingPw] = useState(false);
+
+  const onSaveName = async () => {
+    if (!name.trim()) { Alert.alert('Thiếu tên', 'Vui lòng nhập tên hiển thị.'); return; }
+    setSavingName(true);
+    try {
+      await updateDisplayName(name);
+      await refresh();
+      Alert.alert('✓', 'Đã cập nhật tên hiển thị.');
+    } catch (e: any) {
+      Alert.alert('Lỗi', e?.message || 'Không cập nhật được tên.');
+    } finally { setSavingName(false); }
+  };
+
+  const onSavePassword = async () => {
+    if (!pwOld) { Alert.alert('Thiếu mật khẩu cũ', 'Vui lòng nhập mật khẩu hiện tại để xác thực.'); return; }
+    if (pw1.length < 6) { Alert.alert('Mật khẩu yếu', 'Mật khẩu mới tối thiểu 6 ký tự.'); return; }
+    if (pw1 === pwOld) { Alert.alert('Trùng mật khẩu', 'Mật khẩu mới phải khác mật khẩu cũ.'); return; }
+    if (pw1 !== pw2) { Alert.alert('Không khớp', 'Hai lần nhập mật khẩu mới chưa khớp.'); return; }
+    setSavingPw(true);
+    try {
+      await updatePassword(pwOld, pw1);
+      setPwOld(''); setPw1(''); setPw2('');
+      Alert.alert('✓', 'Đã đổi mật khẩu.');
+    } catch (e: any) {
+      Alert.alert('Lỗi', e?.message || 'Không đổi được mật khẩu.');
+    } finally { setSavingPw(false); }
+  };
+
+  const onLogout = () => {
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Đăng xuất', style: 'destructive', onPress: () => logout() },
+    ]);
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScreenHeader title="Thông tin tài khoản" onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Hồ sơ */}
+        <View style={styles.card}>
+          <Text style={styles.greeting}>Xin chào{user?.displayName ? ` - ${user.displayName}` : (wallet.userName ? ` - ${wallet.userName}` : '')} 👋</Text>
+          {online && user?.email ? <Text style={styles.sub}>📧 {user.email}</Text> : null}
+          <Text style={styles.sub}>💰 Số dư: <Text style={styles.gold}>{wallet.balance.toLocaleString('vi-VN')} xu</Text></Text>
+          {!online && (
+            <Text style={styles.note}>Đang ở chế độ khách (offline). Đăng nhập để đồng bộ tài khoản, đổi tên & mật khẩu.</Text>
+          )}
+        </View>
+
+        {online && user && (
+          <>
+            {/* Đổi tên hiển thị */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>✏️ Tên hiển thị</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Tên hiển thị"
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="words"
+              />
+              <TouchableOpacity style={styles.btn} onPress={onSaveName} disabled={savingName} activeOpacity={0.85}>
+                {savingName ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Lưu tên hiển thị</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {/* Đổi mật khẩu */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🔑 Đổi mật khẩu</Text>
+              <TextInput
+                style={styles.input}
+                value={pwOld}
+                onChangeText={setPwOld}
+                placeholder="Mật khẩu hiện tại"
+                placeholderTextColor={COLORS.textMuted}
+                secureTextEntry autoCapitalize="none"
+              />
+              <TextInput
+                style={styles.input}
+                value={pw1}
+                onChangeText={setPw1}
+                placeholder="Mật khẩu mới (≥ 6 ký tự, khác mật khẩu cũ)"
+                placeholderTextColor={COLORS.textMuted}
+                secureTextEntry autoCapitalize="none"
+              />
+              <TextInput
+                style={styles.input}
+                value={pw2}
+                onChangeText={setPw2}
+                placeholder="Nhập lại mật khẩu mới"
+                placeholderTextColor={COLORS.textMuted}
+                secureTextEntry autoCapitalize="none"
+              />
+              <TouchableOpacity style={styles.btn} onPress={onSavePassword} disabled={savingPw} activeOpacity={0.85}>
+                {savingPw ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Đổi mật khẩu</Text>}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* Đăng xuất */}
+        {online && user && (
+          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout} activeOpacity={0.85}>
+            <Text style={styles.logoutText}>🚪 Đăng xuất</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.version}>Phiên bản {APP_VERSION}</Text>
+          <Text style={styles.copyright}>{COPYRIGHT}</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  card: {
+    backgroundColor: COLORS.card, borderRadius: 12,
+    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm,
+  },
+  greeting: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
+  sub: { color: COLORS.textPrimary, fontSize: FONTS.size.md },
+  gold: { color: COLORS.gold, fontWeight: '800' },
+  note: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 20 },
+  cardTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700' },
+  input: {
+    backgroundColor: COLORS.surface, color: COLORS.textPrimary,
+    borderRadius: 8, padding: SPACING.sm, fontSize: FONTS.size.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  btn: { backgroundColor: COLORS.gold, borderRadius: 8, padding: SPACING.sm, alignItems: 'center' },
+  btnText: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.md },
+  langRow: { flexDirection: 'row', gap: SPACING.sm },
+  langBtn: {
+    flex: 1, padding: SPACING.sm, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+  },
+  langBtnActive: { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold },
+  langBtnText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  langBtnTextActive: { color: COLORS.gold, fontWeight: '600' },
+  logoutBtn: {
+    borderWidth: 1, borderColor: COLORS.red, borderRadius: 10,
+    padding: SPACING.md, alignItems: 'center',
+  },
+  logoutText: { color: COLORS.red, fontSize: FONTS.size.md, fontWeight: '800' },
+  footer: { alignItems: 'center', marginTop: SPACING.lg, gap: 2 },
+  version: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '700' },
+  copyright: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textAlign: 'center' },
+});
