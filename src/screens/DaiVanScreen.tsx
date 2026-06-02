@@ -7,7 +7,6 @@
 import React, { useMemo, useState, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -28,6 +27,7 @@ import AIProgressBar from '../components/AIProgressBar';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 
@@ -46,7 +46,7 @@ const GREEN = '#5fdb8a';
 const GRAY = '#7c8aa5';
 
 function Bars({ data, currentAge }: { data: DaiVanScore[]; currentAge?: number }) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const chartW = width - SPACING.lg * 2 - SPACING.md * 2;
   const colW = Math.floor(chartW / Math.max(1, data.length));
   return (
@@ -65,7 +65,7 @@ function Bars({ data, currentAge }: { data: DaiVanScore[]; currentAge?: number }
           {data.map(d => {
             const isNow = currentAge != null && currentAge >= d.startAge && currentAge <= d.endAge;
             return (
-              <View key={d.index} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <View key={d.index} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
                 {isNow && <View style={[styles.nowLine, { height: CHART_H }]} />}
                 <View style={{ width: colW * 0.62, height: (d.taiLoc / 100) * CHART_H, backgroundColor: GREEN, borderTopLeftRadius: 3, borderTopRightRadius: 3 }} />
                 <View style={{ position: 'absolute', bottom: 0, width: colW * 0.36, height: (d.thachThuc / 100) * CHART_H, backgroundColor: GRAY, opacity: 0.92, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />

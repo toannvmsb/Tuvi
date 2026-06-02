@@ -6,7 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -26,6 +26,7 @@ import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { useContentWidth } from '../lib/platform';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'NguyetVan'>;
 
@@ -39,7 +40,7 @@ const GRAY = '#7c8aa5';
 
 export default function NguyetVanScreen({ route }: Props) {
   const { result } = route.params;
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const daiVans = result.daiVans;
   const currentAge = result.tuViChart.viewingAge;
 
@@ -127,45 +128,59 @@ export default function NguyetVanScreen({ route }: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hàng 1: chọn Đại vận */}
         <Text style={styles.rowLabel}>Chọn Đại vận</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.chipRow}>
+        {Platform.OS === 'web' ? (
+          <View style={[styles.chipRow, { flexWrap: 'wrap' }]}>
             {daiVans.map(d => {
               const isNow = currentAge != null && currentAge >= d.startAge && currentAge <= d.endAge;
               return (
-                <TouchableOpacity
-                  key={d.index}
-                  style={[styles.chip, d.index === dvIdx && styles.chipActive]}
-                  onPress={() => pickDaiVan(d.index)}
-                >
-                  <Text style={[styles.chipTxt, d.index === dvIdx && styles.chipTxtActive]}>
-                    {d.startAge}-{d.endAge}t{isNow ? ' ●' : ''}
-                  </Text>
+                <TouchableOpacity key={d.index} style={[styles.chip, d.index === dvIdx && styles.chipActive]} onPress={() => pickDaiVan(d.index)}>
+                  <Text style={[styles.chipTxt, d.index === dvIdx && styles.chipTxtActive]}>{d.startAge}-{d.endAge}t{isNow ? ' ●' : ''}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </ScrollView>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipRow}>
+              {daiVans.map(d => {
+                const isNow = currentAge != null && currentAge >= d.startAge && currentAge <= d.endAge;
+                return (
+                  <TouchableOpacity key={d.index} style={[styles.chip, d.index === dvIdx && styles.chipActive]} onPress={() => pickDaiVan(d.index)}>
+                    <Text style={[styles.chipTxt, d.index === dvIdx && styles.chipTxtActive]}>{d.startAge}-{d.endAge}t{isNow ? ' ●' : ''}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
 
         {/* Hàng 2: chọn 1 trong 10 năm tiểu vận */}
         <Text style={styles.rowLabel}>Chọn năm (tiểu vận)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.chipRow}>
+        {Platform.OS === 'web' ? (
+          <View style={[styles.chipRow, { flexWrap: 'wrap' }]}>
             {years.map(y => {
               const isNow = y.age === currentAge;
               return (
-                <TouchableOpacity
-                  key={y.age}
-                  style={[styles.chip, y.age === age && styles.chipActive]}
-                  onPress={() => { setAge(y.age); setOpenM(null); }}
-                >
-                  <Text style={[styles.chipTxt, y.age === age && styles.chipTxtActive]}>
-                    {y.age}t · {y.year}{isNow ? ' ●' : ''}
-                  </Text>
+                <TouchableOpacity key={y.age} style={[styles.chip, y.age === age && styles.chipActive]} onPress={() => { setAge(y.age); setOpenM(null); }}>
+                  <Text style={[styles.chipTxt, y.age === age && styles.chipTxtActive]}>{y.age}t · {y.year}{isNow ? ' ●' : ''}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </ScrollView>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipRow}>
+              {years.map(y => {
+                const isNow = y.age === currentAge;
+                return (
+                  <TouchableOpacity key={y.age} style={[styles.chip, y.age === age && styles.chipActive]} onPress={() => { setAge(y.age); setOpenM(null); }}>
+                    <Text style={[styles.chipTxt, y.age === age && styles.chipTxtActive]}>{y.age}t · {y.year}{isNow ? ' ●' : ''}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
 
         <Text style={styles.title}>Nguyệt Vận năm {year ?? ''}</Text>
         <Text style={styles.subtitle}>
@@ -186,7 +201,7 @@ export default function NguyetVanScreen({ route }: Props) {
             ))}
             <View style={styles.barsRow}>
               {months.map(d => (
-                <View key={d.month} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center' }}>
+                <View key={d.month} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
                   <View style={{ width: colW * 0.6, height: (d.taiLoc / 100) * CHART_H, backgroundColor: GREEN, borderTopLeftRadius: 3, borderTopRightRadius: 3 }} />
                   <View style={{ position: 'absolute', bottom: 0, width: colW * 0.34, height: (d.thachThuc / 100) * CHART_H, backgroundColor: GRAY, opacity: 0.92 }} />
                 </View>

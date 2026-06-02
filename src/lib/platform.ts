@@ -3,9 +3,15 @@
  * Web fallback được xử lý tại đây — các màn hình dùng wrapper này thay vì
  * import trực tiếp expo-print / expo-sharing / expo-media-library.
  */
-import { Platform } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 export const isWeb = Platform.OS === 'web';
+
+/** Chiều rộng content thực tế — trên web cap 480px (max-width của container). */
+export function useContentWidth(): number {
+  const { width } = useWindowDimensions();
+  return isWeb ? Math.min(width, 480) : width;
+}
 
 /**
  * Xuất PDF:

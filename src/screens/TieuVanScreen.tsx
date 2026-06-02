@@ -5,8 +5,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
-  useWindowDimensions,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -22,6 +21,7 @@ import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { fkey } from '../lib/featureKey';
 import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import ScreenHeader from '../components/ScreenHeader';
@@ -38,7 +38,7 @@ const GRAY = '#7c8aa5';
 
 export default function TieuVanScreen({ route }: Props) {
   const { result } = route.params;
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const all = useMemo(() => scoreAllTieuVan(result), [result]);
   const daiVans = result.daiVans;
   const currentAge = result.tuViChart.viewingAge;
@@ -76,7 +76,16 @@ export default function TieuVanScreen({ route }: Props) {
         <Text style={styles.subtitle}>Chọn một đại vận để xem chi tiết vận từng năm</Text>
 
         {/* Chọn đại vận */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {Platform.OS === 'web' ? (
+          <View style={[styles.dvChips, { flexWrap: 'wrap' }]}>
+            {daiVans.map(d => (
+              <TouchableOpacity key={d.index} style={[styles.chip, d.index === dvIdx && styles.chipActive]} onPress={() => { setDvIdx(d.index); setOpenAge(null); }}>
+                <Text style={[styles.chipTxt, d.index === dvIdx && styles.chipTxtActive]}>{d.startAge}-{d.endAge}t</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.dvChips}>
             {daiVans.map(d => (
               <TouchableOpacity
@@ -90,7 +99,8 @@ export default function TieuVanScreen({ route }: Props) {
               </TouchableOpacity>
             ))}
           </View>
-        </ScrollView>
+          </ScrollView>
+        )}
 
         {dv && (
           <Text style={styles.dvInfo}>
@@ -114,7 +124,7 @@ export default function TieuVanScreen({ route }: Props) {
               {years.map(d => {
                 const isNow = currentAge === d.age;
                 return (
-                  <View key={d.age} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <View key={d.age} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
                     {isNow && <View style={[styles.nowLine, { height: CHART_H }]} />}
                     <View style={{ width: colW * 0.6, height: (d.taiLoc / 100) * CHART_H, backgroundColor: GREEN, borderTopLeftRadius: 3, borderTopRightRadius: 3 }} />
                     <View style={{ position: 'absolute', bottom: 0, width: colW * 0.34, height: (d.thachThuc / 100) * CHART_H, backgroundColor: GRAY, opacity: 0.92 }} />
