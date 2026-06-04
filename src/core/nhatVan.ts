@@ -109,17 +109,55 @@ const HOUR_BRANCHES: { ch: EarthlyBranch; range: string; start: number; end: num
 ];
 
 export interface HourWindow {
-  branch: EarthlyBranch;
-  range: string;       // "5h–7h"
+  branch: string;      // tên Chi ("Mão") hoặc khung gộp nhiều canh liền nhau ("Mão–Tị")
+  range: string;       // "5h–7h" hoặc "5h–11h" (khung gộp)
+  element: FiveElement;
+  score: number;
+  reason: string;
+}
+
+/** Một canh giờ đã chấm điểm (nội bộ, trước khi gộp). */
+interface ScoredHour {
+  ch: EarthlyBranch;
+  start: number;
+  end: number;
   element: FiveElement;
   score: number;
   reason: string;
 }
 
 /**
+ * Gộp các canh giờ LIỀN NHAU (end canh trước = start canh sau) thành 1 KHUNG.
+ * Vd: Mão(5–7) + Thìn(7–9) + Tị(9–11) đều tốt → "Mão–Tị (5h–11h)" thay vì 3 khung.
+ */
+function mergeConsecutiveHours(hours: ScoredHour[]): HourWindow[] {
+  if (hours.length === 0) return [];
+  const sorted = [...hours].sort((a, b) => a.start - b.start);
+  const blocks: { chs: EarthlyBranch[]; start: number; end: number; score: number; reason: string; element: FiveElement }[] = [];
+  for (const h of sorted) {
+    const last = blocks[blocks.length - 1];
+    if (last && last.end === h.start) {
+      // Liền nhau → gộp vào khung trước, giữ lý do/điểm của canh mạnh nhất.
+      last.chs.push(h.ch);
+      last.end = h.end;
+      if (h.score > last.score) { last.score = h.score; last.reason = h.reason; last.element = h.element; }
+    } else {
+      blocks.push({ chs: [h.ch], start: h.start, end: h.end, score: h.score, reason: h.reason, element: h.element });
+    }
+  }
+  return blocks.map(b => ({
+    branch: b.chs.length > 1 ? `${b.chs[0]}–${b.chs[b.chs.length - 1]}` : b.chs[0],
+    range: `${b.start}h–${b.end}h`,
+    element: b.element,
+    score: b.score,
+    reason: b.reason,
+  }));
+}
+
+/**
  * Chấm điểm 12 khung giờ trong ngày theo dụng/kỵ thần + lục xung/tam hợp với
- * Chi NGÀY và Chi NĂM SINH (tuổi). Trả về danh sách giờ tốt và giờ xấu để hiển
- * thị ở Home (tóm tắt) và DailyScreen (chi tiết).
+ * Chi NGÀY và Chi NĂM SINH (tuổi). Trả về giờ tốt/xấu ĐÃ GỘP các canh liền nhau
+ * — tối đa 3 khung tốt và 2 khung xấu. Hiển thị ở Home + DailyScreen + DayPicker.
  */
 export function goodBadHours(
   result: AstrologyResult,
@@ -130,7 +168,7 @@ export function goodBadHours(
   const unfav = result.batTuChart.unfavorableElements || [];
   const yearBranch = result.tuViChart.lunarDate.yearBranch;
 
-  const scored: HourWindow[] = HOUR_BRANCHES.map(({ ch, range }) => {
+  const scored: ScoredHour[] = HOUR_BRANCHES.map(({ ch, start, end }) => {
     const el = BRANCH_ELEMENT[ch];
     let s = 0;
     const parts: string[] = [];
@@ -144,28 +182,62 @@ export function goodBadHours(
     else if (TAM_HOP.some(g => g.includes(ch) && g.includes(yearBranch) && ch !== yearBranch)) {
       s += 1; parts.push(`tam hợp tuổi ${yearBranch}`);
     }
-    return { branch: ch, range, element: el, score: s, reason: parts.join('; ') || 'trung tính với lá số' };
+    return { ch, start, end, element: el, score: s, reason: parts.join('; ') || 'trung tính với lá số' };
   });
 
-  // Tốt: score ≥ 2 (lấy tối đa 3, ưu tiên điểm cao); nếu không có, lấy 2 giờ điểm cao nhất.
-  const sorted = [...scored].sort((a, b) => b.score - a.score);
-  let good = sorted.filter(h => h.score >= 2).slice(0, 3);
-  if (good.length < 3) {
-    // Bù thêm cho đủ 3 khung từ các giờ điểm dương kế tiếp.
-    const fallback = sorted.filter(h => h.score > 0 && !good.includes(h)).slice(0, 3 - good.length);
-    good = good.concat(fallback);
-  }
-  if (good.length === 0) good = sorted.slice(0, 3).filter(h => h.score > 0);
-  // Xấu: score ≤ -2 (lấy tối đa 2); nếu không có, lấy giờ thấp nhất nếu ≤ -1.
-  const sortedAsc = [...scored].sort((a, b) => a.score - b.score);
-  let bad = sortedAsc.filter(h => h.score <= -2).slice(0, 2);
-  if (bad.length === 0) bad = sortedAsc.slice(0, 1).filter(h => h.score < 0);
+  // GIỜ TỐT: lấy các canh score ≥ 2; nếu không có thì hạ chuẩn xuống > 0.
+  // GỘP các canh liền nhau thành 1 khung, rồi lấy tối đa 3 khung điểm cao nhất
+  // (KHÔNG bù thêm canh kế cận — đủ 3 thì show 3, không đủ thì 2 hoặc 1).
+  let goodHours = scored.filter(h => h.score >= 2);
+  if (goodHours.length === 0) goodHours = scored.filter(h => h.score > 0);
+  const good = mergeConsecutiveHours(goodHours)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  // GIỜ XẤU: tương tự — score ≤ -2, hạ chuẩn xuống < 0; gộp; tối đa 2 khung.
+  let badHours = scored.filter(h => h.score <= -2);
+  if (badHours.length === 0) badHours = scored.filter(h => h.score < 0);
+  const bad = mergeConsecutiveHours(badHours)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2);
 
   return { good, bad };
 }
 
 const fmtHourLine = (h: HourWindow) =>
   `Giờ ${h.branch} (${h.range}) — ${h.reason}`;
+
+// ----- GIỜ HOÀNG ĐẠO (tốt CHUNG theo ngày — phong thủy lịch vạn niên) -----
+// Bảng cổ điển: 6 canh giờ hoàng đạo của ngày tùy theo CHI NGÀY (theo cặp).
+// Không phụ thuộc lá số — dùng cho "Khung giờ tốt nói chung".
+const HOANG_DAO_BY_DAY_BRANCH: Record<EarthlyBranch, EarthlyBranch[]> = {
+  Tý:   ['Tý', 'Sửu', 'Mão', 'Ngọ', 'Thân', 'Dậu'],
+  Ngọ:  ['Tý', 'Sửu', 'Mão', 'Ngọ', 'Thân', 'Dậu'],
+  Sửu:  ['Dần', 'Mão', 'Tị', 'Thân', 'Tuất', 'Hợi'],
+  Mùi:  ['Dần', 'Mão', 'Tị', 'Thân', 'Tuất', 'Hợi'],
+  Dần:  ['Tý', 'Sửu', 'Thìn', 'Tị', 'Mùi', 'Tuất'],
+  Thân: ['Tý', 'Sửu', 'Thìn', 'Tị', 'Mùi', 'Tuất'],
+  Mão:  ['Tý', 'Dần', 'Mão', 'Ngọ', 'Mùi', 'Dậu'],
+  Dậu:  ['Tý', 'Dần', 'Mão', 'Ngọ', 'Mùi', 'Dậu'],
+  Thìn: ['Dần', 'Thìn', 'Tị', 'Thân', 'Dậu', 'Hợi'],
+  Tuất: ['Dần', 'Thìn', 'Tị', 'Thân', 'Dậu', 'Hợi'],
+  Tị:   ['Sửu', 'Thìn', 'Ngọ', 'Mùi', 'Tuất', 'Hợi'],
+  Hợi:  ['Sửu', 'Thìn', 'Ngọ', 'Mùi', 'Tuất', 'Hợi'],
+};
+
+/**
+ * Giờ hoàng đạo của NGÀY (tốt CHUNG theo phong thủy lịch vạn niên), KHÔNG phụ
+ * thuộc lá số. Trả về các khung giờ hoàng đạo đã GỘP các canh liền nhau, theo
+ * thứ tự thời gian trong ngày. Dùng cho "Khung giờ tốt nói chung".
+ */
+export function auspiciousHours(date: Date): HourWindow[] {
+  const cc = dayCanChi(date);
+  const set = new Set<EarthlyBranch>(HOANG_DAO_BY_DAY_BRANCH[cc.branch] || []);
+  const scored: ScoredHour[] = HOUR_BRANCHES
+    .filter(hb => set.has(hb.ch))
+    .map(hb => ({ ch: hb.ch, start: hb.start, end: hb.end, element: BRANCH_ELEMENT[hb.ch], score: 1, reason: 'giờ hoàng đạo' }));
+  return mergeConsecutiveHours(scored);
+}
 
 
 /** Báo cáo offline (Cơ bản) cho ngày — miễn phí. */
@@ -209,21 +281,33 @@ export function generateNhatVanOffline(result: AstrologyResult, date: Date): str
   }
   out.push('');
 
-  // Khung giờ tốt / xấu trong ngày
+  // Khung giờ tốt / xấu trong ngày — chia 2 phần: cho lá số & nói chung.
   const hr = goodBadHours(result, date);
+  const general = auspiciousHours(date);
   out.push('# Khung giờ tốt / xấu trong ngày');
+
+  out.push('**▸ Khung giờ tốt CHO LÁ SỐ (hợp riêng mệnh bạn):**');
   if (hr.good.length) {
-    out.push('**▸ Khung giờ TỐT (ưu tiên việc quan trọng):**');
     hr.good.forEach(h => out.push(`- ✦ ${fmtHourLine(h)}.`));
   } else {
-    out.push('- Không có khung giờ nổi bật; có thể chọn khung sáng (5h–11h) khi tinh thần tỉnh táo.');
-  }
-  if (hr.bad.length) {
-    out.push('');
-    out.push('**▸ Khung giờ XẤU (hạn chế việc trọng đại):**');
-    hr.bad.forEach(h => out.push(`- ⚠ ${fmtHourLine(h)}.`));
+    out.push('- Không có khung giờ nổi bật riêng cho lá số trong ngày này.');
   }
   out.push('');
+
+  out.push('**▸ Khung giờ tốt NÓI CHUNG (giờ hoàng đạo của ngày):**');
+  if (general.length) {
+    general.forEach(h => out.push(`- ✧ Giờ ${h.branch} (${h.range}).`));
+    out.push('  _(Dùng khi giờ hợp lá số rơi vào lúc bất tiện.)_');
+  } else {
+    out.push('- Ngày này ít giờ hoàng đạo nổi bật.');
+  }
+  out.push('');
+
+  if (hr.bad.length) {
+    out.push('**▸ Khung giờ XẤU (hạn chế việc trọng đại):**');
+    hr.bad.forEach(h => out.push(`- ⚠ ${fmtHourLine(h)}.`));
+    out.push('');
+  }
 
   // Ăn / Mặc / Hướng theo dụng thần
   out.push('# Ăn – Mặc – Hướng (theo dụng thần của bạn)');

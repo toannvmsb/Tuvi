@@ -15,7 +15,51 @@ export async function signUp(email: string, password: string, displayName: strin
     email, password, options: { data: { display_name: displayName } },
   });
   if (error) throw new Error(viError(error.message));
+  // Gửi email chào mừng kèm thông tin đăng nhập (best-effort — không chặn đăng ký).
+  void sendWelcomeEmail(email, password, displayName);
   return data;
+}
+
+/**
+ * Gửi email CHÀO MỪNG sau đăng ký (kèm email + mật khẩu vừa đặt).
+ * Best-effort: lỗi gửi mail KHÔNG làm hỏng luồng đăng ký.
+ */
+export async function sendWelcomeEmail(email: string, password: string, displayName: string): Promise<void> {
+  try {
+    // LƯU Ý: functions.invoke KHÔNG throw khi HTTP lỗi — nó trả { data, error }.
+    // Phải đọc cả 2 để biết nguyên nhân (function chưa deploy / RESEND_API_KEY thiếu…).
+    const { data, error } = await supabase.functions.invoke('auth-email', {
+      body: { action: 'welcome', email, password, displayName },
+    });
+    if (error) {
+      console.warn('[auth-email] welcome LỖI:', error.message ?? error);
+    } else if (data && (data as any).ok === false) {
+      console.warn('[auth-email] welcome KHÔNG gửi được (kiểm tra RESEND_API_KEY / domain):', data);
+    } else if (data && (data as any).skipped) {
+      console.warn('[auth-email] welcome bị bỏ qua:', (data as any).skipped, '(SQL find_user_id_by_email chưa chạy? hoặc user không mới)');
+    } else {
+      console.log('[auth-email] welcome OK:', data);
+    }
+  } catch (e) {
+    console.warn('[auth-email] welcome exception:', (e as any)?.message);
+  }
+}
+
+/**
+ * QUÊN MẬT KHẨU: yêu cầu hệ thống sinh mật khẩu MỚI và gửi vào email đã đăng ký.
+ * Luôn trả về "thành công" (kể cả email không tồn tại) để chống dò email.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const clean = email.trim().toLowerCase();
+  if (!clean || !clean.includes('@')) throw new Error('Email chưa hợp lệ.');
+  const { data, error } = await supabase.functions.invoke('auth-email', {
+    body: { action: 'reset', email: clean },
+  });
+  if (error) {
+    console.warn('[auth-email] reset LỖI:', error.message ?? error);
+    throw new Error('Không gửi được email. Vui lòng thử lại sau.');
+  }
+  console.log('[auth-email] reset:', data);
 }
 
 /** Đăng nhập. */
@@ -59,6 +103,26 @@ export async function updatePassword(oldPassword: string, newPassword: string): 
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw new Error(viError(error.message));
+
+  // Gửi email THÔNG BÁO BẢO MẬT (best-effort — không chặn việc đổi mật khẩu).
+  const displayName = (ures.user?.user_metadata?.display_name as string) || '';
+  void sendPasswordChangedEmail(displayName);
+}
+
+/**
+ * Gửi email thông báo "mật khẩu vừa được thay đổi" (KHÔNG chứa mật khẩu).
+ * Email lấy từ token phía server — best-effort.
+ */
+export async function sendPasswordChangedEmail(displayName: string): Promise<void> {
+  try {
+    const { data, error } = await supabase.functions.invoke('auth-email', {
+      body: { action: 'password-changed', displayName },
+    });
+    if (error) console.warn('[auth-email] password-changed LỖI:', error.message ?? error);
+    else console.log('[auth-email] password-changed:', data);
+  } catch (e) {
+    console.warn('[auth-email] password-changed exception:', (e as any)?.message);
+  }
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

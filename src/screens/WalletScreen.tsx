@@ -208,31 +208,50 @@ export default function WalletScreen() {
           )}
         </View>
 
-        {/* NẠP XU QUA CỬA HÀNG (App Store / CH Play) — chỉ bản build store, ẩn trên web */}
-        {iapReady && !isWeb && (
+        {/*
+          ── CHÍNH SÁCH THANH TOÁN (tuân thủ Apple Guideline 3.1.1 + Google Payments Policy) ──
+          Mọi nội dung số (xu) mua trong app MOBILE phải dùng In-App Purchase của
+          Apple/Google. VietQR chỉ được phép trên WEB. Trong dev mode (__DEV__) cho
+          phép VietQR trên mobile để tiện kiểm thử.
+        */}
+        {!isWeb && !__DEV__ && (
           <View style={styles.comboBox}>
             <Text style={styles.section}>Nạp xu qua App Store / CH Play</Text>
-            <View style={styles.packGrid}>
-              {XU_PACKS.map(p => {
-                const prod = iapProducts.find((x: any) => (x.productId || x.id) === p.productId);
-                const priceTxt = prod?.localizedPrice || `${p.vnd.toLocaleString('vi-VN')}đ`;
-                return (
-                  <TouchableOpacity key={p.productId} style={styles.pack} onPress={() => buyXuPack(p.productId).catch((e: any) => setMsg('⚠ ' + (e?.message || 'Lỗi mua hàng')))} activeOpacity={0.85}>
-                    {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
-                    <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
-                    <Text style={styles.packGia}>{priceTxt}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text style={styles.note}>Thanh toán an toàn qua tài khoản App Store / Google Play của bạn.</Text>
+            {iapReady ? (
+              <>
+                <View style={styles.packGrid}>
+                  {XU_PACKS.map(p => {
+                    const prod = iapProducts.find((x: any) => (x.productId || x.id) === p.productId);
+                    const priceTxt = prod?.localizedPrice || `${p.vnd.toLocaleString('vi-VN')}đ`;
+                    return (
+                      <TouchableOpacity key={p.productId} style={styles.pack} onPress={() => buyXuPack(p.productId).catch((e: any) => setMsg('⚠ ' + (e?.message || 'Lỗi mua hàng')))} activeOpacity={0.85}>
+                        {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
+                        <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
+                        <Text style={styles.packGia}>{priceTxt}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={styles.note}>Thanh toán an toàn qua tài khoản App Store / Google Play của bạn.</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.note}>⏳ Đang kết nối đến cửa hàng…</Text>
+                <Text style={styles.note}>Nếu không tải được, vui lòng kiểm tra kết nối mạng hoặc thử lại sau. Trên web tuzi.vn anh có thể nạp qua VietQR.</Text>
+              </>
+            )}
           </View>
         )}
 
-        {/* CHỌN GÓI NẠP (chuyển khoản VietQR) */}
-        {(!iapReady || isWeb) && !order && (
+        {/* CHỌN GÓI NẠP (VietQR) — CHỈ web hoặc dev mode mobile (test) */}
+        {(isWeb || __DEV__) && !order && (
           <>
             <Text style={styles.section}>Nạp xu qua chuyển khoản (VietQR)</Text>
+            {!isWeb && __DEV__ && (
+              <Text style={[styles.note, { color: '#ff9d8a' }]}>
+                ⚠ DEV MODE — VietQR chỉ hiển thị trong dev. Bản production build sẽ ẩn hoàn toàn trên iOS/Android theo chính sách Apple/Google.
+              </Text>
+            )}
             <View style={styles.packGrid}>
               {XU_PACKS.map(p => (
                 <TouchableOpacity key={p.xu} style={styles.pack} onPress={() => startTopup(p)} activeOpacity={0.85}>
@@ -250,7 +269,7 @@ export default function WalletScreen() {
         )}
 
         {/* ĐƠN NẠP — QR + thông tin chuyển khoản */}
-        {(!iapReady || isWeb) && order && (
+        {(isWeb || __DEV__) && order && (
           <View style={styles.orderCard}>
             <Text style={styles.section}>Chuyển khoản để nạp {order.pack.xu.toLocaleString('vi-VN')} xu</Text>
 

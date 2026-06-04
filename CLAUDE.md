@@ -5,6 +5,21 @@ này. Đọc kỹ trước khi sửa code.
 
 ---
 
+## ⏩ TÌNH TRẠNG WEB (cập nhật ngay trước khi sang session web)
+
+- Đã chọn: Domain **tuzi.vn** (Mắt Bão) · Email gửi tự động **Resend** · Hosting web **Netlify** · Data/Auth **Supabase**.
+- Đã có sẵn: `react-native-web`, `react-dom`, `@expo/metro-runtime` trong package.json; `netlify.toml` (build + SPA redirect); `src/lib/platform.ts` (xử lý web cho PDF/share/download); script `npm run web` và `npm run build:web`.
+- Đã viết tài liệu: `HUONG_DAN_DEPLOY.md` (cấu hình Resend + Netlify từng bước).
+- **VIỆC WEB CẦN LÀM (phương án A):**
+  1. Xác minh `npm run build:web` chạy trơn — bọc `Platform.OS==='web'` cho mọi import native-only còn sót (react-native-iap KHÔNG có trong deps, đang lazy/guard qua `lib/iap.ts`; kiểm tra expo-print/expo-sharing/expo-media-library/react-native-view-shot/expo-notifications).
+  2. Fix SPA routing nếu deep-link/refresh lỗi (netlify.toml đã có redirect `/*`→`/index.html`).
+  3. Test từng tính năng trên web: đăng nhập Supabase, lập lá số, AI, xem ngày tốt, nạp xu VietQR.
+  4. WalletScreen: web chỉ VietQR (guard `isWeb` đã có) — xác nhận IAP không bao giờ load trên web.
+- **Vấn đề đang mở (báo bởi anh Toàn):** test local `npm run web` chưa thấy nút "Quên mật khẩu?" dù code có (LoginScreen dòng ~109). Nghi ngờ Metro giữ bundle cũ → thử `npx expo start --web --clear` + hard refresh. Nếu vẫn lỗi, điều tra sâu trên web.
+- **Email (Resend) CHƯA chắc đã deploy:** cần xác nhận anh Toàn đã `supabase functions deploy auth-email` + set `RESEND_API_KEY` + chạy `supabase_auth_email.sql` + verify domain chưa. `lib/auth.ts` đã log `[auth-email] ...` ra console để chẩn đoán.
+
+---
+
 ## 1. Thông tin chung
 
 - **Tên sản phẩm**: Tử Vi & Bát Tự (mobile app + sắp tới: bản web).
@@ -139,6 +154,7 @@ src/
 ### Chưa làm
 
 - ❌ **Web build** (phương án A — Expo Web) ← **TASK HIỆN TẠI**
+- ✅ Email đăng ký (welcome) + Quên mật khẩu (sinh mật khẩu mới) — Edge Function `auth-email` + Resend. CẦN: chạy `supabase_auth_email.sql`, deploy function, set `RESEND_API_KEY`, verify domain tuzi.vn trong Resend.
 - ❌ Verify Apple/Google IAP receipt (Edge Function `iap-verify` mới có skeleton)
 - ❌ Push notification (đã có wrapper lib/notifications.ts nhưng chưa cấu hình FCM/APNS)
 - ❌ Production Edge Function cho AI keys (đang dùng client-side)
@@ -148,8 +164,10 @@ src/
 ## 5. Quy tắc thanh toán
 
 - 1 xu = 100đ
-- Mobile: **VietQR (SePay)** + **IAP (Apple / Google)** — gói xu_100 đến xu_5000
-- Web (sắp tới): **CHỈ VietQR/SePay** — IAP bị ẩn hoàn toàn (Platform.OS === 'web' guard)
+- **Mobile (production build)**: CHỈ IAP (Apple/Google) — VietQR ẩn hoàn toàn theo Apple Guideline 3.1.1 + Google Payments Policy. Nếu hiển thị VietQR trên app store build sẽ bị reject.
+- **Mobile (dev mode, `__DEV__`)**: cả IAP và VietQR (cho dễ test). Production build: chỉ IAP.
+- **Web (tuzi.vn)**: CHỈ VietQR/SePay — IAP bị ẩn hoàn toàn.
+- File điều khiển: `src/screens/WalletScreen.tsx` — guard `isWeb || __DEV__` cho VietQR, `!isWeb && !__DEV__` cho IAP.
 - Combo trọn đời: lifetime_basic (490 xu / 49k), lifetime_full (990 xu / 99k)
 - Bank: VPBank 0913 377 666 — NGUYỄN VĂN TOÀN (real account)
 - File: `src/constants/payment.ts`, `src/constants/combos.ts`, `src/lib/iap.ts`, `src/lib/topup.ts`
@@ -229,7 +247,7 @@ export async function exportToPdf(...) {
 - Deploy: Vercel (recommend) hoặc Netlify
   - Vercel CLI: `vercel --prod`
   - Hoặc connect GitHub → auto deploy
-- Domain: anh Toàn dự kiến `tuvi-batutu.vn` (placeholder hiện tại trong Privacy/Terms — anh sẽ confirm)
+- Domain: **`tuzi.vn`** (đã mua, đã update trong Privacy/Terms/About). Email support: `support@tuzi.vn`.
 
 #### Bước 6 — Kiểm thử trước khi merge
 

@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 import { DAY_PICK_GROUPS, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
 import { pickGoodDays, type DayPickOutput } from '../core/dayPicker';
 
@@ -231,8 +232,14 @@ export default function DayPickerScreen({ route, navigation }: Props) {
                       {d.reasons.slice(0, 3).map((r, ri) => <Text key={ri} style={styles.dayReason}>• {r}</Text>)}
                       {d.bestHours.length > 0 && (
                         <Text style={styles.dayDetail}>
-                          🕒 <Text style={styles.bold}>Khung giờ tốt:</Text>{' '}
+                          🕒 <Text style={styles.bold}>Khung giờ tốt cho lá số:</Text>{' '}
                           {d.bestHours.map(h => `${h.branch} (${h.range})`).join(' · ')}
+                        </Text>
+                      )}
+                      {d.generalHours.length > 0 && (
+                        <Text style={styles.dayDetail}>
+                          🕓 <Text style={styles.bold}>Khung giờ tốt nói chung:</Text>{' '}
+                          {d.generalHours.map(h => `${h.branch} (${h.range})`).join(' · ')}
                         </Text>
                       )}
                       {d.direction && <Text style={styles.dayDetail}>🧭 <Text style={styles.bold}>Hướng xuất hành:</Text> {d.direction}</Text>}
@@ -248,8 +255,12 @@ export default function DayPickerScreen({ route, navigation }: Props) {
 
         <Text style={styles.note}>
           _Logic dựa trên lá số của bạn (Dụng/Kỵ thần Bát Tự + hợp/xung tuổi) kết hợp tính chất từng việc.
+          • "Khung giờ tốt cho lá số" hợp riêng với mệnh của bạn. • "Khung giờ tốt nói chung" là giờ
+          hoàng đạo của ngày theo phong thủy (dùng khi giờ hợp lá số rơi vào lúc bất tiện).
           Kết quả mang tính tham khảo._
         </Text>
+
+        <MedDisclaimer compact style={{ marginTop: SPACING.xs }} />
       </ScrollView>
 
       {renderModal()}

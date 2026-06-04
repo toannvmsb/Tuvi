@@ -20,6 +20,7 @@ import TuViChart from '../components/TuViChart';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { captureChartDataUri, chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 import { daiVanSections } from '../utils/aiAnalysis';
 import { generateOfflineDaiVan } from '../core/offlineLuanGiai';
 import SimpleMarkdown from '../components/SimpleMarkdown';
@@ -267,6 +268,7 @@ export default function DaiVanScreen({ route }: Props) {
             </View>
           );
         })}
+        <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -19,6 +19,7 @@ import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -158,6 +159,8 @@ export default function DailyScreen({ route, navigation }: Props) {
         >
           <Text style={styles.pickerBtnText}>🧭  Xem ngày tốt cho việc cụ thể</Text>
         </TouchableOpacity>
+
+        <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
     </SafeAreaView>
   );

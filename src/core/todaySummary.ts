@@ -136,8 +136,8 @@ export function buildTodaySummary(result: AstrologyResult | null, date: Date = n
     '🌙 Nghỉ ngơi điều độ, giữ sức khỏe.',
   ];
 
-  // Chưa có lá số → khung giờ chung theo Can-Chi ngày (giờ sinh hành = hành Can ngày → tốt).
-  const goodHours: string[] = ['Mão (5h–7h)', 'Thìn (7h–9h)', 'Tị (9h–11h)'];
+  // Chưa có lá số → khung giờ chung (buổi sáng tinh thần tốt nhất) — đã gộp liền nhau.
+  const goodHours: string[] = ['Mão–Tị (5h–11h)'];
   const badHours: string[] = ['Dậu (17h–19h)'];
 
   return {

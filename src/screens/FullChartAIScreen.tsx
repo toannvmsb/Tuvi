@@ -25,6 +25,7 @@ import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FullChartAI'>;
 
@@ -273,6 +274,8 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
         )}
         </>
         )}
+
+        <MedDisclaimer style={{ marginTop: SPACING.lg }} />
 
         <TouchableOpacity style={styles.bottomBack} onPress={() => navigation.goBack()}>
           <Text style={styles.bottomBackText}>← Về lá số</Text>

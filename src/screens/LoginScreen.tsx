@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { signIn, signUp } from '../lib/auth';
+import { signIn, signUp, requestPasswordReset } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 
@@ -30,7 +30,10 @@ export default function LoginScreen() {
     try {
       if (mode === 'register') {
         await signUp(email.trim(), pw, name.trim());
-        Alert.alert('Đăng ký thành công', 'Nếu dự án bật xác minh email, vui lòng kiểm tra hộp thư rồi đăng nhập.');
+        Alert.alert(
+          'Đăng ký thành công 🎉',
+          'Thông tin đăng nhập đã được gửi vào email của bạn. Vui lòng kiểm tra hộp thư (kể cả mục Spam) rồi đăng nhập.',
+        );
         setMode('login');
       } else {
         await signIn(email.trim(), pw);
@@ -38,6 +41,27 @@ export default function LoginScreen() {
       }
     } catch (e: any) {
       setErr(e?.message || 'Có lỗi xảy ra.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Quên mật khẩu — gửi mật khẩu mới vào email đã đăng ký. */
+  const forgotPassword = async () => {
+    setErr('');
+    if (!email.trim() || !email.includes('@')) {
+      setErr('Nhập email đã đăng ký vào ô Email, rồi bấm "Quên mật khẩu".');
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestPasswordReset(email.trim());
+      Alert.alert(
+        'Đã gửi yêu cầu',
+        'Nếu email này đã đăng ký, chúng tôi đã gửi MẬT KHẨU MỚI vào hộp thư của bạn. Vui lòng kiểm tra (kể cả mục Spam) rồi đăng nhập bằng mật khẩu mới.',
+      );
+    } catch (e: any) {
+      setErr(e?.message || 'Không gửi được. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -82,6 +106,12 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {mode === 'login' && (
+              <TouchableOpacity onPress={forgotPassword} disabled={busy} activeOpacity={0.7}>
+                <Text style={styles.forgot}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
+            )}
+
             <Text style={styles.note}>
               Bằng việc tiếp tục, bạn đồng ý với Chính sách bảo mật của ứng dụng.
             </Text>
@@ -112,5 +142,6 @@ const styles = StyleSheet.create({
   err: { color: COLORS.red, fontSize: FONTS.size.sm },
   btn: { backgroundColor: COLORS.gold, borderRadius: 10, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.sm },
   btnTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.lg },
+  forgot: { color: COLORS.gold, fontSize: FONTS.size.sm, textAlign: 'center', fontWeight: '700', marginTop: SPACING.xs },
   note: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textAlign: 'center', marginTop: SPACING.sm },
 });

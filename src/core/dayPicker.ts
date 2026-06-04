@@ -16,7 +16,7 @@
  */
 
 import type { AstrologyResult, FiveElement } from '../types';
-import { scoreNhatVan, goodBadHours, type HourWindow } from './nhatVan';
+import { scoreNhatVan, goodBadHours, auspiciousHours, type HourWindow } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
 import { findTaskByCode } from '../data/dayPickTasks';
 
@@ -27,7 +27,8 @@ export interface DayPickResult {
   rating: string;          // Rất tốt / Tốt / ...
   score: number;           // Số điểm tổng hợp
   reasons: string[];       // 2-4 lý do
-  bestHours: HourWindow[]; // Tối đa 3 khung giờ
+  bestHours: HourWindow[];     // Khung giờ tốt CHO LÁ SỐ (theo dụng/kỵ thần + tuổi)
+  generalHours: HourWindow[];  // Khung giờ tốt NÓI CHUNG (giờ hoàng đạo theo ngày)
   direction: string;       // Hướng tốt (vd "Tây - Tây Bắc")
   goodColor: string;       // Màu hợp ("Xanh dương, Đen")
   avoidColor: string;      // Màu tránh ("Đỏ, Hồng")
@@ -130,7 +131,7 @@ export function pickGoodDays(
         dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`,
         canChiLabel: `Ngày ${sc.canChi.stem} ${sc.canChi.branch}`,
         rating: 'Loại (xung tuổi)', score: -999, reasons,
-        bestHours: [], direction: '', goodColor: '', avoidColor: '',
+        bestHours: [], generalHours: [], direction: '', goodColor: '', avoidColor: '',
       });
       continue;
     }
@@ -141,8 +142,9 @@ export function pickGoodDays(
     if (bonus > 0) reasons.push(`Chi ngày hành ${sc.canChi.branchEl} hợp việc ${task.name.toLowerCase()}.`);
     else if (bonus < 0) reasons.push(`Chi ngày hành ${sc.canChi.branchEl} không thuận việc ${task.name.toLowerCase()}.`);
 
-    // Khung giờ tốt
+    // Khung giờ tốt cho LÁ SỐ (dụng/kỵ thần + tuổi) và NÓI CHUNG (giờ hoàng đạo)
     const { good: goodH } = goodBadHours(result, date);
+    const generalH = auspiciousHours(date);
     if (sc.hopTuoi) total += 1;
 
     if (total >= 2) okCount++;
@@ -153,6 +155,7 @@ export function pickGoodDays(
       canChiLabel: `Ngày ${sc.canChi.stem} ${sc.canChi.branch}`,
       rating: sc.rating, score: total, reasons,
       bestHours: goodH.slice(0, 3),
+      generalHours: generalH,
       direction: goodPhong.huong,
       goodColor: goodPhong.mau.split(';')[0].trim(),
       avoidColor: badPhong ? badPhong.mau.split(';')[0].trim() : '',

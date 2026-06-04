@@ -25,6 +25,7 @@ import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TieuVan'>;
 
@@ -242,6 +243,7 @@ export default function TieuVanScreen({ route }: Props) {
             </View>
           );
         })}
+        <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
     </SafeAreaView>
   );

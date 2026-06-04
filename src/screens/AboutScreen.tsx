@@ -9,9 +9,12 @@ import ScreenHeader from '../components/ScreenHeader';
 import BrandLogo from '../components/BrandLogo';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 
-const APP_NAME = 'Tử Vi & Bát Tự';
+const APP_NAME = 'Tuzi — Tử Vi & Bát Tự';
 const VERSION = '1.0.0';
 const AUTHOR = 'Nguyễn Văn Toàn';
+const WEBSITE = 'https://tuzi.vn';
+const SUPPORT_EMAIL = 'support@tuzi.vn';
+const SUPPORT_PHONE = '0913 377 666';
 const YEAR = new Date().getFullYear();
 
 export default function AboutScreen() {
@@ -33,8 +36,16 @@ export default function AboutScreen() {
           <Row label="Tên sản phẩm" value={APP_NAME} />
           <Row label="Phiên bản" value={VERSION} />
           <Row label="Tác giả" value={AUTHOR} />
-          <Row label="Nền tảng" value="React Native · Expo" />
+          <Row label="Website" value="tuzi.vn" />
+          <Row label="Nền tảng" value="iOS · Android · Web" />
           <Row label="Bản quyền" value={`© ${YEAR} ${AUTHOR}`} />
+        </Card>
+
+        <Card title="Liên hệ & Hỗ trợ">
+          <Row label="Email" value={SUPPORT_EMAIL} />
+          <Row label="Điện thoại / Zalo" value={SUPPORT_PHONE} />
+          <Row label="Website" value="tuzi.vn" />
+          <Row label="Địa chỉ" value="Hà Nội, Việt Nam" />
         </Card>
 
         <Card title="Giới thiệu">
@@ -64,10 +75,18 @@ export default function AboutScreen() {
 
         <TouchableOpacity
           style={styles.btn}
-          onPress={() => Linking.openURL('mailto:tuvi.support@example.com')}
+          onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
           activeOpacity={0.85}
         >
           <Text style={styles.btnText}>✉️ Liên hệ / Góp ý</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => Linking.openURL(WEBSITE)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.btnText, { color: COLORS.gold }]}>🌐 Truy cập tuzi.vn</Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>Made with ❤️ in Vietnam · {YEAR}</Text>
@@ -130,5 +149,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md, alignItems: 'center',
   },
   btnText: { color: '#1a0a00', fontSize: FONTS.size.md, fontWeight: '800' },
+  btnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.gold, marginTop: SPACING.sm },
   footer: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textAlign: 'center', marginTop: SPACING.md },
 });

@@ -21,6 +21,7 @@ import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import MedDisclaimer from '../components/MedDisclaimer';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -308,6 +309,7 @@ export default function NguyetVanScreen({ route }: Props) {
             </View>
           );
         })}
+        <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
     </SafeAreaView>
   );

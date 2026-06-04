@@ -261,7 +261,7 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
     '- Tiếng Việt mạch lạc, đúng thuật ngữ Tử Vi Nam Phái; KHÔNG dùng bảng (markdown table), KHÔNG ký hiệu | hay ---; KHÔNG dùng từ ngữ mê tín.',
     '- Tối đa 5000 từ, SÚC TÍCH nhưng đủ ý; KẾT THÚC trọn vẹn, KHÔNG bỏ dở.',
     '- Mỗi mục lớn phải kết bằng câu "Mức độ ảnh hưởng tới cung: x/10 — [lý do ngắn]" (x là số 1–10).',
-    '- Chỉ dùng các sao ĐÃ NÊU; tuyệt đối không bịa thêm sao. KHÔNG nhắc khái niệm "Mệnh chủ"/"Thân chủ" (phái này không dùng).',
+    '- Chỉ dùng các sao ĐÃ NÊU; tuyệt đối không bịa thêm sao. KHÔNG nhắc khái niệm "Mệnh chủ"/"Thân chủ" (phái này không dùng). KHÔNG dự đoán sự kiện cụ thể vào ngày cụ thể; KHÔNG đưa lời khuyên y tế / tài chính cụ thể / pháp lý — luôn khuyến nghị tham vấn chuyên gia.',
     '',
     `Hãy viết theo cấu trúc 12 mục sau (giữ đúng tiêu đề mục):`,
     `1. THÔNG TIN CƠ BẢN — Vị trí, hành Chi, nhóm Tứ Chính/Sinh/Mộ; cung tam hợp/xung chiếu/nhị hợp. Ý nghĩa của thế đứng.`,
@@ -890,6 +890,8 @@ const FULLCHART_RULES =
   'VIẾT TRỌN VẸN trong giới hạn từ, ưu tiên đủ ý và kết thúc hoàn chỉnh hơn là viết dài. ' +
   '★ TUẦN/TRIỆT: chỉ áp dụng cho các cung có trong danh sách dữ liệu; TUYỆT ĐỐI KHÔNG suy diễn Tuần/Triệt ở cung khác (không lan qua tam hợp/nhị hợp). ' +
   '★ TUYỆT ĐỐI KHÔNG nhắc khái niệm "Mệnh chủ" / "Thân chủ" — phái Nam Phái không dùng. ' +
+  '★ TUYỆT ĐỐI KHÔNG dự đoán SỰ KIỆN CỤ THỂ vào NGÀY CỤ THỂ (vd "tai nạn ngày 15/6", "kết hôn tháng 8 năm sau", "bị bệnh X vào năm Y") — chỉ nói XU HƯỚNG, MỨC ĐỘ thuận lợi/rủi ro và KHUYẾN NGHỊ hành động. KHÔNG được phán "chắc chắn xảy ra", "không thể tránh", "định mệnh là vậy". ' +
+  '★ KHÔNG đưa ra lời khuyên Y TẾ (chẩn đoán bệnh, thuốc), TÀI CHÍNH cụ thể (mua mã cổ phiếu X, đầu tư khoản Y), hay PHÁP LÝ (kiện ai, ký hợp đồng nào). Khi đề cập các chủ đề này, luôn khuyến nghị tham vấn chuyên gia (bác sĩ / cố vấn tài chính / luật sư). ' +
   '★ NGŨ HÀNH MỆNH-CỤC: BẮT BUỘC dùng đúng quan hệ đã ghi trong dòng "DỮ KIỆN CỐ ĐỊNH — NGŨ HÀNH MỆNH-CỤC" — KHÔNG được tự tính lại hay suy ra quan hệ khác. ' +
   '★ ĐẠI VẬN: BẮT BUỘC ghi đúng tên CUNG mà đại vận đóng theo dữ liệu "CHUỖI ĐẠI VẬN" — KHÔNG được đổi sang cung khác (vd dữ liệu ghi 42-51t cung Tài Bạch thì PHẢI ghi Tài Bạch, không được nói là Tật Ách hay cung khác). ' +
   'Khi luận một cung, dựa vào: (a) chính tinh + phụ tinh tại CHÍNH CUNG ĐÓ; (b) các sao tại tam hợp/nhị hợp/xung chiếu (đã liệt kê dưới mỗi dòng cung); ' +
@@ -1193,7 +1195,9 @@ const DAIVAN_RULES =
   '★ Tiếng Việt mạch lạc; tiêu đề "# Tên mục" (KHÔNG ghi "Bước"/số); KHÔNG dùng bảng markdown; chỉ dùng dữ liệu đã cho, không bịa sao. ' +
   'KHÔNG mở đầu bằng lời chào, KHÔNG lặp dữ liệu. BÁM SÁT 3 yếu tố Thiên thời – Địa lợi – Nhân hòa + Phi Hóa Nam Phái. ' +
   'VIẾT TRỌN VẸN trong giới hạn số từ, KHÔNG bỏ dở. Tuần/Triệt CHỈ áp dụng cho cung được dữ liệu ghi là BỊ TUẦN/TRIỆT, không tự gán cho cung khác. ' +
-  'TUYỆT ĐỐI KHÔNG nhắc "Mệnh chủ" / "Thân chủ" — phái Nam Phái không dùng.';
+  'TUYỆT ĐỐI KHÔNG nhắc "Mệnh chủ" / "Thân chủ" — phái Nam Phái không dùng. ' +
+  '★ TUYỆT ĐỐI KHÔNG dự đoán SỰ KIỆN CỤ THỂ vào NGÀY/THỜI ĐIỂM CỤ THỂ (vd "tai nạn ngày 15/6", "kết hôn tháng X năm Y", "bệnh nặng năm Z") — chỉ nói XU HƯỚNG, mức độ thuận lợi/rủi ro, và KHUYẾN NGHỊ hành động. KHÔNG được phán "chắc chắn xảy ra", "không thể tránh", "định mệnh là vậy". ' +
+  '★ KHÔNG đưa lời khuyên Y TẾ (chẩn đoán bệnh, kê thuốc), TÀI CHÍNH cụ thể (mã cổ phiếu, khoản đầu tư), PHÁP LÝ cụ thể — khi đề cập các chủ đề này luôn khuyến nghị tham vấn chuyên gia (bác sĩ / cố vấn tài chính / luật sư).';
 
 /**
  * Danh sách các PHẦN của bài luận MỘT đại vận. Mỗi phần là 1 request 4o-mini
@@ -1467,7 +1471,9 @@ const TIEUVAN_RULES =
   '★ Tiếng Việt mạch lạc; tiêu đề "# Tên mục" (KHÔNG ghi "Bước"/số); KHÔNG dùng bảng markdown. ' +
   'KHÔNG mở đầu bằng lời chào, KHÔNG lặp dữ liệu. BÁM SÁT 3 yếu tố Thiên thời – Địa lợi – Nhân hòa + "Đại vận lấn áp Tiểu vận" + Lưu Tứ Hóa + Lưu tinh. ' +
   'VIẾT TRỌN VẸN trong giới hạn số từ, KHÔNG bỏ dở. Tuần/Triệt CHỈ nói khi cung được dữ liệu ghi là BỊ TUẦN/TRIỆT. ' +
-  'TUYỆT ĐỐI KHÔNG nhắc "Mệnh chủ" / "Thân chủ" — phái Nam Phái không dùng.';
+  'TUYỆT ĐỐI KHÔNG nhắc "Mệnh chủ" / "Thân chủ" — phái Nam Phái không dùng. ' +
+  '★ TUYỆT ĐỐI KHÔNG dự đoán SỰ KIỆN CỤ THỂ vào NGÀY/THỜI ĐIỂM CỤ THỂ (vd "tai nạn ngày 15/6", "kết hôn tháng X năm Y", "bệnh nặng năm Z") — chỉ nói XU HƯỚNG, mức độ thuận lợi/rủi ro, và KHUYẾN NGHỊ hành động. KHÔNG được phán "chắc chắn xảy ra", "không thể tránh", "định mệnh là vậy". ' +
+  '★ KHÔNG đưa lời khuyên Y TẾ (chẩn đoán bệnh, kê thuốc), TÀI CHÍNH cụ thể (mã cổ phiếu, khoản đầu tư), PHÁP LÝ cụ thể — khi đề cập các chủ đề này luôn khuyến nghị tham vấn chuyên gia (bác sĩ / cố vấn tài chính / luật sư).';
 
 /**
  * Danh sách các PHẦN của bài luận MỘT năm tiểu vận. Mỗi phần là 1 request 4o-mini
@@ -1677,7 +1683,7 @@ export async function analyzeNguyetVanWithAI(
   const prompt = [
     'Bạn là chuyên gia Tử Vi Nam Phái theo hướng THỰC TIỄN — đóng vai AI COACH cá nhân tư vấn 30 NGÀY cho người dùng. ' +
     '★ TINH THẦN CỐT LÕI: "NGUYỆT VẬN KHÔNG PHẢI để dự đoán số mệnh trong tháng. Hãy phân tích tháng này đang KÍCH HOẠT phần nào của ĐẠI VẬN và TIỂU VẬN, từ đó xác định cơ hội, rủi ro và KẾ HOẠCH HÀNH ĐỘNG cho người dùng trong 30 ngày tới." ' +
-    '★ Nguyên tắc: (1) Không luận sao đơn lẻ — phải tổ hợp; (2) Không phán tuyệt đối, chỉ nói xu hướng; (3) Không mê tín; (4) Mỗi kết luận quan trọng ≥ 2 dữ kiện; (5) Dữ kiện→Phân tích→Kết luận→Khuyến nghị; (6) Thiếu dữ liệu thì nói rõ; (7) Mỗi khuyến nghị PHẢI có thể hành động ngay; (8) KHÔNG nhắc "Mệnh chủ"/"Thân chủ". ' +
+    '★ Nguyên tắc: (1) Không luận sao đơn lẻ — phải tổ hợp; (2) Không phán tuyệt đối, chỉ nói xu hướng; (3) Không mê tín; (4) Mỗi kết luận quan trọng ≥ 2 dữ kiện; (5) Dữ kiện→Phân tích→Kết luận→Khuyến nghị; (6) Thiếu dữ liệu thì nói rõ; (7) Mỗi khuyến nghị PHẢI có thể hành động ngay; (8) KHÔNG nhắc "Mệnh chủ"/"Thân chủ"; (9) TUYỆT ĐỐI KHÔNG dự đoán SỰ KIỆN CỤ THỂ vào NGÀY/THỜI ĐIỂM CỤ THỂ (vd "tai nạn ngày X", "kết hôn tháng Y") — chỉ nói xu hướng + khuyến nghị; (10) KHÔNG đưa lời khuyên Y TẾ / TÀI CHÍNH cụ thể / PHÁP LÝ cụ thể — luôn khuyến nghị tham vấn chuyên gia. ' +
     'Tiếng Việt mạch lạc, KHÔNG bảng/markdown, KHÔNG mở đầu lại bằng chào hỏi.',
     '',
     `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}. ` +

@@ -16,12 +16,11 @@ import { COLORS, SPACING } from '../constants/theme';
 
 const UPDATED = '29/05/2026';
 
-// TODO: anh cập nhật thông tin chính thức tại đây.
 const CONTACT = {
-  appName: 'Tử Vi & Bát Tự',
+  appName: 'Tuzi — Tử Vi & Bát Tự',
   publisher: 'Nguyễn Văn Toàn',
-  website: 'https://tuvi-batutu.vn',
-  email: 'support@tuvi-batutu.vn',
+  website: 'https://tuzi.vn',
+  email: 'support@tuzi.vn',
   phone: '0913 377 666',
   address: 'Hà Nội, Việt Nam',
 };
