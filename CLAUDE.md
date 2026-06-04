@@ -5,18 +5,59 @@ này. Đọc kỹ trước khi sửa code.
 
 ---
 
-## ⏩ TÌNH TRẠNG WEB (cập nhật ngay trước khi sang session web)
+## ⏩ TÌNH TRẠNG WEB (cập nhật đầu tháng 6/2026 — sau khi hoàn thành build web)
 
-- Đã chọn: Domain **tuzi.vn** (Mắt Bão) · Email gửi tự động **Resend** · Hosting web **Netlify** · Data/Auth **Supabase**.
-- Đã có sẵn: `react-native-web`, `react-dom`, `@expo/metro-runtime` trong package.json; `netlify.toml` (build + SPA redirect); `src/lib/platform.ts` (xử lý web cho PDF/share/download); script `npm run web` và `npm run build:web`.
-- Đã viết tài liệu: `HUONG_DAN_DEPLOY.md` (cấu hình Resend + Netlify từng bước).
-- **VIỆC WEB CẦN LÀM (phương án A):**
-  1. Xác minh `npm run build:web` chạy trơn — bọc `Platform.OS==='web'` cho mọi import native-only còn sót (react-native-iap KHÔNG có trong deps, đang lazy/guard qua `lib/iap.ts`; kiểm tra expo-print/expo-sharing/expo-media-library/react-native-view-shot/expo-notifications).
-  2. Fix SPA routing nếu deep-link/refresh lỗi (netlify.toml đã có redirect `/*`→`/index.html`).
-  3. Test từng tính năng trên web: đăng nhập Supabase, lập lá số, AI, xem ngày tốt, nạp xu VietQR.
-  4. WalletScreen: web chỉ VietQR (guard `isWeb` đã có) — xác nhận IAP không bao giờ load trên web.
-- **Vấn đề đang mở (báo bởi anh Toàn):** test local `npm run web` chưa thấy nút "Quên mật khẩu?" dù code có (LoginScreen dòng ~109). Nghi ngờ Metro giữ bundle cũ → thử `npx expo start --web --clear` + hard refresh. Nếu vẫn lỗi, điều tra sâu trên web.
-- **Email (Resend) CHƯA chắc đã deploy:** cần xác nhận anh Toàn đã `supabase functions deploy auth-email` + set `RESEND_API_KEY` + chạy `supabase_auth_email.sql` + verify domain chưa. `lib/auth.ts` đã log `[auth-email] ...` ra console để chẩn đoán.
+### ✅ ĐÃ HOÀN THÀNH (branch `feature/web`)
+
+- `npm run build:web` → **sạch, 1024 modules, không lỗi**.
+- `netlify.toml` đã có: build command, publish dir `dist/`, SPA redirect `/*→/index.html`.
+- **Platform guards đầy đủ:**
+  - `src/lib/platform.ts`: `useContentWidth()` (cap 480px web), `printHtml`, `saveImageOrDownload`, `shareFile`, `downloadToCache`.
+  - `src/lib/webAlert.ts` + `src/components/WebAlertHost.tsx`: thay `Alert.alert()` bằng React modal trên web (tránh `window.confirm()` bị block trong iframe).
+  - `src/lib/iap.ts`: lazy load, `isIapAvailable()` false trên web — IAP không bao giờ khởi động.
+  - `src/screens/WalletScreen.tsx`: `!isWeb && !__DEV__` cho IAP; `isWeb || __DEV__` cho VietQR.
+  - `src/components/ImageViewerModal.tsx`: web path dùng `ScrollView` thay gesture handler.
+  - `src/components/TuViChart/index.tsx`, `BatTuChart`, `WealthChart`, `DaiVanScreen`, `TieuVanScreen`, `NguyetVanScreen`: tất cả dùng `useContentWidth()` thay `useWindowDimensions()`.
+- **Bug web đã fix:**
+  - Navigation: thay `navigation.getParent()?.navigate()` bằng `navigationRef.navigate()`.
+  - Bar chart bị vỡ trên Chrome: thêm `position:'relative'` cho column View.
+  - Chip selector: `flexWrap:'wrap'` trên web (không cuộn ngang).
+  - Lá số tràn màn hình: `useContentWidth()` cap 480px.
+  - Dialog trừ xu: `webAlert` + `WebAlertHost`.
+  - Xem ảnh lá số: modal render TuViChart trực tiếp + **xuất PNG (html2canvas) + in PDF**.
+- **Responsive:** CSS injection `#root { max-width:480px; }` trong App.tsx.
+- **Quên mật khẩu?:** code đúng ở LoginScreen dòng 109 — nút hiện khi `mode === 'login'`.
+
+### ⏳ CÒN LẠI (anh Toàn tự làm hoặc tiếp tục session sau)
+
+1. **Deploy lên Netlify:**
+   ```bash
+   npm run build:web           # tạo dist/
+   npx vercel --prod           # hoặc connect GitHub → Netlify auto-deploy
+   ```
+   Netlify: Build command = `npx expo export --platform web`, Publish = `dist/`.
+
+2. **Email (Resend) — CHƯA chắc đã deploy:**
+   ```bash
+   supabase functions deploy auth-email --no-verify-jwt
+   supabase secrets set RESEND_API_KEY=re_xxxxxxxx
+   supabase secrets set AUTH_FROM_EMAIL="Tuzi <no-reply@tuzi.vn>"
+   ```
+   Rồi chạy `supabase_auth_email.sql` trong Dashboard → SQL Editor.
+
+3. **Verify domain tuzi.vn** trong Resend (DNS records tại Mắt Bão).
+
+4. **Test end-to-end trên Chrome thật** (không phải preview tool):
+   - Đăng nhập / Đăng ký
+   - Lập lá số + xem 12 cung
+   - Phân tích AI (cần xu)
+   - Xem theo ngày, Xem ngày tốt
+   - Nạp xu VietQR (cần test webhook SePay)
+   - Quên mật khẩu (cần Resend đã deploy)
+
+5. **Nếu Netlify build lỗi:** kiểm tra Node version (cần 18+), set trong Netlify Settings → Build image.
+
+- **Email (Resend):** `lib/auth.ts` đã log `[auth-email] ...` ra console để chẩn đoán khi test.
 
 ---
 
