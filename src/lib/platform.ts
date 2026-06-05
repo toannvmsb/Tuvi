@@ -7,10 +7,22 @@ import { Platform, useWindowDimensions } from 'react-native';
 
 export const isWeb = Platform.OS === 'web';
 
-/** Chiều rộng content thực tế — trên web cap 480px (max-width của container). */
+/**
+ * Chiều rộng tối đa của cột nội dung trên web (desktop/tablet).
+ * Dùng CHUNG cho CSS container (#root trong App.tsx) và useContentWidth() →
+ * luôn khớp nhau. Điện thoại < giá trị này sẽ tự fill full chiều ngang.
+ */
+export const WEB_MAX_CONTENT_WIDTH = 600;
+
+/**
+ * Chiều rộng content thực tế:
+ * - Mobile: full chiều ngang thiết bị.
+ * - Web: co giãn theo màn hình nhưng cap ở WEB_MAX_CONTENT_WIDTH
+ *   (điện thoại nhỏ hơn → full; tablet/desktop → cột rộng cố định, căn giữa).
+ */
 export function useContentWidth(): number {
   const { width } = useWindowDimensions();
-  return isWeb ? Math.min(width, 480) : width;
+  return isWeb ? Math.min(width, WEB_MAX_CONTENT_WIDTH) : width;
 }
 
 /**

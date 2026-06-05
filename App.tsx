@@ -10,13 +10,15 @@ import { loadLanguage } from './src/i18n';
 import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
 import WebAlertHost from './src/components/WebAlertHost';
+import { WEB_MAX_CONTENT_WIDTH } from './src/lib/platform';
 
-// Web: căn giữa + giới hạn chiều rộng 480px để dễ đọc trên desktop.
+// Web: co giãn theo màn hình — điện thoại full, tablet/desktop cột rộng cố định
+// (WEB_MAX_CONTENT_WIDTH) căn giữa. Khớp với useContentWidth() cho lá số/biểu đồ.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
     body { background: ${COLORS.background}; display: flex; justify-content: center; }
-    #root { max-width: 480px; width: 100%; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+    #root { max-width: ${WEB_MAX_CONTENT_WIDTH}px; width: 100%; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
     * { -webkit-tap-highlight-color: transparent; }
     input, textarea { font-size: 16px !important; }
   `;
