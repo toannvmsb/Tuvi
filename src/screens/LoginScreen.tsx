@@ -16,6 +16,7 @@ import { signIn, signUp, requestPasswordReset } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import SimpleMarkdown from '../components/SimpleMarkdown';
+import BrandLogo from '../components/BrandLogo';
 import { PRIVACY_CONTENT, TERMS_CONTENT } from '../data/legalContent';
 
 export default function LoginScreen() {
@@ -92,7 +93,7 @@ export default function LoginScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             <View style={styles.logoWrap}>
-              <Text style={styles.logo}>☯</Text>
+              <BrandLogo size={104} />
               <Text style={styles.appName}>Tử Vi & Bát Tự</Text>
               <Text style={styles.sub}>Đăng nhập để lưu lá số & nội dung đã mở</Text>
             </View>
@@ -222,8 +223,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   bg: { flex: 1 },
   scroll: { padding: SPACING.xl, gap: SPACING.md, flexGrow: 1, justifyContent: 'center' },
-  logoWrap: { alignItems: 'center', marginBottom: SPACING.lg, gap: 6 },
-  logo: { fontSize: 56, color: COLORS.gold },
+  logoWrap: { alignItems: 'center', marginBottom: SPACING.lg, gap: 8 },
   appName: { fontSize: FONTS.size.xxl, fontWeight: 'bold', color: COLORS.gold },
   sub: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, textAlign: 'center' },
   tabs: { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },

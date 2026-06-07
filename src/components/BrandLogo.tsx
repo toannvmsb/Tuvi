@@ -1,22 +1,25 @@
 /**
- * Logo Tuzi — wrap ảnh trong hình tròn có viền vàng và glow nhẹ để
- * ăn nhập theme tím-vàng của app. Phần "page background" trắng quanh
- * yin-yang trong file logo sẽ bị clip bởi borderRadius = size/2.
+ * Logo Tuzi — hiển thị logo đầy đủ (biểu tượng âm dương + chữ "tuzi.vn" +
+ * slogan) dạng Ô VUÔNG BO GÓC, nền navy hòa với theme tối của app.
  *
- * Anh đặt file ảnh tại: `assets/logo.jpg` (đúng định dạng gốc — KHÔNG đổi đuôi .png).
+ * KHÔNG clip tròn (sẽ cắt mất chữ "tuzi.vn"). Logo gốc đã có nền navy nên không
+ * cần nền trắng; chỉ thêm viền vàng mảnh + glow nhẹ cho khung gọn gàng, sang.
+ *
+ * Anh đặt file ảnh tại: `assets/logo.jpg` (đúng định dạng gốc — không đổi đuôi).
  */
 import React from 'react';
 import { View, Image, StyleSheet, ViewStyle } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 interface Props {
-  size?: number;       // Đường kính tổng thể (mặc định 88)
+  size?: number;       // Cạnh ô vuông (mặc định 88)
   border?: boolean;    // Có vẽ viền vàng + glow không
   style?: ViewStyle;
 }
 
 export default function BrandLogo({ size = 88, border = true, style }: Props) {
-  const radius = size / 2;
+  // Bo góc kiểu "squircle" ~18% cạnh — không cắt chữ, vẫn mềm mại.
+  const radius = Math.round(size * 0.18);
   return (
     <View
       style={[
@@ -25,21 +28,21 @@ export default function BrandLogo({ size = 88, border = true, style }: Props) {
           width: size,
           height: size,
           borderRadius: radius,
-          borderWidth: border ? 2 : 0,
+          borderWidth: border ? 1.5 : 0,
           borderColor: border ? COLORS.gold : 'transparent',
-          // Soft glow cho ăn nhập theme tối
+          // Glow vàng nhẹ cho nổi trên nền tối, không quá rực.
           shadowColor: COLORS.gold,
-          shadowOpacity: border ? 0.45 : 0,
-          shadowRadius: 12,
+          shadowOpacity: border ? 0.3 : 0,
+          shadowRadius: 10,
           shadowOffset: { width: 0, height: 0 },
-          elevation: border ? 8 : 0,
+          elevation: border ? 6 : 0,
         },
         style,
       ]}
     >
       <Image
         source={require('../../assets/logo.jpg')}
-        style={{ width: size - 4, height: size - 4, borderRadius: radius - 2 }}
+        style={{ width: size, height: size, borderRadius: radius }}
         resizeMode="cover"
       />
     </View>
@@ -48,8 +51,8 @@ export default function BrandLogo({ size = 88, border = true, style }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: '#fff',           // nền trắng tự nhiên của logo
+    backgroundColor: '#1a2350',   // navy hợp với nền logo (tránh viền trắng khi bo góc)
     alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden',                // clip phần trắng vuông ngoài yin-yang
+    overflow: 'hidden',           // bo góc ảnh bên trong
   },
 });
