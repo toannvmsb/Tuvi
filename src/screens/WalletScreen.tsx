@@ -8,12 +8,12 @@
  * BẢN TEST: còn nút Admin để nạp/giả lập thanh toán phục vụ kiểm thử.
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
-import { wallet, deposit, resetWallet, seedWallet, PREMIUM } from '../constants/premium';
-import { BANK, XU_PACKS, makeTopupCode, vietQrImageUrl, type XuPack } from '../constants/payment';
+import { wallet, deposit, seedWallet, PREMIUM } from '../constants/premium';
+import { BANK, XU_PACKS, makeTopupCode, vietQrImageUrl, WEB_TOPUP_URL, type XuPack } from '../constants/payment';
 import { createTopupOrder, checkTopupStatus, fetchServerBalance, listTopupOrders, deleteTopupOrder, type TopupRow } from '../lib/topup';
 import { notifyLocal } from '../lib/notifications';
 import { isOnlineMode } from '../lib/auth';
@@ -25,6 +25,18 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { isWeb, downloadToCache, saveImageOrDownload } from '../lib/platform';
 
 interface Order { code: string; pack: XuPack; }
+
+/**
+ * Hiện gợi ý "nạp qua website (chuyển khoản)" trên PRODUCTION MOBILE.
+ *  - Android: BẬT — Google chấp nhận thanh toán thay thế tại VN.
+ *  - iOS: TẮT mặc định để tránh rủi ro Apple từ chối (anti-steering, Guideline 3.1.1/3.1.3).
+ *    Muốn bật cho iOS thì đổi ALLOW_WEB_TOPUP_IOS = true (cân nhắc rủi ro khi review).
+ *  - Web/dev: không cần (đã có VietQR ngay trong app).
+ * Lưu ý NGÔN TỪ: chỉ nói "cách nạp khác", KHÔNG so sánh giá / KHÔNG nói rẻ hơn /
+ * KHÔNG chê IAP — tránh vi phạm quy định chống "điều hướng" (steering) của Apple.
+ */
+const ALLOW_WEB_TOPUP_IOS = false;
+const SHOW_WEB_TOPUP = Platform.OS === 'android' || (Platform.OS === 'ios' && ALLOW_WEB_TOPUP_IOS);
 
 export default function WalletScreen() {
   const navigation = useNavigation<any>();
@@ -129,7 +141,20 @@ export default function WalletScreen() {
   const cancelOrder = () => { stopPoll(); setOrder(null); setStatus('idle'); setMsg(''); };
 
   // ----- Admin/test -----
-  const testReset = () => { const b = resetWallet(); setBal(b); setMsg('↻ Đã reset 100.000 xu (Admin · test).'); };
+  // Đặt số dư test về 100.000 xu và LƯU LÊN SERVER (qua deposit → RPC deposit_xu)
+  // để xu giữ được khi đăng xuất/đăng nhập lại. Trước đây resetWallet() chỉ đổi
+  // cục bộ nên re-login bị về 0.
+  const testReset = () => {
+    const target = 100000;
+    const delta = target - wallet.balance;
+    if (delta > 0) {
+      const b = deposit(delta);   // cộng + bắn onDeposit → deposit_xu (lưu DB)
+      setBal(b);
+    } else {
+      setBal(wallet.balance);     // đã ≥ 100.000, không cần cộng thêm
+    }
+    setMsg('✓ Số dư test đặt về 100.000 xu (đã lưu vào tài khoản).');
+  };
   const testSimulatePaid = () => {
     if (!order) return;
     const b = deposit(order.pack.xu);   // cộng cục bộ để kiểm thử
@@ -240,6 +265,28 @@ export default function WalletScreen() {
                 <Text style={styles.note}>Nếu không tải được, vui lòng kiểm tra kết nối mạng hoặc thử lại sau. Trên web tuzi.vn anh có thể nạp qua VietQR.</Text>
               </>
             )}
+          </View>
+        )}
+
+        {/* CÁCH NẠP KHÁC — gợi ý nạp qua chuyển khoản trên website (ngôn từ trung tính) */}
+        {!isWeb && !__DEV__ && SHOW_WEB_TOPUP && (
+          <View style={styles.altPayBox}>
+            <Text style={styles.altPayTitle}>💳 Cách nạp khác</Text>
+            <Text style={styles.altPayText}>
+              Nếu không muốn thanh toán qua cửa hàng ứng dụng, bạn có thể nạp xu bằng
+              chuyển khoản ngân hàng trên website của chúng tôi. Xu sẽ được cộng vào
+              cùng tài khoản này.
+            </Text>
+            <TouchableOpacity
+              style={styles.altPayBtn}
+              onPress={() => Linking.openURL(WEB_TOPUP_URL).catch(() => setMsg('⚠ Không mở được trình duyệt.'))}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.altPayBtnText}>🌐 Mở tuzi.vn để nạp qua chuyển khoản</Text>
+            </TouchableOpacity>
+            <Text style={styles.altPayHint}>
+              Đăng nhập cùng tài khoản trên website để xu được cộng đúng nơi.
+            </Text>
           </View>
         )}
 
@@ -366,7 +413,7 @@ export default function WalletScreen() {
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.testBtn} onPress={testReset}>
-              <Text style={styles.testTxt}>↻ Reset 100.000 xu</Text>
+              <Text style={styles.testTxt}>↻ Đặt 100.000 xu (lưu vào tài khoản)</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -426,6 +473,13 @@ const styles = StyleSheet.create({
   histHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   refresh: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700' },
   comboBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
+  // Cách nạp khác (website chuyển khoản)
+  altPayBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm, marginTop: SPACING.md },
+  altPayTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  altPayText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
+  altPayBtn: { borderWidth: 1, borderColor: COLORS.gold, borderRadius: 10, paddingVertical: SPACING.sm, alignItems: 'center', backgroundColor: COLORS.gold + '14' },
+  altPayBtnText: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.sm },
+  altPayHint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic' },
   chartChips: { flexDirection: 'row', gap: SPACING.xs, paddingVertical: 2 },
   chartChip: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: 16, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   chartChipActive: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },

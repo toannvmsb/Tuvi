@@ -79,6 +79,14 @@ export default function HeaderMenuButton({ color }: { color?: string }) {
 
   const screen = Dimensions.get('window');
 
+  // Overlay backdrop tap-to-close:
+  //  - Web: position:fixed phủ đúng viewport (KHÔNG dùng width*2 vì sẽ tràn
+  //    document làm trình duyệt zoom-out → cả UI bị thu nhỏ).
+  //  - Native (Android): absolute mở rộng 2x để phủ chắc bất kể vị trí.
+  const overlayStyle = Platform.OS === 'web'
+    ? ({ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 1 } as any)
+    : [styles.overlay, { top: -(insets.top + 60), left: -(screen.width), width: screen.width * 2, height: screen.height * 2 }];
+
   return (
     <View style={[styles.wrap, open && styles.raised]}>
       <TouchableOpacity style={styles.menuBtn} onPress={openMenu} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -88,7 +96,7 @@ export default function HeaderMenuButton({ color }: { color?: string }) {
       {open && Platform.OS !== 'ios' && (
         <>
           <Pressable
-            style={[styles.overlay, { top: -(insets.top + 60), left: -(screen.width), width: screen.width * 2, height: screen.height * 2 }]}
+            style={overlayStyle}
             onPress={() => setOpen(false)}
           />
           <View style={styles.menuBox}>
