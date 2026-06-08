@@ -82,9 +82,46 @@ function MainTabs({ route }: any) {
   );
 }
 
+// Tên hiển thị tiếng Việt cho tiêu đề tab Chrome (document.title) theo từng route.
+// Mặc định React Navigation lấy tên route (vd "BatTu") → map sang tên đẹp.
+const ROUTE_TITLES: Record<string, string> = {
+  Home: 'Trang chủ',
+  Input: 'Lập lá số',
+  MainTabs: 'Lá số Tử Vi',
+  TuViChart: 'Lá số Tử Vi',
+  BatTu: 'Bát Tự',
+  DaiVan: 'Đại Vận',
+  TieuVan: 'Tiểu Vận',
+  NguyetVan: 'Nguyệt Vận',
+  PalaceDetail: 'Chi tiết cung',
+  FullChartAI: 'Phân tích AI toàn lá số',
+  WealthChart: 'Tài Lộc',
+  DailyView: 'Xem theo ngày',
+  DayPicker: 'Xem ngày tốt',
+  MyCharts: 'Lá số đã lưu',
+  Wallet: 'Nạp xu',
+  Account: 'Tài khoản',
+  Settings: 'Cài đặt',
+  Privacy: 'Thông tin bảo mật',
+  Terms: 'Điều khoản sử dụng',
+  About: 'Giới thiệu',
+};
+
+const BRAND = 'Tuzi — Tử Vi & Bát Tự';
+
 export default function AppNavigator() {
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      documentTitle={{
+        // Tiêu đề tab Chrome: "Tuzi - <Tên chức năng>". Home/không xác định → tên brand đầy đủ.
+        formatter: (options, route) => {
+          const friendly = (options as any)?.title ?? (route ? ROUTE_TITLES[route.name] : undefined);
+          if (!friendly || route?.name === 'Home') return BRAND;
+          return `Tuzi - ${friendly}`;
+        },
+      }}
+    >
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: COLORS.surface },
