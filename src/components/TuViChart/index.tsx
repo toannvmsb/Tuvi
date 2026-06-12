@@ -8,10 +8,21 @@
  */
 import React, { forwardRef, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import Svg, { Polygon } from 'react-native-svg';
 import { useContentWidth } from '../../lib/platform';
 import type { TuViChart as TuViChartType, BirthInfo } from '../../types';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
+import { ELEMENT_COLOR } from '../../data/starElements';
 import HouseCell from './HouseCell';
+
+// Ngũ hành + màu (đồng bộ với màu sao trong lá số) — hiển thị thành 1 hàng gắn dưới lá số.
+const NGU_HANH: Array<[string, string]> = [
+  ['Kim', ELEMENT_COLOR.Kim],
+  ['Mộc', ELEMENT_COLOR.Mộc],
+  ['Thủy', ELEMENT_COLOR.Thủy],
+  ['Hỏa', ELEMENT_COLOR.Hỏa],
+  ['Thổ', ELEMENT_COLOR.Thổ],
+];
 
 interface Props {
   chart: TuViChartType;
@@ -89,7 +100,7 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
       lastTap.current = { idx: branchIdx, time: now };
     }
   };
-  const chartWidth = Math.min(width - SPACING.md * 2, 720);
+  const chartWidth = width - SPACING.md * 2;   // fill trọn chiều rộng (bỏ trần 720px)
   const chartHeight = Math.round(chartWidth * 1.35); // chart cao hơn rộng → cell hình chữ nhật đứng
   const cellW = Math.floor(chartWidth / 4);
   const cellH = Math.floor(chartHeight / 4);
@@ -100,8 +111,28 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
     grid[row][col] = branchIdx;
   }
 
+  // ─── Tam giác TAM HỢP Mệnh – Tài – Quan ───
+  // Tam giác CHỈ nằm trong HÌNH CHỮ NHẬT TRUNG TÂM (vùng 2×2 ở giữa lá số).
+  // Điểm neo = điểm trên cạnh hình chữ nhật trong, ứng với GIỮA cạnh cung tiếp giáp;
+  // nếu cung ở góc thì neo đúng GÓC của hình chữ nhật trong.
+  //   L,R,T,B = các cạnh của hình chữ nhật trung tâm (theo pixel).
+  const L = cellW, R = 3 * cellW, T = cellH, B = 3 * cellH;
+  const anchorOf = (branchIdx: number): { x: number; y: number } => {
+    const [r, c] = GRID_POSITIONS[branchIdx];
+    const x = c === 0 ? L : c === 3 ? R : (c + 0.5) * cellW; // cột 0/3 → cạnh trái/phải; cột 1,2 → giữa cạnh trên/dưới
+    const y = r === 0 ? T : r === 3 ? B : (r + 0.5) * cellH; // hàng 0/3 → cạnh trên/dưới; hàng 1,2 → giữa cạnh trái/phải
+    return { x, y };
+  };
+  const menhIdx = chart.houses.findIndex(h => h.isManh);
+  const taiIdx = chart.houses.findIndex(h => h.palaceName === 'Tài Bạch');
+  const quanIdx = chart.houses.findIndex(h => h.palaceName === 'Quan Lộc');
+  const triPts = (menhIdx >= 0 && taiIdx >= 0 && quanIdx >= 0)
+    ? [menhIdx, quanIdx, taiIdx].map(anchorOf).map(p => `${p.x},${p.y}`).join(' ')
+    : '';
+
   return (
-    <View ref={ref} collapsable={false} style={[styles.container, { width: chartWidth, height: chartHeight }]}>
+    <View ref={ref} collapsable={false} style={[styles.exportWrap, { width: chartWidth }]}>
+    <View style={[styles.container, { width: chartWidth, height: chartHeight }]}>
       {grid.map((row, ri) =>
         row.map((branchIdx, ci) => {
           if (branchIdx === null) {
@@ -214,6 +245,27 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
           );
         })
       )}
+
+      {/* Tam giác tam hợp Mệnh – Quan – Tài (vẽ trên cùng, KHÔNG chặn chạm).
+          Bọc trong View pointerEvents="none" — native tôn trọng chắc chắn hơn đặt trên Svg. */}
+      {!!triPts && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width={chartWidth} height={chartHeight}>
+            <Polygon points={triPts} fill="none" stroke={COLORS.goldLight} strokeWidth={1.4} strokeOpacity={0.5} />
+          </Svg>
+        </View>
+      )}
+    </View>
+
+    {/* Hàng ngũ hành — gắn liền dưới lá số, nằm trong vùng xuất ảnh */}
+    <View style={styles.nguHanhBar}>
+      {NGU_HANH.map(([label, color]) => (
+        <View key={label} style={styles.nhItem}>
+          <View style={[styles.nhDot, { backgroundColor: color }]} />
+          <Text style={[styles.nhLabel, { color }]}>{label}</Text>
+        </View>
+      ))}
+    </View>
     </View>
   );
 });
@@ -221,11 +273,27 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
 export default TuViChart;
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
+  exportWrap: {
     alignSelf: 'center',
     backgroundColor: COLORS.background,
   },
+  container: {
+    position: 'relative',
+    backgroundColor: COLORS.background,
+  },
+  // Hàng ngũ hành gắn liền dưới lá số
+  nguHanhBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 7,
+    backgroundColor: COLORS.surface,
+    borderTopWidth: 1,
+    borderColor: COLORS.gold,
+  },
+  nhItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  nhDot: { width: 13, height: 13, borderRadius: 3 },
+  nhLabel: { fontSize: 12.5, fontWeight: '700' },
   center: {
     position: 'absolute',
     backgroundColor: COLORS.surface,

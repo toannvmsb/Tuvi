@@ -8,21 +8,13 @@ import { Platform, useWindowDimensions } from 'react-native';
 export const isWeb = Platform.OS === 'web';
 
 /**
- * Chiều rộng tối đa của cột nội dung trên web (desktop/tablet).
- * Dùng CHUNG cho CSS container (#root trong App.tsx) và useContentWidth() →
- * luôn khớp nhau. Điện thoại < giá trị này sẽ tự fill full chiều ngang.
- */
-export const WEB_MAX_CONTENT_WIDTH = 600;
-
-/**
- * Chiều rộng content thực tế:
- * - Mobile: full chiều ngang thiết bị.
- * - Web: co giãn theo màn hình nhưng cap ở WEB_MAX_CONTENT_WIDTH
- *   (điện thoại nhỏ hơn → full; tablet/desktop → cột rộng cố định, căn giữa).
+ * Chiều rộng content thực tế = full chiều ngang thiết bị (cả web lẫn mobile).
+ * Web: app fluid, tự fit khung màn hình thiết bị; lá số & biểu đồ fill trọn
+ * chiều rộng cửa sổ, cỡ chữ lá số scale theo (xem HouseCell).
  */
 export function useContentWidth(): number {
   const { width } = useWindowDimensions();
-  return isWeb ? Math.min(width, WEB_MAX_CONTENT_WIDTH) : width;
+  return width;
 }
 
 /**
@@ -30,7 +22,7 @@ export function useContentWidth(): number {
  * - Mobile: expo-print → expo-sharing (như cũ).
  * - Web: mở tab mới chứa HTML rồi trigger window.print().
  */
-export async function printHtml(html: string): Promise<void> {
+export async function printHtml(html: string, fileName?: string): Promise<void> {
   if (isWeb) {
     const win = window.open('', '_blank');
     if (!win) {
@@ -41,6 +33,7 @@ export async function printHtml(html: string): Promise<void> {
       iframe.contentDocument?.open();
       iframe.contentDocument?.write(html);
       iframe.contentDocument?.close();
+      if (fileName && iframe.contentDocument) iframe.contentDocument.title = fileName;
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
       setTimeout(() => document.body.removeChild(iframe), 1000);
@@ -49,6 +42,8 @@ export async function printHtml(html: string): Promise<void> {
     win.document.open();
     win.document.write(html);
     win.document.close();
+    // Tên tab/tài liệu → tên file gợi ý khi người dùng "Lưu sang PDF".
+    if (fileName) { try { win.document.title = fileName; } catch {} }
     win.focus();
     setTimeout(() => win.print(), 500);
     return;
@@ -61,9 +56,42 @@ export async function printHtml(html: string): Promise<void> {
   }
   try { Sharing = require('expo-sharing'); } catch {}
   const { uri } = await Print.printToFileAsync({ html, base64: false });
+  // expo-print đặt tên file ngẫu nhiên → đổi sang fileName mong muốn trước khi chia sẻ.
+  const shareUri = fileName ? (await renamePdfFile(uri, fileName)) ?? uri : uri;
   if (Sharing && (await Sharing.isAvailableAsync())) {
-    await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+    await Sharing.shareAsync(shareUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
   }
+}
+
+/** Đổi tên file PDF (expo-print tạo tên ngẫu nhiên) sang `${fileName}.pdf` trong thư mục cache.
+ *  Hỗ trợ cả API mới (expo-file-system v19 — File/Paths) lẫn API cũ (cacheDirectory/moveAsync). */
+async function renamePdfFile(uri: string, fileName: string): Promise<string | undefined> {
+  const safe = fileName.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'phan-tich';
+  try {
+    const FS: any = require('expo-file-system');
+    if (FS?.File && FS?.Paths?.cache) {
+      const dest = new FS.File(FS.Paths.cache, `${safe}.pdf`);
+      try { if (dest.exists) dest.delete(); } catch {}
+      new FS.File(uri).move(dest);
+      return dest.uri ?? uri;
+    }
+    if (FS?.cacheDirectory && FS?.moveAsync) {
+      const target = `${FS.cacheDirectory}${safe}.pdf`;
+      try { await FS.deleteAsync(target, { idempotent: true }); } catch {}
+      await FS.moveAsync({ from: uri, to: target });
+      return target;
+    }
+  } catch { /* thử legacy bên dưới */ }
+  try {
+    const Legacy: any = require('expo-file-system/legacy');
+    if (Legacy?.cacheDirectory && Legacy?.moveAsync) {
+      const target = `${Legacy.cacheDirectory}${safe}.pdf`;
+      try { await Legacy.deleteAsync(target, { idempotent: true }); } catch {}
+      await Legacy.moveAsync({ from: uri, to: target });
+      return target;
+    }
+  } catch { /* giữ uri gốc */ }
+  return undefined;
 }
 
 /**

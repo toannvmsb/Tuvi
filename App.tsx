@@ -10,15 +10,14 @@ import { loadLanguage } from './src/i18n';
 import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
 import WebAlertHost from './src/components/WebAlertHost';
-import { WEB_MAX_CONTENT_WIDTH } from './src/lib/platform';
 
-// Web: co giãn theo màn hình — điện thoại full, tablet/desktop cột rộng cố định
-// (WEB_MAX_CONTENT_WIDTH) căn giữa. Khớp với useContentWidth() cho lá số/biểu đồ.
+// Web: app fluid — tự fit TRỌN khung màn hình thiết bị (không giới hạn bề rộng).
+// Lá số & biểu đồ fill full chiều ngang cửa sổ; cỡ chữ lá số scale theo.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
-    body { background: ${COLORS.background}; display: flex; justify-content: center; }
-    #root { max-width: ${WEB_MAX_CONTENT_WIDTH}px; width: 100%; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+    body { background: ${COLORS.background}; }
+    #root { width: 100%; position: relative; }
     * { -webkit-tap-highlight-color: transparent; }
     input, textarea { font-size: 16px !important; }
   `;
