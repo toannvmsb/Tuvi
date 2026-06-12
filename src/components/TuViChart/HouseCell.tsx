@@ -123,14 +123,16 @@ function PhuStar({ star, fontSize, faded, align }: {
 export default function HouseCell({ house, width, height, showLuuStars = false }: Props) {
   const { chinh, cat, hung, luu } = categorize(house.stars);
 
-  // Font scaling — co giãn theo bề rộng ô (width = cellW).
-  // floor giữ nguyên cỡ chữ trên điện thoại (ô hẹp luôn chạm floor); ratio cao
-  // hơn để màn hình lớn (tablet/desktop) chữ lá số TO RÕ, dễ nhìn.
-  const headerFs = Math.max(7,  Math.round(width * 0.078));
-  const chinhFs  = Math.max(9,  Math.round(width * 0.095));
-  const phuFs    = Math.max(6,  Math.round(width * 0.063));
-  const luuFs    = Math.max(5,  Math.round(width * 0.053));
-  const branchFs = Math.max(8,  Math.round(width * 0.085));
+  // Font scaling — chữ tăng bằng 70% mức tăng kích thước lá số.
+  // BASE_CELL = bề rộng ô tham chiếu (điện thoại) → fontScale = 1 (cỡ gốc).
+  // Lá số to gấp k lần → chữ chỉ to thêm 70% của (k-1) → đỡ quá khổ trên desktop.
+  const BASE_CELL = 95;
+  const fontScale = Math.max(1, 1 + 0.7 * (width / BASE_CELL - 1));
+  const headerFs = Math.round(7 * fontScale);
+  const chinhFs  = Math.round(9 * fontScale);
+  const phuFs    = Math.round(6 * fontScale);
+  const luuFs    = Math.round(5 * fontScale);
+  const branchFs = Math.round(8 * fontScale);
 
   // Estimate available height — line spacing chặt (1.2-1.25x)
   const headerH = headerFs * 1.4 + 10; // +10 for tuan/triet banner space

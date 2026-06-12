@@ -105,6 +105,11 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
   const cellW = Math.floor(chartWidth / 4);
   const cellH = Math.floor(chartHeight / 4);
 
+  // Cùng rule với HouseCell: chữ phần GIỮA lá số scale = 70% mức tăng của lá số.
+  const BASE_CELL = 95;
+  const fontScale = Math.max(1, 1 + 0.7 * (cellW / BASE_CELL - 1));
+  const cfs = (base: number) => Math.round(base * fontScale);   // center font size
+
   const grid: (number | null)[][] = Array.from({ length: 4 }, () => Array(4).fill(null));
   for (let branchIdx = 0; branchIdx < 12; branchIdx++) {
     const [row, col] = GRID_POSITIONS[branchIdx];
@@ -145,8 +150,8 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
                     { width: cellW * 2, height: cellH * 2, left: cellW, top: cellH }
                   ]}
                 >
-                  <Text style={styles.centerTitle}>LÁ SỐ TỬ VI</Text>
-                  <Text style={styles.centerNameBig} numberOfLines={1} adjustsFontSizeToFit>
+                  <Text style={[styles.centerTitle, { fontSize: cfs(15) }]}>LÁ SỐ TỬ VI</Text>
+                  <Text style={[styles.centerNameBig, { fontSize: cfs(12.5) }]} numberOfLines={1} adjustsFontSizeToFit>
                     {birthInfo.name} · {birthInfo.gender === 'nam' ? '♂ Nam' : '♀ Nữ'}
                     {birthInfo.birthplace ? ` · ${birthInfo.birthplace}` : ''}
                   </Text>
@@ -155,42 +160,42 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
 
                   {/* Ngày tháng giờ sinh + Can Chi */}
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Năm sinh</Text>
-                    <Text style={styles.infoValue}>{birthInfo.year}</Text>
-                    <Text style={styles.infoCanChi}>{chart.lunarDate.yearStem} {chart.lunarDate.yearBranch}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Năm sinh</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.year}</Text>
+                    <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.lunarDate.yearStem} {chart.lunarDate.yearBranch}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Tháng sinh</Text>
-                    <Text style={styles.infoValue}>{birthInfo.month} ({chart.lunarDate.month})</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Tháng sinh</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.month} ({chart.lunarDate.month})</Text>
                     {chart.monthStem && chart.monthBranch && (
-                      <Text style={styles.infoCanChi}>{chart.monthStem} {chart.monthBranch}</Text>
+                      <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.monthStem} {chart.monthBranch}</Text>
                     )}
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Ngày sinh</Text>
-                    <Text style={styles.infoValue}>{birthInfo.day} ({chart.lunarDate.day})</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Ngày sinh</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.day} ({chart.lunarDate.day})</Text>
                     {chart.dayStem && chart.dayBranch && (
-                      <Text style={styles.infoCanChi}>{chart.dayStem} {chart.dayBranch}</Text>
+                      <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.dayStem} {chart.dayBranch}</Text>
                     )}
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Giờ sinh</Text>
-                    <Text style={styles.infoValue}>{hourRangeLabel(birthInfo.hour)}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Giờ sinh</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{hourRangeLabel(birthInfo.hour)}</Text>
                     {chart.hourStem && chart.hourBranch && (
-                      <Text style={styles.infoCanChi}>{chart.hourStem} {chart.hourBranch}</Text>
+                      <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.hourStem} {chart.hourBranch}</Text>
                     )}
                   </View>
                   {chart.viewingYear && (
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Năm xem</Text>
-                      <Text style={styles.infoValue}>
+                      <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Năm xem</Text>
+                      <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>
                         {chart.viewingYear}
                         {chart.viewingYearStem && chart.viewingYearBranch
                           ? ` (${chart.viewingYearStem} ${chart.viewingYearBranch})`
                           : ''}
                       </Text>
                       {chart.viewingAge && (
-                        <Text style={[styles.infoCanChi, { color: COLORS.red }]}>
+                        <Text style={[styles.infoCanChi, { color: COLORS.red, fontSize: cfs(10) }]}>
                           Tuổi: {chart.viewingAge}
                         </Text>
                       )}
@@ -201,18 +206,18 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
 
                   {/* Mệnh / Cục / tương quan */}
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Mệnh</Text>
-                    <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700' }]}>{chart.napAmMenh}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Mệnh</Text>
+                    <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700', fontSize: cfs(10) }]}>{chart.napAmMenh}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Cục</Text>
-                    <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700' }]}>{chart.cucName}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Cục</Text>
+                    <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700', fontSize: cfs(10) }]}>{chart.cucName}</Text>
                   </View>
                   <View style={styles.relationBox}>
-                    <Text style={styles.relationText}>
+                    <Text style={[styles.relationText, { fontSize: cfs(8), lineHeight: cfs(12) }]}>
                       Mệnh-Cục: {menhCucRelation(chart.menhElement, chart.cucSo)}
                     </Text>
-                    <Text style={styles.relationText}>
+                    <Text style={[styles.relationText, { fontSize: cfs(8), lineHeight: cfs(12) }]}>
                       {amDuongGenderLabel(chart.lunarDate.yearStem, birthInfo.gender)} · Âm Dương {chart.amDuongThuanLy === 'thuận' ? 'Thuận' : 'Nghịch'} Lý
                     </Text>
                   </View>
@@ -220,12 +225,12 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
                   <View style={styles.divider} />
 
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Mệnh chủ</Text>
-                    <Text style={styles.infoValue}>{chart.menhChu}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Mệnh chủ</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{chart.menhChu}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Thân chủ</Text>
-                    <Text style={styles.infoValue}>{chart.thanChu}</Text>
+                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Thân chủ</Text>
+                    <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{chart.thanChu}</Text>
                   </View>
                 </View>
               );
