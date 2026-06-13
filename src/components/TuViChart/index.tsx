@@ -160,26 +160,26 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
 
                   {/* Ngày tháng giờ sinh + Can Chi */}
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Năm sinh</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Năm sinh</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.year}</Text>
                     <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.lunarDate.yearStem} {chart.lunarDate.yearBranch}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Tháng sinh</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Tháng sinh</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.month} ({chart.lunarDate.month})</Text>
                     {chart.monthStem && chart.monthBranch && (
                       <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.monthStem} {chart.monthBranch}</Text>
                     )}
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Ngày sinh</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Ngày sinh</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{birthInfo.day} ({chart.lunarDate.day})</Text>
                     {chart.dayStem && chart.dayBranch && (
                       <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.dayStem} {chart.dayBranch}</Text>
                     )}
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Giờ sinh</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Giờ sinh</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{hourRangeLabel(birthInfo.hour)}</Text>
                     {chart.hourStem && chart.hourBranch && (
                       <Text style={[styles.infoCanChi, { fontSize: cfs(10) }]}>{chart.hourStem} {chart.hourBranch}</Text>
@@ -187,7 +187,7 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
                   </View>
                   {chart.viewingYear && (
                     <View style={styles.infoRow}>
-                      <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Năm xem</Text>
+                      <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Năm xem</Text>
                       <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>
                         {chart.viewingYear}
                         {chart.viewingYearStem && chart.viewingYearBranch
@@ -206,11 +206,11 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
 
                   {/* Mệnh / Cục / tương quan */}
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Mệnh</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Mệnh</Text>
                     <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700', fontSize: cfs(10) }]}>{chart.napAmMenh}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Cục</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Cục</Text>
                     <Text style={[styles.infoValue, { color: COLORS.gold, fontWeight: '700', fontSize: cfs(10) }]}>{chart.cucName}</Text>
                   </View>
                   <View style={styles.relationBox}>
@@ -225,11 +225,11 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
                   <View style={styles.divider} />
 
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Mệnh chủ</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Mệnh chủ</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{chart.menhChu}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { fontSize: cfs(10) }]}>Thân chủ</Text>
+                    <Text numberOfLines={1} style={[styles.infoLabel, { fontSize: cfs(10), width: cfs(64) }]}>Thân chủ</Text>
                     <Text style={[styles.infoValue, { fontSize: cfs(10) }]}>{chart.thanChu}</Text>
                   </View>
                 </View>
