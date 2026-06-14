@@ -123,11 +123,11 @@ function PhuStar({ star, fontSize, faded, align }: {
 export default function HouseCell({ house, width, height, showLuuStars = false }: Props) {
   const { chinh, cat, hung, luu } = categorize(house.stars);
 
-  // Font scaling — chữ tăng bằng 70% mức tăng kích thước lá số.
+  // Font scaling — chữ tăng bằng 85% mức tăng kích thước lá số.
   // BASE_CELL = bề rộng ô tham chiếu (điện thoại) → fontScale = 1 (cỡ gốc).
-  // Lá số to gấp k lần → chữ chỉ to thêm 70% của (k-1) → đỡ quá khổ trên desktop.
+  // Lá số to gấp k lần → chữ to thêm 85% của (k-1).
   const BASE_CELL = 95;
-  const fontScale = Math.max(1, 1 + 0.7 * (width / BASE_CELL - 1));
+  const fontScale = Math.max(1, 1 + 0.85 * (width / BASE_CELL - 1));
   const headerFs = Math.round(7 * fontScale);
   const chinhFs  = Math.round(9 * fontScale);
   const phuFs    = Math.round(6 * fontScale);

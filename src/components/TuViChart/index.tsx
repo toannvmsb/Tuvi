@@ -108,9 +108,9 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
   const cellW = Math.floor(chartWidth / 4);
   const cellH = Math.floor(chartHeight / 4);
 
-  // Cùng rule với HouseCell: chữ phần GIỮA lá số scale = 70% mức tăng của lá số.
+  // Cùng rule với HouseCell: chữ phần GIỮA lá số scale = 85% mức tăng của lá số.
   const BASE_CELL = 95;
-  const fontScale = Math.max(1, 1 + 0.7 * (cellW / BASE_CELL - 1));
+  const fontScale = Math.max(1, 1 + 0.85 * (cellW / BASE_CELL - 1));
   const cfs = (base: number) => Math.round(base * fontScale);   // center font size
 
   const grid: (number | null)[][] = Array.from({ length: 4 }, () => Array(4).fill(null));

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
-  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform, ActivityIndicator,
+  View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform, ActivityIndicator, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -28,9 +28,12 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const chartRef = useRef<View>(null);
   const webChartContainerRef = useRef<View>(null);
 
-  // ── ZOOM lá số (chỉ web) ──────────────────────────────────────────────
-  // Mặc định cân đối kiểu iPad (cap ~820px) thay vì full màn desktop.
-  // Nút kính lúp +/− đổi ±5% mỗi lần; min = cỡ điện thoại (~360), max = fit màn hình.
+  // ── ZOOM lá số ────────────────────────────────────────────────────────
+  // Hiện nút kính lúp trên WEB và iPad (tablet native); KHÔNG hiện trên iPhone.
+  // Mặc định cân đối kiểu iPad (cap ~820px). ±5% mỗi lần; min = cỡ điện thoại, max = fit màn hình.
+  const { width: winW, height: winH } = useWindowDimensions();
+  const isTablet = !isWeb && Math.min(winW, winH) >= 768;   // iPad: cạnh ngắn ≥ 768pt
+  const showZoom = isWeb || isTablet;
   const fullW = useContentWidth();                 // bề rộng cửa sổ (web) / thiết bị
   const ZOOM_MIN = Math.min(360, fullW);           // tối thiểu = cỡ điện thoại
   const ZOOM_MAX = fullW;                          // tối đa = fit màn hình
@@ -247,7 +250,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         {/* Chart — nhấn đúp vào 1 cung để xem chi tiết. Web: có nút kính lúp +/− bên phải. */}
         <View style={styles.hintRow}>
           <Text style={[styles.tapHint, { flex: 1 }]}>Mẹo: nhấn đúp vào một cung để xem chi tiết các sao</Text>
-          {isWeb && (
+          {showZoom && (
             <View style={styles.zoomControls}>
               <TouchableOpacity
                 style={[styles.zoomBtn, chartW <= ZOOM_MIN && styles.zoomBtnOff]}
@@ -269,7 +272,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           chart={fullChartResult.tuViChart}
           birthInfo={fullChartResult.birthInfo}
           showLuuStars={showLuuTieuVan}
-          width={isWeb ? chartW : undefined}
+          width={showZoom ? chartW : undefined}
           onPalacePress={(branchIndex) =>
             navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex })
           }
