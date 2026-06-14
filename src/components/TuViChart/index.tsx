@@ -29,6 +29,8 @@ interface Props {
   birthInfo: BirthInfo;
   showLuuStars?: boolean;
   onPalacePress?: (branchIndex: number) => void;
+  /** Bề rộng content do màn cha truyền (cho zoom). Bỏ trống → tự lấy full chiều ngang. */
+  width?: number;
 }
 
 const GRID_POSITIONS: Array<[number, number]> = [
@@ -86,8 +88,9 @@ function menhCucRelation(menhEl: string, cucSo: number): string {
   return `${menhEl} - ${cucEl}`;
 }
 
-const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress }, ref) {
-  const width = useContentWidth();
+const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress, width: widthProp }, ref) {
+  const autoWidth = useContentWidth();
+  const width = widthProp ?? autoWidth;   // màn cha truyền bề rộng (zoom) → ưu tiên
   const lastTap = useRef<{ idx: number; time: number }>({ idx: -1, time: 0 });
 
   const handleCellPress = (branchIdx: number) => {

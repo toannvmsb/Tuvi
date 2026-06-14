@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, Switch, StyleSheet, TouchableOpacity, Alert, Modal, FlatList, Platform, ActivityIndicator,
 } from 'react-native';
@@ -13,6 +13,7 @@ import { t } from '../i18n';
 import { exportChartAsImage, shareImageFile, saveImageToGallery } from '../utils/exportChart';
 import { buildResult } from '../core/buildResult';
 import { navigationRef } from '../navigation/AppNavigator';
+import { isWeb, useContentWidth } from '../lib/platform';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TuViChart'>;
 
@@ -26,6 +27,21 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const [webExporting, setWebExporting] = useState(false);
   const chartRef = useRef<View>(null);
   const webChartContainerRef = useRef<View>(null);
+
+  // ── ZOOM lá số (chỉ web) ──────────────────────────────────────────────
+  // Mặc định cân đối kiểu iPad (cap ~820px) thay vì full màn desktop.
+  // Nút kính lúp +/− đổi ±5% mỗi lần; min = cỡ điện thoại (~360), max = fit màn hình.
+  const fullW = useContentWidth();                 // bề rộng cửa sổ (web) / thiết bị
+  const ZOOM_MIN = Math.min(360, fullW);           // tối thiểu = cỡ điện thoại
+  const ZOOM_MAX = fullW;                          // tối đa = fit màn hình
+  const balancedDefault = Math.max(ZOOM_MIN, Math.min(fullW, 820));
+  const [chartW, setChartW] = useState<number>(balancedDefault);
+  // Khi đổi kích thước cửa sổ (resize/xoay) → kẹp lại trong [min, max].
+  useEffect(() => {
+    setChartW(w => Math.max(ZOOM_MIN, Math.min(w, ZOOM_MAX)));
+  }, [fullW]); // eslint-disable-line react-hooks/exhaustive-deps
+  const zoomIn  = () => setChartW(w => Math.min(ZOOM_MAX, Math.round(w * 1.05)));
+  const zoomOut = () => setChartW(w => Math.max(ZOOM_MIN, Math.round(w * 0.95)));
 
   // NĂM XEM — chỉ ảnh hưởng PHÂN TÍCH TOÀN BỘ LÁ SỐ (đổi sao lưu của năm).
   // Các tab khác (Bát Tự, Đại/Tiểu/Nguyệt Vận, Xem theo ngày) KHÔNG bị ảnh hưởng.
@@ -160,9 +176,36 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         onBack={() => navigationRef.navigate('Home')}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Toolbar */}
+        {/* 3 TAB chức năng — trên cùng màn lá số */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={styles.tabBtn}
+            onPress={() => navigationRef.navigate('WealthChart', { result })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.tabIcon}>💰</Text>
+            <Text style={styles.tabLabel}>Xem tài lộc</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tabBtn}
+            onPress={() => navigationRef.navigate('DailyView', { result })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.tabIcon}>📅</Text>
+            <Text style={styles.tabLabel}>Nhật vận</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tabBtn}
+            onPress={() => navigationRef.navigate('DayPicker', { result })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.tabIcon}>🧭</Text>
+            <Text style={styles.tabLabel}>Xem ngày tốt</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Toolbar — Hiện Lưu Tiểu Vận (trái) · Năm xem (phải) */}
         <View style={styles.toolbar}>
-          {/* Hàng đầu: Hiện Lưu Tiểu Vận (trái) · Năm xem (phải) */}
           <View style={styles.firstRow}>
             <ToggleSwitch
               label={t('showLuuTieuVan') || 'Lưu Tiểu Vận'}
@@ -173,22 +216,6 @@ export default function TuViChartScreen({ route, navigation }: Props) {
               <Text style={styles.yearBtnText}>Năm xem: {viewYear} ▾</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.exportBtn, exporting && { opacity: 0.5 }]}
-            onPress={handleExport}
-            disabled={exporting}
-          >
-            <Text style={styles.exportBtnText}>
-              {exporting ? '⏳ Đang xử lý...' : '🔍 Xem ảnh & phóng to lá số'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.aiChartBtn}
-            onPress={() => navigationRef.navigate('FullChartAI', { result: fullChartResult })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.aiChartBtnText}>🤖 Phân tích AI toàn lá số (PRO) · năm {viewYear}</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Modal chọn Năm xem */}
@@ -217,80 +244,56 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </Modal>
 
-        {/* Chart — nhấn đúp vào 1 cung để xem chi tiết */}
-        <Text style={styles.tapHint}>Mẹo: nhấn đúp vào một cung để xem chi tiết các sao</Text>
+        {/* Chart — nhấn đúp vào 1 cung để xem chi tiết. Web: có nút kính lúp +/− bên phải. */}
+        <View style={styles.hintRow}>
+          <Text style={[styles.tapHint, { flex: 1 }]}>Mẹo: nhấn đúp vào một cung để xem chi tiết các sao</Text>
+          {isWeb && (
+            <View style={styles.zoomControls}>
+              <TouchableOpacity
+                style={[styles.zoomBtn, chartW <= ZOOM_MIN && styles.zoomBtnOff]}
+                onPress={zoomOut} disabled={chartW <= ZOOM_MIN} activeOpacity={0.7}
+              >
+                <Text style={styles.zoomTxt}>🔍−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.zoomBtn, chartW >= ZOOM_MAX && styles.zoomBtnOff]}
+                onPress={zoomIn} disabled={chartW >= ZOOM_MAX} activeOpacity={0.7}
+              >
+                <Text style={styles.zoomTxt}>🔍＋</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <TuViChart
           ref={chartRef}
           chart={fullChartResult.tuViChart}
           birthInfo={fullChartResult.birthInfo}
           showLuuStars={showLuuTieuVan}
+          width={isWeb ? chartW : undefined}
           onPalacePress={(branchIndex) =>
             navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex })
           }
         />
 
-        {/* Legend — color by ngũ hành */}
-        <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Chú thích độ sáng & ngũ hành</Text>
-          <View style={styles.legendRow}>
-            <Text style={styles.legendNote}>M: Miếu · V: Vượng · Đ: Đắc · B: Bình hòa · H: Hãm</Text>
-          </View>
-          <View style={styles.legendRow}>
-            {[
-              { color: '#e5e7eb', label: 'Kim' },
-              { color: '#10b981', label: 'Mộc' },
-              { color: '#1e40af', label: 'Thủy' },
-              { color: '#ff9d8a', label: 'Hỏa' },
-              { color: '#f59e0b', label: 'Thổ' },
-            ].map(({ color, label }) => (
-              <View key={label} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: color }]} />
-                <Text style={styles.legendLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
+        {/* 2 nút: Xem ảnh & phóng to + Phân tích AI */}
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={[styles.exportBtn, exporting && { opacity: 0.5 }]}
+            onPress={handleExport}
+            disabled={exporting}
+          >
+            <Text style={styles.exportBtnText}>
+              {exporting ? '⏳ Đang xử lý...' : '🔍 Xem ảnh & phóng to lá số'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.aiChartBtn}
+            onPress={() => navigationRef.navigate('FullChartAI', { result: fullChartResult })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.aiChartBtnText}>🤖 Phân tích AI toàn lá số (PRO) · năm {viewYear}</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Birth info summary */}
-        <View style={styles.birthSummary}>
-          <Text style={styles.birthSummaryTitle}>Thông tin cá nhân</Text>
-          <Text style={styles.birthSummaryText}>
-            {birthInfo.name} • {birthInfo.gender === 'nam' ? '♂ Nam' : '♀ Nữ'}
-          </Text>
-          <Text style={styles.birthSummaryText}>
-            Dương lịch: {birthInfo.day}/{birthInfo.month}/{birthInfo.year}
-          </Text>
-          <Text style={styles.birthSummaryText}>
-            Âm lịch: {chart.lunarDate.day}/{chart.lunarDate.month}{chart.lunarDate.isLeapMonth ? '(n)' : ''}/{chart.lunarDate.year} ({chart.lunarDate.yearStem}{chart.lunarDate.yearBranch})
-          </Text>
-        </View>
-
-        {/* Tài Lộc */}
-        <TouchableOpacity
-          style={styles.dayBtn}
-          onPress={() => navigationRef.navigate('WealthChart', { result })}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.dayBtnText}>💰 Tài Lộc (xu hướng tài lộc cả đời)</Text>
-        </TouchableOpacity>
-
-        {/* Xem theo ngày */}
-        <TouchableOpacity
-          style={styles.dayBtn}
-          onPress={() => navigationRef.navigate('DailyView', { result })}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.dayBtnText}>📅 Xem theo ngày (tốt/xấu, nên/không nên)</Text>
-        </TouchableOpacity>
-
-        {/* Xem ngày tốt cho việc cụ thể */}
-        <TouchableOpacity
-          style={styles.dayBtn}
-          onPress={() => navigationRef.navigate('DayPicker', { result })}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.dayBtnText}>🧭 Xem ngày tốt cho việc cụ thể</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <ImageViewerModal
@@ -376,6 +379,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xxl, alignItems: 'center' },
   toolbar: { width: '100%', gap: SPACING.sm },
+  // 3 tab chức năng trên cùng
+  tabRow: { flexDirection: 'row', gap: SPACING.sm, width: '100%' },
+  tabBtn: {
+    flex: 1, backgroundColor: COLORS.surface,
+    borderWidth: 1, borderColor: COLORS.gold, borderRadius: 10,
+    paddingVertical: SPACING.sm, paddingHorizontal: 4,
+    alignItems: 'center', justifyContent: 'center', minHeight: 64,
+  },
+  tabIcon: { fontSize: 22 },
+  tabLabel: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800', marginTop: 4, textAlign: 'center' },
+  // Cụm 2 nút dưới phần chú thích
+  bottomActions: { width: '100%', gap: SPACING.sm },
   firstRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACING.sm },
   yearBtn: {
     borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8,
@@ -413,6 +428,14 @@ const styles = StyleSheet.create({
   },
   dayBtnText: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.md, textAlign: 'left' },
   tapHint: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontStyle: 'italic', textAlign: 'center' },
+  hintRow: { flexDirection: 'row', alignItems: 'center', width: '100%', gap: SPACING.sm },
+  zoomControls: { flexDirection: 'row', gap: 6 },
+  zoomBtn: {
+    borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5, backgroundColor: COLORS.gold + '1a',
+  },
+  zoomBtnOff: { opacity: 0.35 },
+  zoomTxt: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
   legend: {
     backgroundColor: COLORS.card, borderRadius: 8, padding: SPACING.md,
     borderWidth: 1, borderColor: COLORS.border, width: '100%',
