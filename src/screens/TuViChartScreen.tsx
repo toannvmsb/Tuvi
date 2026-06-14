@@ -273,6 +273,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           birthInfo={fullChartResult.birthInfo}
           showLuuStars={showLuuTieuVan}
           width={showZoom ? chartW : undefined}
+          scaled={showZoom}
           onPalacePress={(branchIndex) =>
             navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex })
           }
@@ -323,6 +324,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
                   chart={fullChartResult.tuViChart}
                   birthInfo={fullChartResult.birthInfo}
                   showLuuStars={showLuuTieuVan}
+                  scaled
                   onPalacePress={(branchIndex) => {
                     setWebChartOpen(false);
                     setTimeout(() => navigationRef.navigate('PalaceDetail', { result: fullChartResult, branchIndex }), 200);

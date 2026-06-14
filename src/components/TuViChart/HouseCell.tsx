@@ -29,6 +29,8 @@ interface Props {
   width: number;
   height: number;
   showLuuStars?: boolean;
+  /** true (web/iPad): chữ scale 85% theo kích thước lá số. false/bỏ trống (iPhone): tỷ lệ gốc. */
+  scaled?: boolean;
 }
 
 // Vòng sao classified as cát hay hung (theo nghĩa truyền thống)
@@ -120,19 +122,19 @@ function PhuStar({ star, fontSize, faded, align }: {
   );
 }
 
-export default function HouseCell({ house, width, height, showLuuStars = false }: Props) {
+export default function HouseCell({ house, width, height, showLuuStars = false, scaled = false }: Props) {
   const { chinh, cat, hung, luu } = categorize(house.stars);
 
-  // Font scaling — chữ tăng bằng 85% mức tăng kích thước lá số.
-  // BASE_CELL = bề rộng ô tham chiếu (điện thoại) → fontScale = 1 (cỡ gốc).
-  // Lá số to gấp k lần → chữ to thêm 85% của (k-1).
+  // Font scaling:
+  //  - iPhone (scaled=false): GIỮ NGUYÊN tỷ lệ gốc (ratio nhỏ + floor) như app cũ.
+  //  - Web/iPad (scaled=true): chữ tăng bằng 85% mức tăng kích thước lá số (zoom).
   const BASE_CELL = 95;
   const fontScale = Math.max(1, 1 + 0.85 * (width / BASE_CELL - 1));
-  const headerFs = Math.round(7 * fontScale);
-  const chinhFs  = Math.round(9 * fontScale);
-  const phuFs    = Math.round(6 * fontScale);
-  const luuFs    = Math.round(5 * fontScale);
-  const branchFs = Math.round(8 * fontScale);
+  const headerFs = scaled ? Math.round(7 * fontScale) : Math.max(7, Math.round(width * 0.055));
+  const chinhFs  = scaled ? Math.round(9 * fontScale) : Math.max(9, Math.round(width * 0.072));
+  const phuFs    = scaled ? Math.round(6 * fontScale) : Math.max(6, Math.round(width * 0.04));
+  const luuFs    = scaled ? Math.round(5 * fontScale) : Math.max(5, Math.round(width * 0.038));
+  const branchFs = scaled ? Math.round(8 * fontScale) : Math.max(8, Math.round(width * 0.06));
 
   // Estimate available height — line spacing chặt (1.2-1.25x)
   const headerH = headerFs * 1.4 + 10; // +10 for tuan/triet banner space

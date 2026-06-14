@@ -31,6 +31,8 @@ interface Props {
   onPalacePress?: (branchIndex: number) => void;
   /** Bề rộng content do màn cha truyền (cho zoom). Bỏ trống → tự lấy full chiều ngang. */
   width?: number;
+  /** true (web/iPad): chữ scale 85% theo kích thước lá số. false/bỏ trống (iPhone): tỷ lệ gốc. */
+  scaled?: boolean;
 }
 
 const GRID_POSITIONS: Array<[number, number]> = [
@@ -88,7 +90,7 @@ function menhCucRelation(menhEl: string, cucSo: number): string {
   return `${menhEl} - ${cucEl}`;
 }
 
-const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress, width: widthProp }, ref) {
+const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress, width: widthProp, scaled = false }, ref) {
   const autoWidth = useContentWidth();
   const width = widthProp ?? autoWidth;   // màn cha truyền bề rộng (zoom) → ưu tiên
   const lastTap = useRef<{ idx: number; time: number }>({ idx: -1, time: 0 });
@@ -108,9 +110,9 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
   const cellW = Math.floor(chartWidth / 4);
   const cellH = Math.floor(chartHeight / 4);
 
-  // Cùng rule với HouseCell: chữ phần GIỮA lá số scale = 85% mức tăng của lá số.
+  // Chữ phần GIỮA lá số: web/iPad (scaled) scale 85% theo kích thước; iPhone giữ cỡ gốc.
   const BASE_CELL = 95;
-  const fontScale = Math.max(1, 1 + 0.85 * (cellW / BASE_CELL - 1));
+  const fontScale = scaled ? Math.max(1, 1 + 0.85 * (cellW / BASE_CELL - 1)) : 1;
   const cfs = (base: number) => Math.round(base * fontScale);   // center font size
 
   const grid: (number | null)[][] = Array.from({ length: 4 }, () => Array(4).fill(null));
@@ -248,7 +250,7 @@ const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo,
               onPress={() => handleCellPress(branchIdx)}
               style={{ position: 'absolute', left: c * cellW, top: r * cellH }}
             >
-              <HouseCell house={house} width={cellW} height={cellH} showLuuStars={showLuuStars} />
+              <HouseCell house={house} width={cellW} height={cellH} showLuuStars={showLuuStars} scaled={scaled} />
             </Pressable>
           );
         })
