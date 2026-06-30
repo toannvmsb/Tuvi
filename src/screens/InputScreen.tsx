@@ -12,23 +12,24 @@ import { t } from '../i18n';
 import { buildResult } from '../core/buildResult';
 import { saveChart } from '../lib/charts';
 import ScreenHeader from '../components/ScreenHeader';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Input'>;
 
 const HOUR_OPTIONS = [
-  { label: '23:00-01:00 (Tý)', value: 0 },
-  { label: '01:00-03:00 (Sửu)', value: 2 },
-  { label: '03:00-05:00 (Dần)', value: 4 },
-  { label: '05:00-07:00 (Mão)', value: 6 },
-  { label: '07:00-09:00 (Thìn)', value: 8 },
-  { label: '09:00-11:00 (Tị)', value: 10 },
-  { label: '11:00-13:00 (Ngọ)', value: 12 },
-  { label: '13:00-15:00 (Mùi)', value: 14 },
-  { label: '15:00-17:00 (Thân)', value: 16 },
-  { label: '17:00-19:00 (Dậu)', value: 18 },
-  { label: '19:00-21:00 (Tuất)', value: 20 },
-  { label: '21:00-23:00 (Hợi)', value: 22 },
+  { label: '23:00 - 00:59 (Tý)', value: 0 },
+  { label: '01:00 - 02:59 (Sửu)', value: 2 },
+  { label: '03:00 - 04:59 (Dần)', value: 4 },
+  { label: '05:00 - 06:59 (Mão)', value: 6 },
+  { label: '07:00 - 08:59 (Thìn)', value: 8 },
+  { label: '09:00 - 10:59 (Tị)', value: 10 },
+  { label: '11:00 - 12:59 (Ngọ)', value: 12 },
+  { label: '13:00 - 14:59 (Mùi)', value: 14 },
+  { label: '15:00 - 16:59 (Thân)', value: 16 },
+  { label: '17:00 - 18:59 (Dậu)', value: 18 },
+  { label: '19:00 - 20:59 (Tuất)', value: 20 },
+  { label: '21:00 - 22:59 (Hợi)', value: 22 },
 ];
 
 export default function InputScreen({ navigation }: Props) {
@@ -52,6 +53,13 @@ export default function InputScreen({ navigation }: Props) {
   const viewingYearOptions = Array.from({ length: (currentYear + 100) - 1900 + 1 }, (_, i) => (currentYear + 100) - i);
   const [viewingYearSearch, setViewingYearSearch] = useState('');
 
+  // Mở picker: LUÔN ẩn bàn phím trước (tránh bàn phím từ ô Họ tên / tìm Năm xem còn hiện).
+  const openPicker = (which: 'day' | 'month' | 'year' | 'viewingYear') => {
+    Keyboard.dismiss();
+    if (which === 'viewingYear') setViewingYearSearch('');
+    setPickerOpen(which);
+  };
+
   async function handleCalculate() {
     if (!name.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập họ và tên'); return; }
     const y = parseInt(year); const m = parseInt(month); const d = parseInt(day);
@@ -62,8 +70,11 @@ export default function InputScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      const apiKey = await AsyncStorage.getItem('anthropicApiKey') ?? '';
-      const oaiKey = await AsyncStorage.getItem('openaiApiKey') ?? '';
+      // Web: SecureStore không hỗ trợ → bọc try/catch để KHÔNG vỡ luồng lập lá số.
+      // (Trên web dùng AI key phía server; key client chỉ dùng cho native.)
+      let apiKey = '', oaiKey = '';
+      try { apiKey = (await SecureStore.getItemAsync('anthropicApiKey')) ?? ''; } catch {}
+      try { oaiKey = (await SecureStore.getItemAsync('openaiApiKey')) ?? ''; } catch {}
       const aiProv = (await AsyncStorage.getItem('aiProvider') ?? 'auto') as 'auto' | 'claude' | 'openai';
       const birthInfo: BirthInfo = {
         name: name.trim(), gender, birthplace: '',
@@ -125,7 +136,7 @@ export default function InputScreen({ navigation }: Props) {
         <Section title="🔭 Năm xem">
           <TouchableOpacity
             style={[styles.input, styles.pickerBtn]}
-            onPress={() => { setViewingYearSearch(''); setPickerOpen('viewingYear'); }}
+            onPress={() => openPicker('viewingYear')}
           >
             <Text style={styles.pickerBtnText}>{viewingYear}</Text>
             <Text style={styles.pickerArrow}>▾</Text>
@@ -155,7 +166,7 @@ export default function InputScreen({ navigation }: Props) {
               <Text style={styles.dateLabel}>Ngày</Text>
               <TouchableOpacity
                 style={[styles.input, styles.pickerBtn, styles.dateInput]}
-                onPress={() => setPickerOpen('day')}
+                onPress={() => openPicker('day')}
               >
                 <Text style={styles.pickerBtnText}>{day}</Text>
                 <Text style={styles.pickerArrow}>▾</Text>
@@ -165,7 +176,7 @@ export default function InputScreen({ navigation }: Props) {
               <Text style={styles.dateLabel}>Tháng</Text>
               <TouchableOpacity
                 style={[styles.input, styles.pickerBtn, styles.dateInput]}
-                onPress={() => setPickerOpen('month')}
+                onPress={() => openPicker('month')}
               >
                 <Text style={styles.pickerBtnText}>{month}</Text>
                 <Text style={styles.pickerArrow}>▾</Text>
@@ -175,7 +186,7 @@ export default function InputScreen({ navigation }: Props) {
               <Text style={styles.dateLabel}>Năm</Text>
               <TouchableOpacity
                 style={[styles.input, styles.pickerBtn, styles.dateInput]}
-                onPress={() => setPickerOpen('year')}
+                onPress={() => openPicker('year')}
               >
                 <Text style={styles.pickerBtnText}>{year}</Text>
                 <Text style={styles.pickerArrow}>▾</Text>
