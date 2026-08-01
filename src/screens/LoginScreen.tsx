@@ -19,12 +19,20 @@ import SimpleMarkdown from '../components/SimpleMarkdown';
 import BrandLogo from '../components/BrandLogo';
 import { PRIVACY_CONTENT, TERMS_CONTENT } from '../data/legalContent';
 
+/** Kiểm tra định dạng email cơ bản (đủ để chặn email sai trước khi gọi server). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const isValidEmail = (s: string) => EMAIL_RE.test(s.trim());
+const MIN_PW = 6;
+
 export default function LoginScreen() {
   const { refresh } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showPwConfirm, setShowPwConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -32,7 +40,20 @@ export default function LoginScreen() {
 
   const submit = async () => {
     setErr('');
-    if (!email.trim() || !pw) { setErr('Vui lòng nhập email và mật khẩu.'); return; }
+    const emailTrim = email.trim();
+    if (!emailTrim || !pw) { setErr('Vui lòng nhập email và mật khẩu.'); return; }
+    if (!isValidEmail(emailTrim)) {
+      setErr('Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: ten@gmail.com).');
+      return;
+    }
+    if (pw.length < MIN_PW) {
+      setErr(`Mật khẩu phải có ít nhất ${MIN_PW} ký tự.`);
+      return;
+    }
+    if (mode === 'register' && pw !== pwConfirm) {
+      setErr('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.');
+      return;
+    }
     if (mode === 'register' && !name.trim()) { setErr('Vui lòng nhập tên hiển thị.'); return; }
     if (mode === 'register' && !agreed) {
       setErr('Vui lòng tích vào ô đồng ý Chính sách bảo mật và Điều khoản sử dụng.');
@@ -61,8 +82,8 @@ export default function LoginScreen() {
   /** Quên mật khẩu — gửi mật khẩu mới vào email đã đăng ký. */
   const forgotPassword = async () => {
     setErr('');
-    if (!email.trim() || !email.includes('@')) {
-      setErr('Nhập email đã đăng ký vào ô Email, rồi bấm "Quên mật khẩu".');
+    if (!isValidEmail(email)) {
+      setErr('Nhập email hợp lệ đã đăng ký vào ô Email, rồi bấm "Quên mật khẩu".');
       return;
     }
     setBusy(true);
@@ -82,6 +103,9 @@ export default function LoginScreen() {
   const switchMode = (m: 'login' | 'register') => {
     setMode(m);
     setErr('');
+    setPwConfirm('');
+    setShowPw(false);
+    setShowPwConfirm(false);
   };
 
   // Nút Tạo tài khoản bị khóa khi chưa tích đồng ý (chỉ ở mode đăng ký).
@@ -90,11 +114,11 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={[COLORS.background, '#1a0a3a', COLORS.background]} style={styles.bg}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             <View style={styles.logoWrap}>
               <BrandLogo size={104} />
-              <Text style={styles.appName}>Tử Vi & Bát Tự</Text>
+              <Text style={styles.appName}>Trợ lý thông minh của bạn</Text>
               <Text style={styles.sub}>Đăng nhập để lưu lá số & nội dung đã mở</Text>
             </View>
 
@@ -116,11 +140,36 @@ export default function LoginScreen() {
               placeholder="Email" placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
               returnKeyType="next" />
-            <TextInput style={styles.input} value={pw} onChangeText={setPw}
-              placeholder="Mật khẩu" placeholderTextColor={COLORS.textMuted}
-              secureTextEntry autoCapitalize="none"
-              returnKeyType={mode === 'login' ? 'go' : 'done'}
-              onSubmitEditing={submit} />
+            <View style={styles.pwWrap}>
+              <TextInput style={styles.pwInput} value={pw} onChangeText={setPw}
+                placeholder="Mật khẩu" placeholderTextColor={COLORS.textMuted}
+                secureTextEntry={!showPw} autoCapitalize="none"
+                returnKeyType={mode === 'login' ? 'go' : 'next'}
+                onSubmitEditing={mode === 'login' ? submit : undefined} />
+              <TouchableOpacity onPress={() => setShowPw(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                <Text style={styles.eyeIcon}>{showPw ? '🙈' : '👁'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Gợi ý điều kiện mật khẩu — chỉ ở mode đăng ký */}
+            {mode === 'register' && (
+              <Text style={[styles.hint, pw.length > 0 && pw.length < MIN_PW && { color: COLORS.red }]}>
+                Mật khẩu tối thiểu {MIN_PW} ký tự{pw.length > 0 && pw.length < MIN_PW ? ` (hiện ${pw.length})` : ''}.
+              </Text>
+            )}
+
+            {/* Xác nhận mật khẩu — chỉ ở mode đăng ký */}
+            {mode === 'register' && (
+              <View style={styles.pwWrap}>
+                <TextInput style={styles.pwInput} value={pwConfirm} onChangeText={setPwConfirm}
+                  placeholder="Xác nhận mật khẩu" placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showPwConfirm} autoCapitalize="none"
+                  returnKeyType="done" onSubmitEditing={submit} />
+                <TouchableOpacity onPress={() => setShowPwConfirm(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                  <Text style={styles.eyeIcon}>{showPwConfirm ? '🙈' : '👁'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Checkbox đồng ý — chỉ hiện ở mode đăng ký */}
             {mode === 'register' && (
@@ -235,6 +284,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface, color: COLORS.textPrimary, borderRadius: 8,
     padding: SPACING.md, fontSize: FONTS.size.md, borderWidth: 1, borderColor: COLORS.border,
   },
+  pwWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.surface, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  pwInput: {
+    flex: 1, color: COLORS.textPrimary, fontSize: FONTS.size.md,
+    padding: SPACING.md,
+  },
+  eyeBtn: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  eyeIcon: { fontSize: 18 },
   agreeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.xs },
   checkbox: {
     width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: COLORS.gold,
@@ -245,6 +305,7 @@ const styles = StyleSheet.create({
   agreeText: { flex: 1, color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
   link: { color: COLORS.gold, fontWeight: '700', textDecorationLine: 'underline' },
   err: { color: COLORS.red, fontSize: FONTS.size.sm },
+  hint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, marginTop: -SPACING.xs, marginLeft: 4 },
   btn: { backgroundColor: COLORS.gold, borderRadius: 10, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.sm },
   btnDisabled: { opacity: 0.5 },
   btnTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.lg },

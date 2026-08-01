@@ -25,6 +25,8 @@ android/local.properties
 .env.*.local
 *.pem
 *.key
+*.jks
+API Key*.txt
 google-services.json
 GoogleService-Info.plist
 

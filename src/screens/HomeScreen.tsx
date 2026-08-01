@@ -1,20 +1,49 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Pressable, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, AstrologyResult } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { t } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { wallet } from '../constants/premium';
 import { APP_VERSION, COPYRIGHT } from '../constants/appInfo';
 import HeaderMenuButton from '../components/HeaderMenuButton';
-import BrandLogo from '../components/BrandLogo';
+import NotificationBell from '../components/NotificationBell';
+import AnimatedAvatar from '../components/AnimatedAvatar';
+import MonthDayHeatmapPanel from '../components/MonthDayHeatmapPanel';
 import { getMyChartId } from '../lib/myChart';
-import { listCharts, rowToResult } from '../lib/charts';
+import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
 import { buildTodaySummary, type TodaySummary } from '../core/todaySummary';
+import { buildNguyetVanCharts, type NguyetVanChartData } from '../core/nguyetVanCharts';
+import { buildGenericMonthHeatmap } from '../core/genericMonthHeatmap';
+import { currentAgeOf } from '../core/ageUtil';
+import { dailyGreetingLine } from '../core/dailyGreeting';
+import { solarToLunar } from '../core/lunarCalendar';
+import { syncEventNotifications, planScheduledReminders } from '../lib/notificationEvents';
+import { syncBroadcasts } from '../lib/broadcasts';
+import { openAiChat } from '../lib/aiChatBus';
+import { listLifeTasks, compareLifeTasks, type LifeTask } from '../lib/lifeTasks';
+import { listLifeNotes, createLifeNote, type LifeNote } from '../lib/lifeNotes';
+import { buildFinancialAdvice, type FinancialAdviceItem } from '../core/financialAdvisor';
+import { getSelectedAvatarId } from '../lib/avatarPrefs';
+
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** "10:15" nếu tạo hôm nay, "10:15 25/7" nếu ngày khác — cho preview "Ghi chú nhanh" ở Home. */
+function noteTimeLabel(createdAt: string): string {
+  const d = new Date(createdAt);
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const now = new Date();
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? hm : `${hm} ${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+const MONTH_NAMES = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -23,39 +52,113 @@ const RATING_COLOR: Record<string, string> = {
   'Bình thường': COLORS.gold, 'Cần thận trọng': '#e0a23a', 'Xấu': '#ff7a7a',
 };
 
+/** Màu ngày bắt đầu/kết thúc trong box "Việc & Mục tiêu": đang thực hiện = vàng, quá hạn = đỏ, chưa tới ngày = xanh. */
+function taskDateColor(t: LifeTask, todayStr: string): string {
+  if (t.end_date && todayStr > t.end_date) return COLORS.red;
+  if (t.start_date && todayStr < t.start_date) return COLORS.blue;
+  return COLORS.gold;
+}
+
+const TIER_COLOR: Record<FinancialAdviceItem['tier'], string> = {
+  good: COLORS.green, neutral: COLORS.gold, caution: COLORS.red,
+};
+
 export default function HomeScreen({ navigation }: Props) {
   const { online, user } = useAuth();
   const displayName = user?.displayName || (online ? '' : wallet.userName);
   const [summary, setSummary] = useState<TodaySummary | null>(null);
   const [myResult, setMyResult] = useState<AstrologyResult | null>(null);
-  const lastTapRef = useRef<number>(0);
+  const [monthCharts, setMonthCharts] = useState<NguyetVanChartData | null>(null);
+  const [taskPreview, setTaskPreview] = useState<LifeTask[]>([]);
+  const [notesPreview, setNotesPreview] = useState<LifeNote[]>([]);
+  const [noteInput, setNoteInput] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [avatarId, setAvatarId] = useState<string | null>(null);
+
+  const now = new Date();
+  const nowLunar = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
+  const genericMonth = buildGenericMonthHeatmap(now);
+  // Gợi ý Tài chính - Đầu tư: tính lại mỗi khi màn hình mở/lấy focus (loadSummary chạy lại
+  // qua useFocusEffect) — tự "sang kỳ mới" theo ngày/tháng âm mà không cần lưu trạng thái.
+  const financeAdvice = useMemo(
+    () => (myResult ? buildFinancialAdvice(myResult, now) : null),
+    [myResult, nowLunar.day, nowLunar.month],
+  );
 
   const loadSummary = useCallback(async () => {
     let result: AstrologyResult | null = null;
+    let charts: SavedChartRow[] = getCachedCharts() ?? [];
     try {
+      if (online) charts = await listCharts();
       const id = await getMyChartId();
-      if (id && online) {
-        const rows = await listCharts();
-        const row = rows.find(r => r.id === id);
+      if (id) {
+        const row = charts.find(r => r.id === id);
         if (row) result = rowToResult(row);
       }
     } catch { /* dùng bản chung */ }
     setMyResult(result);
     setSummary(buildTodaySummary(result, new Date()));
+    if (result) {
+      // Dùng tuổi TÍNH THEO NGÀY THỰC (không phải viewingAge đã lưu cố định
+      // từ lúc lập lá số) — nếu không, box "hôm nay/tháng này" sẽ lệch khỏi
+      // ngày thật khi lá số được tạo từ trước và "Năm xem" chưa cập nhật.
+      setMonthCharts(buildNguyetVanCharts(result, currentAgeOf(result), nowLunar.month));
+    } else {
+      setMonthCharts(null);
+    }
+    // Xem trước Việc & Mục tiêu + báo hạn (chỉ khi đã đăng nhập online) — nạp
+    // TRƯỚC để dùng chung cho cả preview lẫn 2 lời gọi thông báo bên dưới.
+    let allOpenTasks: LifeTask[] = [];
+    if (online && result) {
+      try {
+        // "3 việc quan trọng nhất": gộp Việc + Mục tiêu rồi sắp lại bằng ĐÚNG
+        // quy tắc đã dùng ở màn chi tiết (ưu tiên thủ công trước, còn lại theo
+        // ngày bắt đầu/kết thúc) — 2 danh sách đã sắp riêng theo kind nên phải
+        // merge-sort lại bằng chung 1 comparator, không thể nối rồi cắt thẳng.
+        const [tasks, goals] = await Promise.all([listLifeTasks('task'), listLifeTasks('goal')]);
+        allOpenTasks = [...tasks, ...goals].filter(t => t.status === 'open').sort(compareLifeTasks);
+        setTaskPreview(allOpenTasks.slice(0, 3));
+      } catch { setTaskPreview([]); }
+    } else {
+      setTaskPreview([]);
+    }
+
+    // Ghi chú nhanh — 2 mục gần nhất, không phụ thuộc lá số (chỉ cần đăng nhập).
+    if (online) {
+      try {
+        setNotesPreview(await listLifeNotes(3));
+      } catch { setNotesPreview([]); }
+    } else {
+      setNotesPreview([]);
+    }
+
+    // Sinh thông báo sự kiện (hiện ngay khi đang mở) + lên lịch nhắc cả khi app đóng
+    // — kèm nhắc hạn Việc & Mục tiêu (bắt đầu/hết hạn hôm nay hoặc ngày mai).
+    void syncEventNotifications(result, charts, allOpenTasks);
+    void planScheduledReminders(result, charts, allOpenTasks);
+    // Thông báo từ admin (khuyến mại/giảm giá chỉ trên web · cập nhật chức năng mọi nền tảng).
+    void syncBroadcasts();
   }, [online]);
 
-  /** Nhấn đúp vào tóm tắt → mở Xem ngày của lá số của tôi. */
-  const onTodayDoubleTap = () => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 350) {
-      lastTapRef.current = 0;
-      if (myResult) {
-        navigation.navigate('DailyView', { result: myResult });
-      } else {
-        Alert.alert('Chưa gắn lá số', 'Gắn lá số của bạn để có lời khuyên dành riêng cho bạn.');
-      }
+  /** Box "Ngày hôm nay" / "Nhịp tháng này" khi chưa gắn lá số → hỏi tạo mới hay dùng lá số đã lưu. */
+  const promptNoChart = () => {
+    Alert.alert(
+      'Chưa có hoặc chưa gắn lá số',
+      'Bạn tạo lá số mới hoặc vào Lá số đã lưu và gắn lá số để có lời khuyên dành riêng cho bạn.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Lá số mới', onPress: () => navigation.navigate('Input') },
+        { text: 'Lá số đã lưu', onPress: () => navigation.navigate('MyCharts') },
+      ],
+    );
+  };
+
+  /** Nhấn Tên trong lời chào → mở màn Lá Số (tab Tử Vi); cần có lá số. */
+  const goMyChart = () => {
+    if (myResult) {
+      (navigation as any).navigate('MainTabs', { result: myResult, screen: 'TuViChart', params: { result: myResult } });
     } else {
-      lastTapRef.current = now;
+      promptNoChart();
     }
   };
 
@@ -68,81 +171,281 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
+  /** Nhấn "Việc & Mục tiêu" → mở TasksScreen; cần có lá số (dùng để gợi ý thời điểm). */
+  const goTasks = () => {
+    if (myResult) {
+      navigation.navigate('Tasks', { result: myResult });
+    } else {
+      Alert.alert('Chưa gắn lá số', 'Gắn lá số của bạn để có gợi ý thời điểm dành riêng cho bạn.');
+    }
+  };
+
+  /** Nhấn "Gợi ý Tài chính - Đầu tư" → mở phân tích Tài Lộc; cần có lá số (dùng ADN tài chính + Tài Bạch). */
+  const goWealth = () => {
+    if (myResult) {
+      navigation.navigate('WealthChart', { result: myResult });
+    } else {
+      promptNoChart();
+    }
+  };
+
+  /** Nhấn "Ghi chú nhanh" → mở NotesScreen; KHÔNG cần lá số (ghi chú tự do, không gắn Tử Vi). */
+  const goNotes = () => navigation.navigate('Notes');
+
+  const quickSaveNote = async () => {
+    if (!noteInput.trim() || savingNote) return;
+    if (!online) {
+      Alert.alert('Cần đăng nhập', 'Đăng nhập để lưu ghi chú của bạn.');
+      return;
+    }
+    setSavingNote(true);
+    try {
+      await createLifeNote({ content: noteInput });
+      setNoteInput('');
+      setNotesPreview(await listLifeNotes(3));
+    } catch (e: any) {
+      Alert.alert('Không lưu được', e?.message || 'Lỗi không xác định.');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
   useFocusEffect(useCallback(() => { loadSummary(); }, [loadSummary]));
+  // Nạp lại mỗi khi quay lại Home — để đổi nhân vật ở Tài khoản có hiệu lực ngay.
+  useFocusEffect(useCallback(() => { getSelectedAvatarId().then(setAvatarId); }, []));
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <LinearGradient colors={[COLORS.background, '#1a0a3a', COLORS.background]} style={styles.gradient}>
         <View style={styles.topBar}>
+          <NotificationBell />
+          <View style={styles.topBarGap} />
           <HeaderMenuButton />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Header */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {/* Header — nhân vật đại diện (chọn ở Tài khoản) bên trái, lời chào + câu chúc ngày mới bên phải. */}
           <View style={styles.header}>
-            <BrandLogo size={96} />
-            <Text style={styles.title}>{t('homeTitle')}</Text>
-            {displayName ? <Text style={styles.greeting}>Xin chào - {displayName}</Text> : null}
-            <Text style={styles.subtitle}>{t('homeSubtitle')}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Account')} activeOpacity={0.8}>
+              <AnimatedAvatar avatarId={avatarId} size={68} />
+            </TouchableOpacity>
+            <View style={styles.headerText}>
+              <Text style={styles.greeting}>Xin chào</Text>
+              {displayName ? (
+                <TouchableOpacity onPress={goMyChart} activeOpacity={0.7}>
+                  <Text style={[styles.greeting, styles.greetingName]}>{displayName}</Text>
+                </TouchableOpacity>
+              ) : null}
+              <Text style={styles.tagline}>{dailyGreetingLine()}</Text>
+            </View>
           </View>
 
-          {/* Main CTA */}
-          <TouchableOpacity style={styles.mainButton} onPress={() => navigation.navigate('Input')} activeOpacity={0.85}>
-            <LinearGradient
-              colors={['#8B6914', COLORS.gold, '#8B6914']}
-              style={styles.mainButtonGradient}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.mainButtonText}>⊕  {t('newChart')}</Text>
-            </LinearGradient>
+          {/* Hỏi Tuzi — lối vào nhanh tới Chat AI (icon nổi cũng luôn sẵn sàng). */}
+          <TouchableOpacity style={styles.askBar} onPress={openAiChat} activeOpacity={0.85}>
+            <Text style={styles.askIcon}>✨</Text>
+            <Text style={styles.askText}>Hỏi Tuzi bất cứ điều gì…</Text>
           </TouchableOpacity>
 
-          {/* TÓM TẮT NGÀY HÔM NAY — nhấn đúp để mở Xem theo ngày của lá số */}
+          {/* NGÀY HÔM NAY — thu gọn: trái = ô ngày, phải = rating + Nên + Hạn chế. Nhấn để xem chi tiết. */}
           {summary && (
-            <Pressable style={styles.todayCard} onPress={onTodayDoubleTap}>
-              <View style={styles.todayHead}>
-                <Text style={styles.todayTitle}>📅 Hôm nay · {summary.weekday}, {summary.dateLabel}</Text>
-                <Text style={[styles.todayRating, { color: RATING_COLOR[summary.rating] || COLORS.gold }]}>{summary.rating}</Text>
+            <Pressable
+              style={styles.todayCard}
+              onPress={() => {
+                if (myResult) navigation.navigate('DailyView', { result: myResult });
+                else promptNoChart();
+              }}
+            >
+              <View style={styles.dateCell}>
+                <Text style={styles.dateMonth}>{MONTH_NAMES[now.getMonth() + 1]}</Text>
+                <Text style={styles.dateBig}>{now.getDate()}</Text>
+                <Text style={styles.dateLunar}>{nowLunar.day}/{nowLunar.month} âm{nowLunar.isLeapMonth ? ' nhuận' : ''}</Text>
               </View>
-              <Text style={styles.blockLabel}>✅ Nên</Text>
-              {summary.good.map((g, i) => <Text key={`g${i}`} style={styles.line}>• {g}</Text>)}
-
-              <Text style={[styles.blockLabel, { color: '#ff9d8a' }]}>⛔ Hạn chế</Text>
-              {summary.bad.map((b, i) => <Text key={`b${i}`} style={styles.line}>• {b}</Text>)}
-
-              {(summary.goodHours.length > 0 || summary.badHours.length > 0) && (
-                <>
-                  <Text style={styles.blockLabel}>🕒 Khung giờ</Text>
-                  {summary.goodHours.length > 0 && (
-                    <Text style={styles.line}>• <Text style={{ color: COLORS.green, fontWeight: '700' }}>Tốt:</Text> {summary.goodHours.join(' · ')}</Text>
-                  )}
-                  {summary.badHours.length > 0 && (
-                    <Text style={styles.line}>• <Text style={{ color: '#ff9d8a', fontWeight: '700' }}>Xấu:</Text> {summary.badHours.join(' · ')}</Text>
-                  )}
-                </>
-              )}
-
-              {summary.encourage && <Text style={styles.encourage}>💛 {summary.encourage}</Text>}
-
-              {!summary.hasChart && (
-                <TouchableOpacity onPress={() => navigation.navigate('MyCharts')} activeOpacity={0.8}>
-                  <Text style={styles.cta}>📌 Gắn lá số của bạn để có lời khuyên dành riêng cho bạn →</Text>
-                </TouchableOpacity>
-              )}
-              {summary.hasChart && (
-                <Text style={styles.tapHint}>👆 Nhấn đúp để xem chi tiết theo ngày của lá số bạn</Text>
-              )}
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateInfoRating}>
+                  Hôm nay: <Text style={{ color: RATING_COLOR[summary.rating] || COLORS.gold }}>{summary.rating}</Text>
+                </Text>
+                <Text style={styles.dateInfoLine}>✅ Nên: {summary.good[0] ?? '—'}</Text>
+                <Text style={styles.dateInfoLine}>⛔ Hạn chế: {summary.bad[0] ?? '—'}</Text>
+              </View>
             </Pressable>
           )}
 
-          {/* Hàng 2 nút chia đôi: Xem ngày xuất hành (trái) · Lá số đã lưu (phải) */}
-          <View style={styles.twoBtnRow}>
-            <TouchableOpacity style={[styles.halfBtn, styles.halfBtnLeft]} onPress={goDayPicker} activeOpacity={0.85}>
-              <Text style={styles.halfBtnText}>🧭  Xem ngày tốt</Text>
+          {/* Việc & Mục tiêu — 3 mục gần nhất. */}
+          <TouchableOpacity style={styles.previewBox} onPress={goTasks} activeOpacity={0.85}>
+            <View style={styles.previewHead}>
+              <Text style={styles.previewTitle}>✅ Việc & Mục tiêu</Text>
+              <Text style={styles.previewMore}>Xem tất cả ›</Text>
+            </View>
+            {taskPreview.length === 0 ? (
+              <Text style={styles.previewEmpty}>Chưa có việc/mục tiêu nào — nhấn để thêm mục đầu tiên.</Text>
+            ) : (
+              <>
+                <View style={styles.taskRow}>
+                  <View style={styles.taskRowTitleCol} />
+                  <View style={styles.taskRowDates}>
+                    <Text style={styles.taskDateHead}>Bắt đầu</Text>
+                    <Text style={styles.taskDateHead}>Kết thúc</Text>
+                  </View>
+                </View>
+                {taskPreview.map(t => {
+                  const todayStr = todayISO();
+                  const color = taskDateColor(t, todayStr);
+                  const startLabel = t.start_date ? t.start_date.split('-').slice(1).reverse().join('/') : '—';
+                  const endLabel = t.end_date ? t.end_date.split('-').slice(1).reverse().join('/') : '—';
+                  return (
+                    <View key={`${t.kind}${t.id}`} style={styles.taskRow}>
+                      <Text style={[styles.previewLine, styles.taskRowTitleCol]} numberOfLines={1}>
+                        {t.kind === 'task' ? '📌' : '🎯'} {t.title}
+                      </Text>
+                      <View style={styles.taskRowDates}>
+                        <Text style={[styles.taskDateText, { color }]} numberOfLines={1}>{startLabel}</Text>
+                        <Text style={[styles.taskDateText, { color }]} numberOfLines={1}>{endLabel}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Gợi ý Tài chính - Đầu tư — 2 cột: Hôm nay (trái) / Tháng này (phải), mỗi cột 1 gợi ý, tự đổi khi sang kỳ mới. */}
+          <TouchableOpacity style={styles.previewBox} onPress={goWealth} activeOpacity={0.85}>
+            <View style={styles.previewHead}>
+              <Text style={styles.previewTitle}>💰 Gợi ý Tài chính - Đầu tư</Text>
+              <Text style={styles.previewMore}>Tư vấn chi tiết ›</Text>
+            </View>
+            {!financeAdvice ? (
+              <Text style={styles.previewEmpty}>Gắn lá số để nhận gợi ý tài chính - đầu tư mỗi ngày, theo Tài Bạch của bạn.</Text>
+            ) : (
+              <View style={styles.financeCols}>
+                <View style={styles.financeCol}>
+                  <View style={styles.financeHead}>
+                    <Text style={styles.financeLabel}>{financeAdvice.day.label}</Text>
+                    <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.day.tier] }]}>{financeAdvice.day.tierLabel}</Text>
+                  </View>
+                  <Text style={styles.previewLine}>{financeAdvice.day.text}</Text>
+                </View>
+                <View style={styles.financeDivider} />
+                <View style={styles.financeCol}>
+                  {financeAdvice.month ? (
+                    <>
+                      <View style={styles.financeHead}>
+                        <Text style={styles.financeLabel}>{financeAdvice.month.label}</Text>
+                        <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.month.tier] }]}>{financeAdvice.month.tierLabel}</Text>
+                      </View>
+                      <Text style={styles.previewLine}>{financeAdvice.month.text}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.previewEmpty}>Chưa có dữ liệu tháng này.</Text>
+                  )}
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/*
+            Ghi chú nhanh — sổ ghi chú TỰ DO theo ngày (không gắn Việc/Mục tiêu, không cần lá số).
+            Box này KHÔNG bọc TouchableOpacity ở ngoài cùng (khác các box khác) vì có ô nhập liệu
+            bên trong — bọc touchable ngoài sẽ tranh chấp chạm với TextInput.
+          */}
+          <View style={styles.previewBox}>
+            <View style={styles.previewHead}>
+              <Text style={styles.previewTitle}>📝 Ghi chú nhanh</Text>
+              <TouchableOpacity onPress={goNotes}><Text style={styles.previewMore}>Xem tất cả ›</Text></TouchableOpacity>
+            </View>
+            <View style={styles.noteAddRow}>
+              <TextInput
+                style={styles.noteInput}
+                placeholder="Chợt nhớ ra điều gì đó? Ghi lại ở đây…"
+                placeholderTextColor={COLORS.textMuted}
+                value={noteInput}
+                onChangeText={setNoteInput}
+                onSubmitEditing={quickSaveNote}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[styles.noteSaveBtn, (!noteInput.trim() || savingNote) && styles.noteSaveBtnDisabled]}
+                onPress={quickSaveNote}
+                disabled={!noteInput.trim() || savingNote}
+              >
+                <Text style={styles.noteSaveBtnText}>{savingNote ? '…' : 'Lưu'}</Text>
+              </TouchableOpacity>
+            </View>
+            {notesPreview.length === 0 ? (
+              <Text style={styles.previewEmpty}>Note lại điều bạn chợt nhớ ra, hoặc một sự kiện vừa diễn ra.</Text>
+            ) : (
+              notesPreview.map(n => (
+                <TouchableOpacity key={n.id} onPress={goNotes} activeOpacity={0.7} style={styles.noteRow}>
+                  <Text style={styles.previewLine} numberOfLines={1}>📝 {n.content}</Text>
+                  <Text style={styles.noteTime}>{noteTimeLabel(n.created_at)}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+
+          {/*
+            Heatmap "Nhịp tháng này" — LUÔN hiện, kể cả khi chưa gắn lá số:
+              - Đã gắn lá số: tháng ÂM của tuổi hiện tại, điểm Nhật Vận cá nhân hóa (engine Nguyệt Vận).
+              - Chưa gắn lá số: tháng DƯƠNG hiện tại, điểm ngày chung theo Can-Chi (không cá nhân hóa).
+            Nhấn để mở màn Nguyệt Vận đầy đủ; nếu chưa gắn lá số → báo "Chưa gắn lá số" như box ngày.
+          */}
+          <TouchableOpacity
+            style={{ width: '100%', marginTop: SPACING.md }}
+            activeOpacity={0.85}
+            onPress={() => {
+              if (myResult) {
+                // QUAN TRỌNG: phải truyền `result` ở CẢ cấp MainTabs (không chỉ trong `params`
+                // của screen con) — MainTabs() đọc route.params.result rồi phát initialParams
+                // cho MỌI tab; thiếu nó khiến các tab khác (vd "Lá số") nhận result=undefined
+                // và crash "Cannot read property 'tuViChart' of undefined" khi chuyển tab.
+                (navigation as any).navigate('MainTabs', { result: myResult, screen: 'NguyetVan', params: { result: myResult } });
+              } else {
+                promptNoChart();
+              }
+            }}
+          >
+            {monthCharts ? (
+              <MonthDayHeatmapPanel
+                days={monthCharts.days}
+                stats={monthCharts.stats}
+                todayLunarDay={nowLunar.day}
+                title="Nhịp tháng này"
+                dayKind="lunar"
+                titleFontSize={13}
+              />
+            ) : (
+              <MonthDayHeatmapPanel
+                days={genericMonth.days}
+                stats={genericMonth.stats}
+                todayLunarDay={now.getDate()}
+                title="Nhịp tháng này"
+                caption="Màu = mức độ thuận lợi ngày theo lịch chung (chưa gắn lá số cá nhân). Viền trắng đậm = hôm nay."
+                dayKind="solar"
+                titleFontSize={13}
+              />
+            )}
+          </TouchableOpacity>
+
+          {/* Lưới module — "Lập lá số" giờ là 1 module trong nhiều module, không còn là CTA chính của app. */}
+          <View style={styles.gridDivider} />
+          <View style={styles.moduleGrid}>
+            <TouchableOpacity style={styles.moduleTile} onPress={() => navigation.navigate('Input')} activeOpacity={0.85}>
+              <Text style={styles.moduleIcon}>🔮</Text>
+              <Text style={styles.moduleText}>Lập lá số</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.halfBtn, styles.halfBtnRight]} onPress={() => navigation.navigate('MyCharts')} activeOpacity={0.85}>
-              <Text style={styles.halfBtnText}>🗂️  Lá số đã lưu</Text>
+            <TouchableOpacity style={styles.moduleTile} onPress={goDayPicker} activeOpacity={0.85}>
+              <Text style={styles.moduleIcon}>🧭</Text>
+              <Text style={styles.moduleText}>Xem ngày tốt</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.moduleTile} onPress={() => navigation.navigate('MyCharts')} activeOpacity={0.85}>
+              <Text style={styles.moduleIcon}>🗂️</Text>
+              <Text style={styles.moduleText}>Lá số đã lưu</Text>
             </TouchableOpacity>
           </View>
 
@@ -151,6 +454,7 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.copyright}>{COPYRIGHT}</Text>
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -160,60 +464,88 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   gradient: { flex: 1 },
   scroll: { padding: SPACING.xl, paddingTop: SPACING.xxl, alignItems: 'center', paddingBottom: SPACING.xl },
-  topBar: { position: 'absolute', top: SPACING.sm, right: SPACING.md, zIndex: 50 },
-  header: { alignItems: 'center', marginTop: SPACING.md },
+  topBar: { position: 'absolute', top: SPACING.sm, right: SPACING.md, zIndex: 50, flexDirection: 'row', alignItems: 'center' },
+  topBarGap: { width: 5 },  // chuông nằm sát trái Menu, cách ~5px
+  header: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.md },
+  headerText: { flex: 1, gap: 3, alignItems: 'center' },
   symbolCircle: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: COLORS.card, borderWidth: 2, borderColor: COLORS.gold,
     alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm,
   },
   symbol: { fontSize: 36, color: COLORS.gold },
-  title: { fontSize: FONTS.size.title, fontWeight: 'bold', color: COLORS.gold, textAlign: 'center' },
-  greeting: { fontSize: FONTS.size.md, color: COLORS.goldLight, textAlign: 'center', marginTop: SPACING.xs, fontWeight: '700' },
-  subtitle: { fontSize: FONTS.size.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.xs, lineHeight: 20 },
-  mainButton: { width: '100%', borderRadius: 16, overflow: 'hidden', marginVertical: SPACING.lg },
-  mainButtonGradient: { padding: SPACING.lg, alignItems: 'center', borderRadius: 16 },
-  mainButtonText: { fontSize: FONTS.size.xl, fontWeight: 'bold', color: '#1a0a00' },
+  greeting: { fontSize: FONTS.size.xxl, color: COLORS.goldLight, fontWeight: '700', textAlign: 'center' },
+  greetingName: { color: COLORS.gold },
+  tagline: { fontSize: FONTS.size.md, color: COLORS.textSecondary, lineHeight: 18, textAlign: 'center' },
+  subtitle: { fontSize: FONTS.size.md, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.xs, lineHeight: 20 },
+  askBar: {
+    width: '100%', flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.gold,
+    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md, marginTop: SPACING.lg,
+  },
+  askIcon: { fontSize: 18 },
+  askText: { color: COLORS.textSecondary, fontSize: FONTS.size.md, fontStyle: 'italic', flex: 1 },
 
   todayCard: {
-    width: '100%', backgroundColor: COLORS.card, borderRadius: 14,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.gold, gap: 3,
+    width: '100%', flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 14,
+    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.gold, gap: SPACING.md, marginTop: SPACING.md,
   },
-  todayHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  todayTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800', flex: 1 },
-  todayRating: { fontSize: FONTS.size.md, fontWeight: '900' },
-  todaySub: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, marginBottom: 4 },
-  blockLabel: { color: '#5fdb8a', fontSize: FONTS.size.sm, fontWeight: '800', marginTop: SPACING.xs },
-  line: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20 },
-  encourage: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 20, marginTop: SPACING.sm },
-  cta: {
-    color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700', fontStyle: 'italic',
-    marginTop: SPACING.sm, textAlign: 'center',
+  dateCell: {
+    alignItems: 'center', justifyContent: 'center', minWidth: 76,
+    borderRightWidth: 1, borderRightColor: COLORS.border, paddingRight: SPACING.md,
   },
+  dateMonth: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '700' },
+  dateBig: { color: COLORS.gold, fontSize: 40, fontWeight: '900', lineHeight: 46 },
+  dateLunar: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  dateInfo: { flex: 1, justifyContent: 'center', gap: 4 },
+  dateInfoRating: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700' },
+  dateInfoLine: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 16 },
 
-  savedBtn: {
-    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, marginTop: SPACING.lg, marginBottom: SPACING.sm,
+  previewBox: {
+    width: '100%', backgroundColor: COLORS.card, borderRadius: 12,
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4, marginTop: SPACING.md,
   },
-  savedBtnText: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700' },
-  tapHint: {
-    color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic',
-    textAlign: 'center', marginTop: SPACING.sm,
+  previewHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  previewTitle: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800' },
+  previewMore: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
+  previewEmpty: { color: COLORS.textMuted, fontSize: FONTS.size.sm, fontStyle: 'italic' },
+  previewLine: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 18 },
+  taskRow: { flexDirection: 'row', alignItems: 'center' },
+  taskRowTitleCol: { flex: 2 },
+  taskRowDates: { flex: 1, flexDirection: 'row' },
+  taskDateHead: { flex: 1, color: COLORS.textMuted, fontSize: FONTS.size.xs, fontWeight: '700', textAlign: 'center' },
+  taskDateText: { flex: 1, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
+  financeCols: { flexDirection: 'row', alignItems: 'stretch' },
+  financeCol: { flex: 1, gap: 2 },
+  financeDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: SPACING.sm },
+  financeHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  financeLabel: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '800' },
+  financeTier: { fontSize: FONTS.size.sm, fontWeight: '800' },
+  noteAddRow: { flexDirection: 'row', gap: SPACING.xs, alignItems: 'center' },
+  noteInput: {
+    flex: 1, backgroundColor: COLORS.surface, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+    color: COLORS.textPrimary, paddingHorizontal: SPACING.sm, paddingVertical: 6, fontSize: FONTS.size.sm,
   },
-  twoBtnRow: {
-    flexDirection: 'row', gap: SPACING.sm,
-    width: '100%',
-    marginTop: SPACING.lg, marginBottom: SPACING.sm,
+  noteSaveBtn: { backgroundColor: COLORS.gold, borderRadius: 8, paddingHorizontal: SPACING.md, paddingVertical: 7 },
+  noteSaveBtnDisabled: { opacity: 0.4 },
+  noteSaveBtnText: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.sm },
+  noteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.xs },
+  noteTime: { color: COLORS.textMuted, fontSize: FONTS.size.sm, flexShrink: 0 },
+
+  gridDivider: {
+    width: '100%', height: 1, backgroundColor: COLORS.border,
+    marginTop: SPACING.lg, marginBottom: SPACING.md,
   },
-  halfBtn: {
-    flex: 1, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center', minHeight: 44,
+  moduleGrid: { flexDirection: 'row', gap: SPACING.sm, width: '100%' },
+  moduleTile: {
+    flex: 1, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.xs,
+    borderWidth: 1, borderColor: COLORS.gold, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 61,
+    backgroundColor: COLORS.card,
   },
-  halfBtnLeft: {},
-  halfBtnRight: {},
-  halfBtnText: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700' },
+  moduleIcon: { fontSize: 24 },
+  moduleText: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
   footer: { alignItems: 'center', gap: 2, marginTop: SPACING.sm },
-  version: { fontSize: FONTS.size.sm, color: COLORS.textSecondary, textAlign: 'center', fontWeight: '700' },
-  copyright: { fontSize: FONTS.size.xs, color: COLORS.textMuted, textAlign: 'center' },
+  version: { fontSize: FONTS.size.md, color: COLORS.textSecondary, textAlign: 'center', fontWeight: '700' },
+  copyright: { fontSize: FONTS.size.sm, color: COLORS.textMuted, textAlign: 'center' },
 });

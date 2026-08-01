@@ -11,8 +11,8 @@ export const COLORS = {
   green: '#5fdb8a',
   purple: '#b876ff',
   textPrimary: '#f5ebd0',
-  textSecondary: '#b8c0e0',  // sáng hơn để đỡ mỏi mắt
-  textMuted: '#8a93b8',
+  textSecondary: '#ccd2f0',  // nâng 1 tông sáng hơn nữa để đỡ mỏi mắt
+  textMuted: '#a3abce',      // nâng 1 tông sáng hơn nữa (trước: #8a93b8)
   cellBg: '#5d6ba5',         // nền 12 cung — slate xanh sáng
   cellBgMenh: '#82663c',     // nền cung Mệnh — vàng nâu sáng
   starChinhTinh: '#f5b942',

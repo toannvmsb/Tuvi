@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList, MainTabParamList, AstrologyResult } from '../types';
 import HomeScreen from '../screens/HomeScreen';
@@ -16,11 +17,16 @@ import FullChartAIScreen from '../screens/FullChartAIScreen';
 import NguyetVanScreen from '../screens/NguyetVanScreen';
 import DailyScreen from '../screens/DailyScreen';
 import DayPickerScreen from '../screens/DayPickerScreen';
+import TasksScreen from '../screens/TasksScreen';
+import NotesScreen from '../screens/NotesScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
 import TermsScreen from '../screens/TermsScreen';
 import WalletScreen from '../screens/WalletScreen';
 import MyChartsScreen from '../screens/MyChartsScreen';
+import CompareChartsScreen from '../screens/CompareChartsScreen';
 import AboutScreen from '../screens/AboutScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import PromotionsScreen from '../screens/PromotionsScreen';
 import DaiVanScreen from '../screens/DaiVanScreen';
 import TieuVanScreen from '../screens/TieuVanScreen';
 import WealthChartScreen from '../screens/WealthChartScreen';
@@ -30,6 +36,21 @@ import { t } from '../i18n';
 // Ref điều hướng toàn cục — dùng cho menu trong ScreenHeader để điều hướng
 // độc lập với context navigator hiện tại (tránh stale parent gây kẹt nút back).
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// Lắng nghe tap push notification → mở màn Tin thông báo.
+let Notifications: any;
+try { Notifications = require('expo-notifications'); } catch { Notifications = null; }
+function usePushNotificationTap() {
+  useEffect(() => {
+    if (!Notifications) return;
+    const sub = Notifications.addNotificationResponseReceivedListener(() => {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('Notifications' as any);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -46,6 +67,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 function MainTabs({ route }: any) {
+  const insets = useSafeAreaInsets();
   const result: AstrologyResult = route.params.result;
   return (
     <Tab.Navigator
@@ -54,9 +76,9 @@ function MainTabs({ route }: any) {
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          height: 70,
+          height: 70 + insets.bottom,
           paddingTop: 6,
-          paddingBottom: 10,
+          paddingBottom: 10 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 14,
@@ -98,7 +120,10 @@ const ROUTE_TITLES: Record<string, string> = {
   WealthChart: 'Tài Lộc',
   DailyView: 'Xem theo ngày',
   DayPicker: 'Xem ngày tốt',
+  Tasks: 'Việc & Mục tiêu',
+  Notes: 'Ghi chú nhanh',
   MyCharts: 'Lá số đã lưu',
+  CompareCharts: 'So sánh lá số',
   Wallet: 'Nạp xu',
   Account: 'Tài khoản',
   Settings: 'Cài đặt',
@@ -107,9 +132,10 @@ const ROUTE_TITLES: Record<string, string> = {
   About: 'Giới thiệu',
 };
 
-const BRAND = 'Tuzi — Tử Vi & Bát Tự';
+const BRAND = 'Tuzi — Trợ lý thông minh của bạn';
 
 export default function AppNavigator() {
+  usePushNotificationTap();
   return (
     <NavigationContainer
       ref={navigationRef}
@@ -144,11 +170,16 @@ export default function AppNavigator() {
         <Stack.Screen name="WealthChart" component={WealthChartScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DailyView" component={DailyScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DayPicker" component={DayPickerScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Tasks" component={TasksScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Notes" component={NotesScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyCharts" component={MyChartsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="CompareCharts" component={CompareChartsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Promotions" component={PromotionsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

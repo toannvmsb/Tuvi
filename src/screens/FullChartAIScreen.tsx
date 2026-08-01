@@ -13,13 +13,13 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import TuViChart from '../components/TuViChart';
+import HouseCell from '../components/TuViChart/HouseCell';
 import ExportPdfButton from '../components/ExportPdfButton';
 import MissingPartsNotice from '../components/MissingPartsNotice';
-import ComboOffer from '../components/ComboOffer';
-import { captureChartDataUri, chartHeaderLines } from '../utils/pdfExport';
+import { captureChartDataUri, captureRefDataUri, chartHeaderLines, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 import { fullChartSections } from '../utils/aiAnalysis';
-import { generateOfflineFullChart } from '../core/offlineLuanGiai';
-import { wallet, PREMIUM, premiumBadgeNote, AI_VALUE_NOTE } from '../constants/premium';
+import { generateOfflineFullChart, cutAtSection } from '../core/offlineLuanGiai';
+import { wallet, PREMIUM, premiumBadgeNote, costNote, xuVnd, AI_VALUE_NOTE, AI_PREVIEW } from '../constants/premium';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
@@ -61,8 +61,52 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
 
   // Chụp lá số (ẩn) để nhúng vào PDF.
   const chartRef = useRef<View>(null);
+  const dvCellRef = useRef<View>(null);
+  const tvCellRef = useRef<View>(null);
   const headerLines = useMemo(() => chartHeaderLines(result), [result]);
   const captureChart = () => captureChartDataUri(chartRef);
+  const captureCells = async () => ({
+    dvCell: await captureRefDataUri(dvCellRef),
+    tvCell: await captureRefDataUri(tvCellRef),
+  });
+
+  // Cung Đại vận (theo tuổi xem) & Tiểu vận (theo năm xem) để chụp ảnh ô cung vào PDF.
+  const pdfCellHouses = useMemo(() => {
+    const va = result.tuViChart.viewingAge;
+    const vy = result.tuViChart.viewingYear;
+    const dv = result.daiVans.find(d => va != null && va >= d.startAge && va <= d.endAge);
+    const tv = vy != null ? result.tieuVans.find(t => t.year === vy) : undefined;
+    const houseAt = (b?: string) => (b ? result.tuViChart.houses.find(h => h.branch === b) : undefined);
+    return { dvHouse: houseAt(dv?.branch), tvHouse: houseAt(tv?.branch) };
+  }, [result]);
+
+  // Thông tin đại vận / tiểu vận cho sidebar trang đầu PDF.
+  const pdfSideInfo = useMemo(() => {
+    const viewingAge = result.tuViChart.viewingAge;
+    const viewingYear = result.tuViChart.viewingYear;
+    const chinhTinhAt = (branch: string) => {
+      const h = result.tuViChart.houses.find(x => x.branch === branch);
+      const names = h ? h.stars.filter(s => s.type === 'chinh').map(s => s.name) : [];
+      return names.length ? names.join(', ') : 'Vô chính diệu';
+    };
+    const dv = result.daiVans.find(d => viewingAge != null && viewingAge >= d.startAge && viewingAge <= d.endAge);
+    const dvInfo: PdfDaiVanInfo | undefined = dv ? {
+      label: `${dv.startAge}–${dv.endAge} tuổi`,
+      stemBranch: `${dv.stem} ${dv.branch}`,
+      palaceName: result.tuViChart.houses.find(h => h.branch === dv.branch)?.palaceName ?? '',
+      chinhTinh: chinhTinhAt(dv.branch),
+      isCurrent: true,
+    } : undefined;
+    const tv = viewingYear != null ? result.tieuVans.find(t => t.year === viewingYear) : undefined;
+    const tvInfo: PdfTieuVanInfo | undefined = tv ? {
+      year: tv.year,
+      age: tv.age,
+      stemBranch: `${tv.stem} ${tv.branch}`,
+      palaceName: result.tuViChart.houses.find(h => h.branch === tv.branch)?.palaceName ?? '',
+      chinhTinh: chinhTinhAt(tv.branch),
+    } : undefined;
+    return { dvInfo, tvInfo };
+  }, [result]);
 
   // Đánh máy NỐI TIẾP: liên tục tiến `shown` về phía textRef.current (lớn dần khi
   // các phần sau tải xong). Tốc độ đánh máy đóng vai trò "đệm" che thời gian tải.
@@ -106,7 +150,9 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
     const r = force ? await confirmReanalyze(aiKey, 'ai', PREMIUM.COST.aiLarge) : await confirmAndUnlock(aiKey, 'ai', PREMIUM.COST.aiLarge);
     if (r === 'cancel') return;
     if (r === 'nofund') { setStatus('nofund'); return; }
-    if (force) { try { await clearAiResult(aiKey); } catch {} }
+    if (force) {
+      try { await clearAiResult(aiKey); } catch {}
+    }
     setBal(wallet.balance);
     startedRef.current = true;
     // Dọn interval đánh máy cũ (nếu đang chạy) để lần phân tích mới bắt đầu sạch.
@@ -161,6 +207,16 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
       {/* Lá số ẩn (ngoài màn hình) để chụp ảnh nhúng vào PDF */}
       <View style={styles.hiddenChart} pointerEvents="none">
         <TuViChart ref={chartRef} chart={result.tuViChart} birthInfo={result.birthInfo} />
+        {pdfCellHouses.dvHouse && (
+          <View ref={dvCellRef} collapsable={false}>
+            <HouseCell house={pdfCellHouses.dvHouse} width={380} height={500} showLuuStars />
+          </View>
+        )}
+        {pdfCellHouses.tvHouse && (
+          <View ref={tvCellRef} collapsable={false}>
+            <HouseCell house={pdfCellHouses.tvHouse} width={380} height={500} showLuuStars />
+          </View>
+        )}
       </View>
 
       <ScreenHeader title="Phân tích toàn lá số" onBack={() => navigation.goBack()} />
@@ -188,16 +244,23 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
         {mode === 'offline' && (
           <View style={styles.resultBox}>
             <Text style={styles.bigTitle}>Phân tích tổng thể lá số</Text>
-            <PaidGate unlockKey={fkey(result, `chart:adv:${yearKey}`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}>
+
+
+
+            <PaidGate unlockKey={fkey(result, `chart:adv:${yearKey}`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
+              preview={cutAtSection(offlineText, 'Tổng quan bố cục lá số')}>
               <SimpleMarkdown content={offlineText} />
               <ExportPdfButton
                 title="Phân tích toàn lá số"
                 subtitle="Bản Nâng cao (offline)"
                 badge="NÂNG CAO"
                 headerLines={headerLines}
-                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn bộ lá số - Nâng cao`}
+                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn lá số - Nâng cao`}
                 getContent={() => offlineText}
                 captureChart={captureChart}
+                captureCells={captureCells}
+                daiVanInfo={pdfSideInfo.dvInfo}
+                tieuVanInfo={pdfSideInfo.tvInfo}
               />
             </PaidGate>
           </View>
@@ -206,24 +269,19 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
         {mode === 'ai' && (
         <>
         <View style={styles.walletBox}>
-          <Text style={styles.walletText}>
-            👤 {wallet.userName}{wallet.isAdmin ? ' (Admin)' : ''} · Số dư:{' '}
-            <Text style={styles.walletBal}>{bal.toLocaleString('vi-VN')} xu</Text>
-          </Text>
           <Text style={styles.walletCost}>
-            Phí phân tích AI toàn lá số: {PREMIUM.COST.aiLarge} xu
-            {PREMIUM.UNLOCKED ? ' (đang miễn phí)' : ' · mở rồi đọc lại miễn phí'}
+            Phí phân tích AI toàn lá số: {PREMIUM.UNLOCKED ? 'miễn phí' : xuVnd(PREMIUM.COST.aiLarge)}
+            {PREMIUM.UNLOCKED ? '' : ' · mở rồi đọc lại miễn phí'}
           </Text>
-          <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>
+          {status === 'idle' && <Text style={styles.aiValueNote}>{AI_PREVIEW.fullChart}</Text>}
         </View>
 
-        <ComboOffer result={result} onBought={() => setBal(wallet.balance)} />
-
-        {status === 'idle' && (
+{status === 'idle' && (
           <TouchableOpacity style={styles.runBtn} onPress={() => run()} activeOpacity={0.85}>
-            <Text style={styles.runBtnText}>🤖 Bắt đầu phân tích toàn lá số</Text>
+            <Text style={styles.runBtnText}>🤖 Phân tích AI đầy đủ ({costNote(PREMIUM.COST.aiLarge)})</Text>
           </TouchableOpacity>
         )}
+
 
         {status === 'loading' && (
           <View style={styles.loadingBox}>
@@ -262,9 +320,12 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
                 subtitle="Bản Phân tích AI"
                 badge="PHÂN TÍCH AI"
                 headerLines={headerLines}
-                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn bộ lá số - AI`}
+                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn lá số - AI`}
                 getContent={() => textRef.current || shown}
                 captureChart={captureChart}
+                captureCells={captureCells}
+                daiVanInfo={pdfSideInfo.dvInfo}
+                tieuVanInfo={pdfSideInfo.tvInfo}
               />
             )}
             <TouchableOpacity style={styles.retry} onPress={() => run(true)}>
@@ -287,7 +348,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  hiddenChart: { position: 'absolute', left: -10000, top: 0 },
+  hiddenChart: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0, zIndex: -1 },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,

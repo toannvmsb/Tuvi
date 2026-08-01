@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, View } from 'react-native';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { exportAnalysisToPdf } from '../utils/pdfExport';
+import { exportAnalysisToPdf, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 
 interface Props {
   title: string;
@@ -16,9 +16,13 @@ interface Props {
   fileName?: string;
   getContent: () => string;
   captureChart?: () => Promise<string | undefined>;
+  /** Chụp ảnh ô cung Đại vận / Tiểu vận để nhúng vào trang 1 (kèm chú thích). */
+  captureCells?: () => Promise<{ dvCell?: string; tvCell?: string }>;
+  daiVanInfo?: PdfDaiVanInfo;
+  tieuVanInfo?: PdfTieuVanInfo;
 }
 
-export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart }: Props) {
+export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart, captureCells, daiVanInfo, tieuVanInfo }: Props) {
   const [busy, setBusy] = useState(false);
 
   const onPress = async () => {
@@ -29,7 +33,16 @@ export default function ExportPdfButton({ title, subtitle, headerLines, badge, f
     try {
       let chartDataUri: string | undefined;
       if (captureChart) { try { chartDataUri = await captureChart(); } catch {} }
-      await exportAnalysisToPdf({ title, subtitle, headerLines, badge, fileName, markdown: md, chartDataUri });
+      // Chụp ô cung Đại vận / Tiểu vận (nếu có) rồi gắn vào info để render ảnh ở trang 1.
+      let dvInfo = daiVanInfo, tvInfo = tieuVanInfo;
+      if (captureCells) {
+        try {
+          const cells = await captureCells();
+          if (daiVanInfo && cells?.dvCell) dvInfo = { ...daiVanInfo, cellImage: cells.dvCell };
+          if (tieuVanInfo && cells?.tvCell) tvInfo = { ...tieuVanInfo, cellImage: cells.tvCell };
+        } catch {}
+      }
+      await exportAnalysisToPdf({ title, subtitle, headerLines, badge, fileName, markdown: md, chartDataUri, daiVanInfo: dvInfo, tieuVanInfo: tvInfo });
     } catch (e: any) {
       Alert.alert('Lỗi xuất PDF', e?.message || 'Không tạo được file PDF.');
     } finally {

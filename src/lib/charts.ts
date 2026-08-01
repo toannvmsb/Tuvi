@@ -105,7 +105,9 @@ export function rowToResult(row: SavedChartRow): AstrologyResult {
 
 export async function deleteChart(id: string): Promise<void> {
   if (!isOnlineMode()) return;
-  await supabase.from('charts').delete().eq('id', id);
-  // Cập nhật cache cục bộ ngay (không cần request lại).
+  const { data: ures } = await supabase.auth.getUser();
+  const uid = ures.user?.id;
+  if (!uid) return;
+  await supabase.from('charts').delete().eq('id', id).eq('user_id', uid);
   if (chartsCache) chartsCache = chartsCache.filter(r => r.id !== id);
 }

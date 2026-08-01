@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, Switch,
+  ScrollView, Alert, Switch, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -77,12 +77,10 @@ export default function SettingsScreen() {
   }, []);
 
   async function handleSave() {
-    // Claude key — lưu cả SecureStore (an toàn) và AsyncStorage (để InputScreen đọc dễ).
+    // Claude key — chỉ lưu SecureStore (mã hoá phần cứng). Không dùng AsyncStorage cho key nhạy cảm.
     try { await SecureStore.setItemAsync('anthropicApiKey', apiKey.trim()); } catch {}
-    await AsyncStorage.setItem('anthropicApiKey', apiKey.trim());
     // OpenAI key
     try { await SecureStore.setItemAsync('openaiApiKey', openaiKey.trim()); } catch {}
-    await AsyncStorage.setItem('openaiApiKey', openaiKey.trim());
     // AI provider — duplicate cho cả AsyncStorage (InputScreen đọc từ đây)
     await AsyncStorage.setItem('aiProvider', provider);
     setLanguage(lang);
@@ -94,7 +92,8 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title={t('settingsTitle')} onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* AI Provider preference */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>⚙ Ưu tiên nhà cung cấp AI</Text>
@@ -200,7 +199,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>ℹ️ Về ứng dụng</Text>
           <Text style={styles.desc}>
-            Tử Vi & Bát Tự v1.0{'\n'}
+            Tuzi — Trợ lý thông minh của bạn{'\n'}
             Phương pháp tính theo Tử Vi Nam Phái{'\n'}
             của thầy Lê Quang Lăng.{'\n\n'}
             Phân tích AI sử dụng Claude Sonnet 4.5{'\n'}
@@ -213,6 +212,7 @@ export default function SettingsScreen() {
           <Text style={styles.saveBtnText}>{saved ? '✓ Đã lưu' : `💾 ${t('save')}`}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

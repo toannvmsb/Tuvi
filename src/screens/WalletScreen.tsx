@@ -8,14 +8,14 @@
  * BẢN TEST: còn nút Admin để nạp/giả lập thanh toán phục vụ kiểm thử.
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Linking, Platform, TextInput, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import { wallet, deposit, seedWallet, PREMIUM } from '../constants/premium';
 import { BANK, XU_PACKS, makeTopupCode, vietQrImageUrl, WEB_TOPUP_URL, type XuPack } from '../constants/payment';
 import { createTopupOrder, checkTopupStatus, fetchServerBalance, listTopupOrders, deleteTopupOrder, type TopupRow } from '../lib/topup';
-import { notifyLocal } from '../lib/notifications';
+import { addNotification } from '../lib/notificationCenter';
 import { isOnlineMode } from '../lib/auth';
 import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
 import ComboOffer from '../components/ComboOffer';
@@ -23,6 +23,7 @@ import type { AstrologyResult } from '../types';
 import { isIapAvailable, initIap, getXuProducts, buyXuPack, endIap } from '../lib/iap';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { isWeb, downloadToCache, saveImageOrDownload } from '../lib/platform';
+import { previewVoucher, redeemGiftVoucher, createTopupWithVoucher, voucherErrorMessage, type VoucherPreview } from '../lib/vouchers';
 
 interface Order { code: string; pack: XuPack; }
 
@@ -65,12 +66,15 @@ export default function WalletScreen() {
     let alive = true;
     (async () => {
       const ok = await initIap({
-        onCredited: (_pack, balance) => { setBal(balance); setMsg('✓ Nạp xu qua cửa hàng thành công!'); void notifyLocal('Nạp xu thành công 🎉', 'Số dư của bạn đã được cập nhật.'); },
+        onCredited: (_pack, balance) => { setBal(balance); setMsg('✓ Nạp xu qua cửa hàng thành công!'); void addNotification({ id: `topup:${Date.now()}`, type: 'topup', title: 'Nạp xu thành công 🎉', body: 'Số dư của bạn đã được cập nhật.' }); },
         onError: (m) => setMsg('⚠ ' + m),
       });
       if (!alive) return;
       setIapReady(ok);
-      if (ok) setIapProducts(await getXuProducts());
+      if (ok) {
+        const prods = await getXuProducts();
+        setIapProducts(prods);
+      }
     })();
     return () => { alive = false; void endIap(); };
   }, []);
@@ -98,12 +102,75 @@ export default function WalletScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order, status]);
 
+  // ── VOUCHER (chỉ hiển thị trên WEB / dev — xem chú thích chính sách bên dưới) ──
+  const [voucherInput, setVoucherInput] = useState('');
+  const [voucherBusy, setVoucherBusy] = useState(false);
+  const [voucherMsg, setVoucherMsg] = useState('');
+  // Mã GIẢM GIÁ đã áp (chờ chọn gói). Gift thì cộng xu ngay, không cần state.
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; pv: VoucherPreview } | null>(null);
+
+  /** Tính số tiền sau giảm cho 1 gói (hiển thị; server sẽ tính lại khi tạo đơn). */
+  const discountedVnd = (vnd: number): number => {
+    if (!appliedVoucher) return vnd;
+    const { pv } = appliedVoucher;
+    const off = pv.discount_type === 'percent'
+      ? Math.floor(vnd * (pv.discount_value || 0) / 100)
+      : (pv.discount_value || 0);
+    return Math.max(1000, vnd - off);
+  };
+
+  const applyVoucher = async () => {
+    const code = voucherInput.trim();
+    if (!code) { setVoucherMsg('Nhập mã trước đã nhé.'); return; }
+    setVoucherBusy(true); setVoucherMsg('');
+    try {
+      // Preview với gói đầu tiên để biết loại mã (server không tiêu mã ở bước này).
+      const pv = await previewVoucher(code, XU_PACKS[0]?.vnd ?? 0);
+      if (!pv) { setVoucherMsg('Cần đăng nhập (online) để dùng mã.'); return; }
+      if (pv.kind === 'gift') {
+        // Mã đổi xu trực tiếp → cộng ngay.
+        const r = await redeemGiftVoucher(code);
+        seedWallet({ balance: r.new_balance });
+        setBal(r.new_balance);
+        setVoucherInput('');
+        setVoucherMsg(`✓ Đã cộng ${r.xu_credited.toLocaleString('vi-VN')} xu từ mã quà tặng!`);
+        void addNotification({ id: `topup:gift:${Date.now()}`, type: 'topup', title: 'Đổi mã thành công 🎁', body: `+${r.xu_credited.toLocaleString('vi-VN')} xu vào tài khoản.` });
+      } else {
+        // Mã giảm giá → ghim lại, áp khi chọn gói nạp.
+        setAppliedVoucher({ code, pv });
+        setVoucherMsg(
+          pv.discount_type === 'percent'
+            ? `✓ Mã giảm ${pv.discount_value}% — chọn gói bên dưới để nạp với giá ưu đãi.`
+            : `✓ Mã giảm ${Number(pv.discount_value).toLocaleString('vi-VN')}đ — chọn gói bên dưới để nạp với giá ưu đãi.`
+        );
+      }
+    } catch (e: any) {
+      setVoucherMsg('⚠ ' + voucherErrorMessage(e?.message));
+    } finally { setVoucherBusy(false); }
+  };
+
+  const clearVoucher = () => { setAppliedVoucher(null); setVoucherInput(''); setVoucherMsg(''); };
+
   const startTopup = async (pack: XuPack) => {
     const code = makeTopupCode();
+    setMsg('');
+    if (appliedVoucher) {
+      // Đơn nạp KÈM mã giảm giá — server tự tính tiền cuối + tiêu mã (atomic).
+      try {
+        const r = await createTopupWithVoucher(code, pack.vnd, pack.xu, appliedVoucher.code);
+        const o = { code, pack: { ...pack, vnd: r.final_vnd } };
+        setOrder(o);
+        setStatus('pending');
+        setVoucherMsg(`✓ Đã áp mã: giảm ${r.discount_vnd.toLocaleString('vi-VN')}đ — chuyển khoản ${r.final_vnd.toLocaleString('vi-VN')}đ để nhận ${pack.xu.toLocaleString('vi-VN')} xu.`);
+        setAppliedVoucher(null); setVoucherInput('');
+      } catch (e: any) {
+        setVoucherMsg('⚠ ' + voucherErrorMessage(e?.message));
+      }
+      return;
+    }
     const o = { code, pack };
     setOrder(o);
     setStatus('pending');
-    setMsg('');
     await createTopupOrder(code, pack.vnd, pack.xu);
   };
 
@@ -114,7 +181,7 @@ export default function WalletScreen() {
     const serverBal = await fetchServerBalance();
     if (typeof serverBal === 'number') { seedWallet({ balance: serverBal }); setBal(serverBal); }
     setMsg(`✓ Đã nhận thanh toán — cộng ${o.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản.`);
-    void notifyLocal('Nạp xu thành công 🎉', `Đã cộng ${o.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.`);
+    void addNotification({ id: `topup:${o.code || Date.now()}`, type: 'topup', title: 'Nạp xu thành công 🎉', body: `Đã cộng ${o.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.` });
     void loadHistory();
   };
 
@@ -161,7 +228,7 @@ export default function WalletScreen() {
     setBal(b);
     stopPoll(); setStatus('paid');
     setMsg(`✓ (Test) Giả lập đã thanh toán — cộng ${order.pack.xu.toLocaleString('vi-VN')} xu.`);
-    void notifyLocal('Nạp xu thành công 🎉', `Đã cộng ${order.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.`);
+    void addNotification({ id: `topup:test:${Date.now()}`, type: 'topup', title: 'Nạp xu thành công 🎉', body: `Đã cộng ${order.pack.xu.toLocaleString('vi-VN')} xu vào tài khoản của bạn.` });
     void loadHistory();
   };
 
@@ -186,7 +253,8 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Kho Xu của tôi" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Số dư */}
         <View style={styles.balCard}>
           <Text style={styles.balLabel}>Số dư hiện tại</Text>
@@ -246,10 +314,11 @@ export default function WalletScreen() {
               <>
                 <View style={styles.packGrid}>
                   {XU_PACKS.map(p => {
-                    const prod = iapProducts.find((x: any) => (x.productId || x.id) === p.productId);
+                    const iapId = Platform.OS === 'ios' ? p.iosProductId : p.productId;
+                    const prod = iapProducts.find((x: any) => (x.productId || x.id) === iapId);
                     const priceTxt = prod?.localizedPrice || `${p.vnd.toLocaleString('vi-VN')}đ`;
                     return (
-                      <TouchableOpacity key={p.productId} style={styles.pack} onPress={() => buyXuPack(p.productId).catch((e: any) => setMsg('⚠ ' + (e?.message || 'Lỗi mua hàng')))} activeOpacity={0.85}>
+                      <TouchableOpacity key={p.productId} style={styles.pack} onPress={() => buyXuPack(iapId).catch((e: any) => setMsg('⚠ ' + (e?.message || 'Lỗi mua hàng')))} activeOpacity={0.85}>
                         {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
                         <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
                         <Text style={styles.packGia}>{priceTxt}</Text>
@@ -299,14 +368,59 @@ export default function WalletScreen() {
                 ⚠ DEV MODE — VietQR chỉ hiển thị trong dev. Bản production build sẽ ẩn hoàn toàn trên iOS/Android theo chính sách Apple/Google.
               </Text>
             )}
-            <View style={styles.packGrid}>
-              {XU_PACKS.map(p => (
-                <TouchableOpacity key={p.xu} style={styles.pack} onPress={() => startTopup(p)} activeOpacity={0.85}>
-                  {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
-                  <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
-                  <Text style={styles.packGia}>{p.vnd.toLocaleString('vi-VN')}đ</Text>
+
+            {/* ── MÃ KHUYẾN MẠI / QUÀ TẶNG — CHỈ WEB (chính sách Apple 3.1.1 / Google Payments) ── */}
+            <View style={styles.voucherBox}>
+              <Text style={styles.voucherTitle}>🎟️ Mã khuyến mại / quà tặng</Text>
+              <View style={styles.voucherRow}>
+                <TextInput
+                  style={styles.voucherInput}
+                  value={voucherInput}
+                  onChangeText={t => setVoucherInput(t.toUpperCase())}
+                  placeholder="Nhập mã (vd TUVI-XXXX-XXXX)"
+                  placeholderTextColor={COLORS.textMuted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={!voucherBusy}
+                />
+                <TouchableOpacity
+                  style={[styles.voucherBtn, voucherBusy && { opacity: 0.5 }]}
+                  onPress={applyVoucher}
+                  disabled={voucherBusy}
+                  activeOpacity={0.85}
+                >
+                  {voucherBusy ? <ActivityIndicator size="small" color="#1a0a00" /> : <Text style={styles.voucherBtnTxt}>Áp dụng</Text>}
                 </TouchableOpacity>
-              ))}
+              </View>
+              {!!voucherMsg && (
+                <Text style={[styles.voucherMsg, voucherMsg.startsWith('⚠') && { color: '#ff9d8a' }]}>{voucherMsg}</Text>
+              )}
+              {appliedVoucher && (
+                <TouchableOpacity onPress={clearVoucher} activeOpacity={0.7}>
+                  <Text style={styles.voucherClear}>✕ Bỏ mã {appliedVoucher.code}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.packGrid}>
+              {XU_PACKS.map(p => {
+                const finalVnd = discountedVnd(p.vnd);
+                const hasOff = appliedVoucher && finalVnd < p.vnd;
+                return (
+                  <TouchableOpacity key={p.xu} style={[styles.pack, hasOff && styles.packOff]} onPress={() => startTopup(p)} activeOpacity={0.85}>
+                    {p.label ? <Text style={styles.packTag}>{p.label}</Text> : null}
+                    <Text style={styles.packXu}>+{p.xu.toLocaleString('vi-VN')} xu</Text>
+                    {hasOff ? (
+                      <>
+                        <Text style={styles.packGiaOld}>{p.vnd.toLocaleString('vi-VN')}đ</Text>
+                        <Text style={styles.packGiaNew}>{finalVnd.toLocaleString('vi-VN')}đ</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.packGia}>{p.vnd.toLocaleString('vi-VN')}đ</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <Text style={styles.note}>
               Sau khi chọn gói, quét mã QR hoặc chuyển khoản đúng số tiền & đúng nội dung. Hệ thống tự
@@ -424,6 +538,7 @@ export default function WalletScreen() {
             : 'Đang ở chế độ khách. Đăng nhập để nạp & đồng bộ số dư.'}
         </Text>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -449,6 +564,29 @@ const styles = StyleSheet.create({
   packTag: { color: '#1a0a00', backgroundColor: COLORS.gold, fontSize: FONTS.size.xs, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   packXu: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.md },
   packGia: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  packOff: { borderColor: COLORS.green, borderWidth: 1.5 },
+  packGiaOld: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textDecorationLine: 'line-through' },
+  packGiaNew: { color: COLORS.green, fontSize: FONTS.size.sm, fontWeight: '800' },
+
+  // Voucher
+  voucherBox: {
+    backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.gold, gap: SPACING.xs, marginBottom: SPACING.sm,
+  },
+  voucherTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  voucherRow: { flexDirection: 'row', gap: SPACING.sm },
+  voucherInput: {
+    flex: 1, backgroundColor: COLORS.surface, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md, paddingVertical: 8, color: COLORS.textPrimary,
+    fontSize: FONTS.size.md, fontWeight: '700', letterSpacing: 1,
+  },
+  voucherBtn: {
+    backgroundColor: COLORS.gold, borderRadius: 8, paddingHorizontal: SPACING.lg,
+    alignItems: 'center', justifyContent: 'center', minWidth: 92,
+  },
+  voucherBtnTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.sm },
+  voucherMsg: { color: COLORS.green, fontSize: FONTS.size.sm, lineHeight: 19 },
+  voucherClear: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontWeight: '700', marginTop: 2 },
   note: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', lineHeight: 18 },
 
   orderCard: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.gold, gap: SPACING.sm },

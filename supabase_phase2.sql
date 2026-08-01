@@ -27,16 +27,16 @@ create table if not exists public.app_secrets (
 );
 alter table public.app_secrets enable row level security;
 
--- Cho phép NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP đọc key (app gọi AI trực tiếp cần key này).
--- LƯU Ý BẢO MẬT: cách này để key lộ với user đã đăng nhập. Khi phát hành chính
--- thức nên chuyển sang gọi AI qua Edge Function để KHÔNG bao giờ trả key về app.
-create policy "auth can read secrets" on public.app_secrets
-  for select using (auth.role() = 'authenticated');
+-- BẢO MẬT: Bảng app_secrets KHÔNG được đọc bởi client. API keys được đọc
+-- server-side qua Edge Function (ai-proxy) — không bao giờ trả key về app.
+-- Không tạo SELECT policy cho authenticated users.
 
--- 3) ĐIỀN 2 API KEY CỦA ANH (thay 'sk-...' bằng key thật rồi chạy lại dòng này):
-insert into public.app_secrets (id, openai_key, claude_key)
-values ('ai', 'sk-proj-REDACTED-ROTATE-THIS-KEY', 'sk-ant-REDACTED-ROTATE-THIS-KEY')
-on conflict (id) do update
-  set openai_key = excluded.openai_key,
-      claude_key = excluded.claude_key,
-      updated_at = now();
+-- 3) CẬP NHẬT API KEY: Chạy SQL sau trong Supabase Dashboard → SQL Editor.
+--    KHÔNG lưu key thật vào file này. Chạy xong không cần lưu lại.
+--
+-- insert into public.app_secrets (id, openai_key, claude_key)
+-- values ('ai', '<OPENAI_KEY>', '<ANTHROPIC_KEY>')
+-- on conflict (id) do update
+--   set openai_key = excluded.openai_key,
+--       claude_key = excluded.claude_key,
+--       updated_at = now();

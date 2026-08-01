@@ -1,5 +1,5 @@
 export default {
-  appName: 'Tu Vi & Bat Tu',
+  appName: 'Your Smart Assistant',
   loading: 'Calculating...',
   calculate: 'View Chart',
   back: 'Back',
@@ -7,8 +7,8 @@ export default {
   save: 'Save',
   cancel: 'Cancel',
 
-  homeTitle: 'Tu Vi & Bat Tu',
-  homeSubtitle: 'Explore destiny through Vietnamese Purple Star Astrology\n(Nam Phai - Le Quang Lang)',
+  homeTitle: 'Your Smart Assistant',
+  homeSubtitle: 'With you every day - in-depth Tu Vi and Bat Tu',
   newChart: 'New Chart',
   recentCharts: 'Recent Charts',
 

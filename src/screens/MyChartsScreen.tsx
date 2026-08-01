@@ -54,11 +54,16 @@ export default function MyChartsScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Lá số của tôi" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
-        {isOnlineMode() && (
-          <TouchableOpacity style={styles.refreshBtn} onPress={() => load(true)} activeOpacity={0.7}>
-            <Text style={styles.refreshTxt}>🔄 Làm mới danh sách</Text>
+        <View style={styles.topActions}>
+          <TouchableOpacity style={styles.compareBtn} onPress={() => navigation.navigate('CompareCharts', {})} activeOpacity={0.8}>
+            <Text style={styles.compareTxt}>⚖️ So sánh lá số</Text>
           </TouchableOpacity>
-        )}
+          {isOnlineMode() && (
+            <TouchableOpacity style={styles.refreshBtn} onPress={() => load(true)} activeOpacity={0.7}>
+              <Text style={styles.refreshTxt}>🔄 Làm mới</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {!isOnlineMode() ? (
           <Text style={styles.empty}>Cần đăng nhập (chế độ online) để lưu và xem lại lá số.</Text>
         ) : loading ? (
@@ -98,7 +103,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
   empty: { color: COLORS.textSecondary, fontSize: FONTS.size.md, textAlign: 'center', marginTop: SPACING.xl, lineHeight: 22 },
-  refreshBtn: { alignSelf: 'flex-end', paddingHorizontal: SPACING.sm, paddingVertical: 4 },
+  topActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  compareBtn: {
+    backgroundColor: COLORS.purple + '33', borderRadius: 8, borderWidth: 1, borderColor: COLORS.purple,
+    paddingHorizontal: SPACING.md, paddingVertical: 6,
+  },
+  compareTxt: { color: COLORS.purple, fontSize: FONTS.size.sm, fontWeight: '700' },
+  refreshBtn: { paddingHorizontal: SPACING.sm, paddingVertical: 4 },
   refreshTxt: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700' },
   card: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,

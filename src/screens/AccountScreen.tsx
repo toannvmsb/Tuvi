@@ -3,18 +3,22 @@
  * Gồm: lời chào + email + số dư xu; đổi TÊN HIỂN THỊ; đổi MẬT KHẨU; chọn ngôn ngữ;
  * và đăng xuất. (Chế độ khách/offline: chỉ hiện ngôn ngữ + phiên bản.)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
+import AnimatedAvatar from '../components/AnimatedAvatar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { updateDisplayName, updatePassword } from '../lib/auth';
 import { wallet } from '../constants/premium';
 import { APP_VERSION, COPYRIGHT } from '../constants/appInfo';
+import { AVATAR_OPTIONS } from '../core/avatarCatalog';
+import { getSelectedAvatarId, setSelectedAvatarId } from '../lib/avatarPrefs';
 
 export default function AccountScreen() {
   const navigation = useNavigation<any>();
@@ -22,6 +26,13 @@ export default function AccountScreen() {
 
   const [name, setName] = useState(user?.displayName || wallet.userName || '');
   const [savingName, setSavingName] = useState(false);
+
+  const [avatarId, setAvatarId] = useState<string | null>(null);
+  useEffect(() => { getSelectedAvatarId().then(setAvatarId); }, []);
+  const pickAvatar = async (id: string) => {
+    setAvatarId(id);
+    await setSelectedAvatarId(id);
+  };
 
   const [pwOld, setPwOld] = useState('');
   const [pw1, setPw1] = useState('');
@@ -65,7 +76,8 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Thông tin tài khoản" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Hồ sơ */}
         <View style={styles.card}>
           <Text style={styles.greeting}>Xin chào{user?.displayName ? ` - ${user.displayName}` : (wallet.userName ? ` - ${wallet.userName}` : '')} 👋</Text>
@@ -74,6 +86,25 @@ export default function AccountScreen() {
           {!online && (
             <Text style={styles.note}>Đang ở chế độ khách (offline). Đăng nhập để đồng bộ tài khoản, đổi tên & mật khẩu.</Text>
           )}
+        </View>
+
+        {/* Nhân vật đại diện */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🧿 Nhân vật đại diện</Text>
+          <Text style={styles.note}>Hiện ở đầu trang chủ, bên cạnh lời chào của bạn.</Text>
+          <View style={styles.avatarGrid}>
+            {AVATAR_OPTIONS.map(a => (
+              <TouchableOpacity
+                key={a.id}
+                style={[styles.avatarCell, avatarId === a.id && styles.avatarCellActive]}
+                onPress={() => pickAvatar(a.id)}
+                activeOpacity={0.8}
+              >
+                <AnimatedAvatar avatarId={a.id} size={54} animated={false} />
+                <Text style={[styles.avatarLabel, avatarId === a.id && styles.avatarLabelActive]} numberOfLines={1}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {online && user && (
@@ -140,6 +171,7 @@ export default function AccountScreen() {
           <Text style={styles.copyright}>{COPYRIGHT}</Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -156,6 +188,14 @@ const styles = StyleSheet.create({
   gold: { color: COLORS.gold, fontWeight: '800' },
   note: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 20 },
   cardTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700' },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, justifyContent: 'flex-start' },
+  avatarCell: {
+    width: 78, alignItems: 'center', gap: 4, padding: SPACING.xs, borderRadius: 10,
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  avatarCellActive: { borderColor: COLORS.gold, backgroundColor: COLORS.gold + '14' },
+  avatarLabel: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  avatarLabelActive: { color: COLORS.gold, fontWeight: '800' },
   input: {
     backgroundColor: COLORS.surface, color: COLORS.textPrimary,
     borderRadius: 8, padding: SPACING.sm, fontSize: FONTS.size.md,

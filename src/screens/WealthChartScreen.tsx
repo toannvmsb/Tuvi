@@ -11,11 +11,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { scoreAllDaiVan, type DaiVanScore } from '../core/daiVanScore';
+import { analyzeFinancialDNA, financialDNARadar, FINANCIAL_DIM_LABEL } from '../core/wealthAnalysis';
+import RadarChart from '../components/RadarChart';
 import { analyzeWealthWithAI } from '../utils/aiAnalysis';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { costNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
@@ -26,6 +28,9 @@ import AIProgressBar from '../components/AIProgressBar';
 type Props = NativeStackScreenProps<RootStackParamList, 'WealthChart'>;
 
 const CHART_H = 170;
+const RISK_COLOR: Record<'thấp' | 'vừa' | 'cao', string> = {
+  'thấp': '#22c55e', 'vừa': '#f5b942', 'cao': '#ff7a7a',
+};
 function barColor(v: number): string {
   if (v >= 60) return '#22c55e';
   if (v >= 48) return '#5fdb8a';
@@ -38,6 +43,7 @@ export default function WealthChartScreen({ route, navigation }: Props) {
   const { result } = route.params;
   const width = useContentWidth();
   const scores = useMemo(() => scoreAllDaiVan(result).slice(0, 10), [result]);
+  const dna = useMemo(() => analyzeFinancialDNA(result), [result]);
   const currentAge = result.tuViChart.viewingAge;
   const taiBach = result.tuViChart.houses.find(h => h.palaceName === 'Tài Bạch');
 
@@ -114,13 +120,45 @@ export default function WealthChartScreen({ route, navigation }: Props) {
           <Text style={styles.xCaption}>Khoảng tuổi từng đại vận · cột cao = tài lộc tốt</Text>
         </View>
 
+        {/* ADN Tài Chính — 8 chiều (Financial DNA) */}
+        <View style={styles.dnaBox}>
+          <Text style={styles.dnaTitle}>🧬 ADN Tài Chính</Text>
+          <Text style={styles.dnaArchetype}>{dna.archetype}</Text>
+          <RadarChart data={financialDNARadar(dna)} size={Math.min(width - 40, 340)} />
+          <View style={styles.dnaTagsRow}>
+            <View style={[styles.dnaTag, { borderColor: COLORS.gold }]}>
+              <Text style={styles.dnaTagLabel}>Trội nhất</Text>
+              <Text style={[styles.dnaTagVal, { color: COLORS.gold }]}>{FINANCIAL_DIM_LABEL[dna.dominant]}</Text>
+            </View>
+            <View style={[styles.dnaTag, { borderColor: RISK_COLOR[dna.riskLevel] }]}>
+              <Text style={styles.dnaTagLabel}>Rủi ro</Text>
+              <Text style={[styles.dnaTagVal, { color: RISK_COLOR[dna.riskLevel] }]}>{dna.riskLevel} ({dna.risk})</Text>
+            </View>
+            <View style={[styles.dnaTag, { borderColor: COLORS.border }]}>
+              <Text style={styles.dnaTagLabel}>Tin cậy</Text>
+              <Text style={[styles.dnaTagVal, { color: COLORS.textPrimary }]}>{dna.confidence}%</Text>
+            </View>
+          </View>
+          {dna.notes.length > 0 && (
+            <View style={styles.dnaNotes}>
+              {dna.notes.map((n, i) => (
+                <Text key={i} style={styles.dnaNote}>• {n}</Text>
+              ))}
+            </View>
+          )}
+          <Text style={styles.dnaCaption}>
+            8 chiều tổng hợp từ 6 cung: Mệnh · Tài Bạch · Quan Lộc · Điền Trạch · Phúc Đức · Thiên Di.
+            "Rủi ro" cao nghĩa là tài chính dễ biến động — cần phòng thủ.
+          </Text>
+        </View>
+
         {status === 'idle' && <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>}
         <TouchableOpacity
           style={[styles.aiBtn, status === 'loading' && { opacity: 0.6 }]}
           onPress={() => runAI()} disabled={status === 'loading'} activeOpacity={0.85}
         >
           <Text style={styles.aiBtnText}>
-            {status === 'loading' ? '🤖 Đang phân tích…' : `🤖 Phân tích tài lộc bằng AI (${PREMIUM.COST.ai} xu · ${premiumBadgeNote()})`}
+            {status === 'loading' ? '🤖 Đang phân tích…' : `🤖 Phân tích tài lộc bằng AI (${costNote(PREMIUM.COST.ai)})`}
           </Text>
         </TouchableOpacity>
 
@@ -203,4 +241,15 @@ const styles = StyleSheet.create({
   guide: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
   guideTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '700', marginBottom: SPACING.sm },
   guideText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 24 },
+
+  dnaBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', gap: SPACING.sm },
+  dnaTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
+  dnaArchetype: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center', fontStyle: 'italic', lineHeight: 20 },
+  dnaTagsRow: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap', justifyContent: 'center' },
+  dnaTag: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: SPACING.md, paddingVertical: 6, alignItems: 'center', minWidth: 90 },
+  dnaTagLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '600' },
+  dnaTagVal: { fontSize: FONTS.size.md, fontWeight: '800', marginTop: 2 },
+  dnaNotes: { alignSelf: 'stretch', backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.sm, gap: 3, borderWidth: 1, borderColor: COLORS.border },
+  dnaNote: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 19 },
+  dnaCaption: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, textAlign: 'center', fontStyle: 'italic', lineHeight: 17 },
 });

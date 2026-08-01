@@ -1,6 +1,6 @@
 export default {
   // App
-  appName: 'Tử Vi & Bát Tự',
+  appName: 'Trợ lý thông minh của bạn',
   loading: 'Đang tính toán...',
   calculate: 'Xem Lá Số',
   back: 'Quay lại',
@@ -9,15 +9,15 @@ export default {
   cancel: 'Hủy',
 
   // Home
-  homeTitle: 'Tử Vi & Bát Tự',
-  homeSubtitle: 'Khám phá vận mệnh và phong thủy\ntheo Tử Vi và Bát Tự',
+  homeTitle: 'Trợ lý thông minh của bạn',
+  homeSubtitle: 'Đồng hành mỗi ngày · Tử Vi và Bát Tự chuyên sâu',
   newChart: 'Lập lá số mới',
   recentCharts: 'Lá số gần đây',
   homeFeatureTuVi: 'Lá số Tử Vi\ncác trường phái',
   homeFeatureBatTu: 'Bát Tự Tứ Trụ\nNgũ Hành Vượng Suy',
   homeFeatureAI: 'Phân tích lá số theo\nModel AI hiện đại nhất',
   homeFeatureWealth: 'Biểu đồ Tài Lộc\ntheo Đại Vận 100 tuổi',
-  homeCredit: 'Ứng dụng Tử Vi & Bát Tự đa trường phái',
+  homeCredit: 'Tuzi — Trợ lý thông minh của bạn',
 
   // Input Form
   inputTitle: 'Lập lá số mới',

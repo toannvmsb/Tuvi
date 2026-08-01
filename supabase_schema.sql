@@ -61,12 +61,21 @@ create policy "own charts" on public.charts for all using (auth.uid() = user_id)
 create policy "own unlocks" on public.unlocks for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own tx" on public.transactions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- ───────────── Tự tạo profile khi có user mới đăng ký (TẶNG 50 xu khởi đầu) ─────────────
+-- ───────────── Tự tạo profile khi có user mới đăng ký (số xu lấy từ app_config.xu_new_user) ─────────────
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
+declare
+  v_xu int;
 begin
-  insert into public.profiles (id, display_name, xu)
-  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email,'@',1)), 50)
+  select coalesce(nullif(trim(value), ''), '50')::int
+    into v_xu
+    from public.app_config
+   where key = 'xu_new_user'
+   limit 1;
+  if v_xu is null then v_xu := 50; end if;
+  -- GHI RÕ is_admin = false: user mới LUÔN là người dùng thường, không phụ thuộc default của cột.
+  insert into public.profiles (id, display_name, xu, is_admin)
+  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email,'@',1)), v_xu, false)
   on conflict (id) do nothing;
   return new;
 end; $$;

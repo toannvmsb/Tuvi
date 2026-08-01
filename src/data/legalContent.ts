@@ -9,11 +9,11 @@
 export const LEGAL_UPDATED = '29/05/2026';
 
 export const CONTACT = {
-  appName: 'Tuzi — Tử Vi & Bát Tự',
-  publisher: 'Nguyễn Văn Toàn',
+  appName: 'Tuzi — Trợ lý thông minh của bạn',
+  publisher: 'Tuzi.vn',
   website: 'https://tuzi.vn',
-  email: 'support@tuzi.vn',
-  phone: '0913 377 666',
+  email: 'tuzi.vn@gmail.com',
+  phone: '0325585825',
   address: 'Hà Nội, Việt Nam',
 };
 
@@ -48,6 +48,9 @@ Chúng tôi tôn trọng quyền riêng tư của mỗi cá nhân, do đó, cam 
 - **Thông tin thiết bị** (model, hệ điều hành, phiên bản app, ngôn ngữ) — đề xuất phiên bản phù hợp, hỗ trợ kỹ thuật.
 - **Dữ liệu thanh toán** — thông qua dịch vụ bên thứ ba (VietQR / cổng ngân hàng / Apple App Store / Google Play) để xác thực giao dịch nạp xu. Ứng dụng KHÔNG lưu trữ số thẻ ngân hàng, mã CVV hay mật khẩu thanh toán.
 - **Lịch sử sử dụng trong Ứng dụng** — danh sách lá số đã lưu, lịch sử nạp xu, lịch sử mở khóa nội dung — để Người dùng tra cứu lại và để Ứng dụng tính số dư xu chính xác.
+- **Nội dung "Việc & Mục tiêu"** — tiêu đề, ghi chú, ngày bắt đầu/kết thúc, trạng thái và thứ tự ưu tiên do Người dùng tự nhập — để hiển thị, nhắc hạn và gợi ý thời điểm phù hợp.
+- **Nội dung "Ghi chú nhanh"** — nội dung ghi chú tự do và ngày ghi chú do Người dùng tự nhập — để lưu lại và hiển thị theo ngày, không được Hệ thống phân tích hay đối chiếu với lá số.
+- **Lượt sử dụng "Hỏi Tuzi" (Chat AI)** — Hệ thống chỉ đếm SỐ LƯỢT hỏi theo ngày để tính hạn mức miễn phí; **KHÔNG lưu trữ nội dung câu hỏi và câu trả lời** sau khi phiên trò chuyện kết thúc. Nếu Người dùng có lá số đang gắn, một khối tóm tắt facts NGẮN GỌN từ lá số đó (Mệnh/Thân, Bát Tự, vận hiện tại — không kèm thông tin định danh khác) có thể được gửi kèm câu hỏi tới nhà cung cấp AI để trả lời đúng ngữ cảnh khi câu hỏi liên quan tới lá số; khối này KHÔNG được lưu trữ lại sau khi trả lời xong.
 - **Cookies và dữ liệu phân tích** (nếu sử dụng website) — phân tích, thống kê, tối ưu hóa trải nghiệm Người dùng.
 
 **Ứng dụng KHÔNG thu thập:** danh bạ, vị trí GPS, micro, camera (trừ khi Người dùng chủ động chọn ảnh đại diện), tin nhắn, lịch sử cuộc gọi.
@@ -71,7 +74,7 @@ Người dùng đồng ý cho Ứng dụng chia sẻ dữ liệu cá nhân cho c
 **4.1. Các đối tác / nhà cung cấp dịch vụ kỹ thuật:**
 
 - Nền tảng lưu trữ đám mây (cơ sở dữ liệu, xác thực, lưu file) để vận hành tài khoản và đồng bộ lá số giữa các thiết bị.
-- Nhà cung cấp dịch vụ AI: OpenAI (ChatGPT) là dịch vụ chính, Anthropic (Claude) là dịch vụ dự phòng. Khi Người dùng chủ động yêu cầu "Phân tích AI", dữ liệu lá số (KHÔNG kèm email, mật khẩu, thông tin thanh toán) được gửi đến các nhà cung cấp này để tạo nội dung luận giải. Việc xử lý dữ liệu tại đây tuân theo chính sách của các nhà cung cấp đó.
+- Nhà cung cấp dịch vụ AI: OpenAI (ChatGPT) là dịch vụ chính, Anthropic (Claude) là dịch vụ dự phòng. Khi Người dùng chủ động yêu cầu "Phân tích AI", dữ liệu lá số (KHÔNG kèm email, mật khẩu, thông tin thanh toán) được gửi đến các nhà cung cấp này để tạo nội dung luận giải. Tương tự, khi Người dùng dùng "Hỏi Tuzi" (Chat AI), nội dung câu hỏi — và một khối tóm tắt facts ngắn gọn từ lá số đang gắn nếu câu hỏi liên quan tới lá số (KHÔNG kèm email, mật khẩu, thông tin thanh toán) — được gửi tới nhà cung cấp AI để tạo câu trả lời, và KHÔNG được lưu trữ lại sau khi trả lời xong. Việc xử lý dữ liệu tại các nhà cung cấp này tuân theo chính sách riêng của họ.
 - Cổng thanh toán / cổng nạp xu (VietQR / SePay / Apple App Store / Google Play) để xác thực giao dịch.
 
 **4.2. Cơ quan thực thi pháp luật và bảo vệ dữ liệu:**
@@ -131,9 +134,16 @@ Cập nhật lần cuối: ${LEGAL_UPDATED}
 
 # 1. Giới thiệu về ${CONTACT.appName}
 
-Ứng dụng ${CONTACT.appName} (website ${CONTACT.website} và ứng dụng di động — sau đây gọi chung là "**Hệ thống dịch vụ**" hoặc "**Hệ thống**") là hệ thống phần mềm chuyên về Tử Vi Đẩu Số (phái Nam Phái) và Tứ Trụ Bát Tự, hoạt động trên nền tảng mạng internet, các thiết bị di động và điện thoại di động.
+Ứng dụng ${CONTACT.appName} (website ${CONTACT.website} và ứng dụng di động — sau đây gọi chung là "**Hệ thống dịch vụ**" hoặc "**Hệ thống**") là nền tảng **trợ lý thông minh cho đời sống hằng ngày** (AI Life Intelligence Platform), hoạt động trên nền tảng mạng internet, các thiết bị di động và điện thoại di động. Hệ thống kết hợp một trợ lý AI trò chuyện đồng hành cùng người dùng với nền tảng tri thức Tử Vi Đẩu Số (phái Nam Phái) và Tứ Trụ Bát Tự — Tử Vi & Bát Tự là MỘT module chuyên sâu trong Hệ thống, không phải toàn bộ mục đích của Hệ thống.
 
-Hệ thống giúp Người dùng khám phá và hiểu rõ hơn về bản thân thông qua các lá số Tử Vi và Bát Tự. Hệ thống cung cấp các công cụ phân tích lá số dựa trên giờ, ngày, tháng, năm sinh để cung cấp thông tin chi tiết về: cách cục Mệnh – Thân – Phúc Đức, đại vận, tiểu vận, nguyệt vận, tài vận, công danh sự nghiệp, tình duyên, gia đạo, sức khỏe, xem ngày tốt/xấu và nhiều khía cạnh khác trong cuộc sống. Hệ thống cũng tích hợp tính năng phân tích chuyên sâu bằng trí tuệ nhân tạo (AI) cho lá số tổng thể, từng cung, đại vận, tiểu vận, nguyệt vận và nhật vận.
+Hệ thống bao gồm các nhóm tính năng chính:
+
+- **Hỏi Tuzi (Chat AI)** — biểu tượng trợ lý AI hiện trên mọi màn hình của Ứng dụng, cho phép Người dùng đặt câu hỏi ngắn (tối đa 500 từ) về công việc, cảm xúc, các mối quan hệ, mục tiêu cá nhân… và nhận câu trả lời ngắn gọn từ AI. Có hạn mức miễn phí theo ngày; sử dụng vượt hạn mức sẽ trừ xu theo mức phí niêm yết trong Ứng dụng.
+- **Việc & Mục tiêu** — công cụ quản lý công việc ngắn hạn và mục tiêu dài hạn của Người dùng, cho phép đặt ngày bắt đầu/ngày kết thúc (tham khảo lịch "ngày tốt/xấu" do Hệ thống tính toán để hỗ trợ chọn thời điểm), sắp xếp thứ tự ưu tiên, và nhận thông báo nhắc hạn.
+- **Ghi chú nhanh** — sổ ghi chú tự do theo ngày để Người dùng lưu lại điều chợt nhớ ra hoặc một sự kiện đã diễn ra; độc lập với "Việc & Mục tiêu", không có ngày hạn hay trạng thái hoàn thành.
+- **Tử Vi Đẩu Số & Tứ Trụ Bát Tự** — công cụ lập và phân tích lá số dựa trên giờ, ngày, tháng, năm sinh: cách cục Mệnh – Thân – Phúc Đức, đại vận, tiểu vận, nguyệt vận, nhật vận, tài vận, công danh sự nghiệp, tình duyên, gia đạo, sức khỏe, xem ngày tốt/xấu và nhiều khía cạnh khác. Hệ thống tích hợp phân tích chuyên sâu bằng trí tuệ nhân tạo (AI) cho lá số tổng thể, từng cung, đại vận, tiểu vận, nguyệt vận và nhật vận.
+
+Người dùng có thể sử dụng "Hỏi Tuzi", "Việc & Mục tiêu" và "Ghi chú nhanh" độc lập, không bắt buộc phải lập lá số Tử Vi/Bát Tự trước.
 
 # 2. Dữ liệu cá nhân
 
@@ -164,6 +174,8 @@ Người dùng không được sử dụng Hệ thống cho mục đích vi ph�
 Chúng tôi có toàn quyền sở hữu đối với Hệ thống ${CONTACT.appName} và toàn bộ các quyền sở hữu trí tuệ liên quan, bao gồm nhưng không giới hạn bởi: bản quyền mã nguồn, thuật toán an sao, cơ sở dữ liệu luận giải, giao diện, hình ảnh, tên thương mại, logo và các giải pháp công nghệ. Người dùng chỉ được phép sử dụng giới hạn Hệ thống theo các quy định tại Điều khoản này, và không bao gồm chuyển giao các quyền sở hữu trí tuệ hoặc các giấy phép bản quyền.
 
 Các tư liệu cổ điển về Tử Vi Đẩu Số (Nam Phái – cụ Thiên Lương), Tứ Trụ Bát Tự và phong thủy được tham khảo, hệ thống hóa và lập trình lại trong Ứng dụng — phần triển khai kỹ thuật và nội dung luận giải gốc của Chúng tôi là tài sản trí tuệ thuộc sở hữu của Chúng tôi.
+
+Bộ ảnh nhân vật đại diện (mục "Nhân vật đại diện" trong Tài khoản) sử dụng tài nguyên **Fluent Emoji** của Microsoft Corporation, phát hành theo **giấy phép MIT**: cho phép sử dụng, sao chép, sửa đổi và phân phối tự do kể cả cho mục đích thương mại, với điều kiện giữ nguyên thông báo bản quyền gốc. Chi tiết: https://github.com/microsoft/fluentui-emoji.
 
 # 7. Cung cấp thông tin
 
@@ -207,7 +219,9 @@ Mức giá của các Gói dịch vụ được niêm yết trên Ứng dụng h
 
 Mỗi Gói dịch vụ và số dư xu chỉ áp dụng cho một tài khoản của Người dùng. Khi Người dùng đăng nhập bằng tài khoản khác, Gói dịch vụ và số dư xu đã mua sẽ KHÔNG có hiệu lực. Trường hợp Người dùng nạp nhiều lần cho cùng một tài khoản, xu sẽ được tích lũy lũy kế.
 
-Chúng tôi cung cấp miễn phí: tạo lá số Tử Vi, lập Bát Tự, luận giải Tổng quan, Tổng thể nâng cao (offline), Xem theo ngày (cơ bản), Đại vận / Tiểu vận / Nguyệt vận (cơ bản). Các nội dung mất phí — bao gồm phân tích chi tiết cung, phân tích AI cho toàn bộ lá số / cung / đại vận / tiểu vận / nguyệt vận / nhật vận — sẽ luôn hiển thị giá xu rõ ràng trước khi Người dùng quyết định mở khóa.
+Chúng tôi cung cấp miễn phí: tạo lá số Tử Vi, lập Bát Tự, luận giải Tổng quan, Tổng thể nâng cao (offline), Xem theo ngày (cơ bản), Đại vận / Tiểu vận / Nguyệt vận (cơ bản), quản lý **Việc & Mục tiêu**, và **Ghi chú nhanh**. Các nội dung mất phí — bao gồm phân tích chi tiết cung, phân tích AI cho toàn bộ lá số / cung / đại vận / tiểu vận / nguyệt vận / nhật vận — sẽ luôn hiển thị giá xu rõ ràng trước khi Người dùng quyết định mở khóa.
+
+**Hỏi Tuzi (Chat AI)** có hạn mức miễn phí giới hạn số lượt hỏi mỗi ngày (hiển thị cụ thể trong Ứng dụng); khi dùng hết hạn mức miễn phí trong ngày, Người dùng có thể chọn trả thêm một mức xu nhỏ mỗi lượt hỏi tiếp theo để tiếp tục sử dụng, có xác nhận trước khi trừ xu.
 
 Xu đã mở khóa nội dung nào thì nội dung đó được giữ lại vĩnh viễn trong tài khoản (không cần trả lại xu khi xem lại). Trong trường hợp có sự thay đổi về chính sách hoặc giá niêm yết, Chúng tôi sẽ thông báo tới Người dùng trước khi áp dụng chính thức.
 

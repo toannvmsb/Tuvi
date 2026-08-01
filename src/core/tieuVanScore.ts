@@ -17,7 +17,7 @@
  */
 
 import type { AstrologyResult, TieuVan, TuViHouse, StarEntry, FiveElement, EarthlyBranch } from '../types';
-import { scoreDaiVan } from './daiVanScore';
+import { scoreDaiVan, computeDomainScores, type DomainScores } from './daiVanScore';
 import { luuStarsTamPhuong, LUU_CAT, LUU_HUNG } from './luuStars';
 
 const CAT_PHU = new Set([
@@ -93,7 +93,7 @@ function nhanHoaOf(menhBo: Bo, dvBo: Bo): { level: 'cao' | 'kha' | 'binh' | 'kem
   return { level: 'binh', delta: [2, 2] };
 }
 
-export interface TieuVanScore {
+export interface TieuVanScore extends DomainScores {
   age: number;
   year: number;
   stem: string;
@@ -107,6 +107,7 @@ export interface TieuVanScore {
   thienThoi: Relation;
   diaLoi: Relation;
   nhanHoa: 'cao' | 'kha' | 'binh' | 'kem';
+  formulaVersion: '2.0';
 }
 
 function ratingOf(net: number): TieuVanScore['rating'] {
@@ -208,6 +209,11 @@ export function scoreTieuVan(result: AstrologyResult, tv: TieuVan): TieuVanScore
   thachThuc = Math.max(4, Math.min(100, Math.round(thachThuc)));
   const rating = ratingOf(taiLoc - thachThuc * 0.5);
 
+  const hasTuanTriet = !!(h?.tuanAt || h?.trietAt);
+  const domains = computeDomainScores(
+    stars, h?.palaceName ?? '', taiLoc, thachThuc, nh.level, hasTuanTriet, chinh.length === 0,
+  );
+
   const chinhTxt = chinh.length
     ? chinh.map(s => `${s.name}${s.brightness ? `(${s.brightness})` : ''}`).join(', ')
     : 'Vô chính diệu';
@@ -238,6 +244,8 @@ export function scoreTieuVan(result: AstrologyResult, tv: TieuVan): TieuVanScore
     daiVanIndex: tv.daiVanIndex, palaceName: h?.palaceName ?? '',
     taiLoc, thachThuc, rating, summary,
     thienThoi, diaLoi, nhanHoa: nh.level,
+    ...domains,
+    formulaVersion: '2.0',
   };
 }
 

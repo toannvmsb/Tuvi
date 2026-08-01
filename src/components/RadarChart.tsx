@@ -28,6 +28,22 @@ export default function RadarChart({
   };
   const ratioOf = (v: number) => Math.max(0.04, Math.min(1, v / scale));
 
+  // Nhãn dài (VD "Kinh doanh / Đối tác") bị tràn/mất chữ khi vẽ trên 1 dòng —
+  // tách thành tối đa 2 dòng, ưu tiên tách tại dấu "/", nếu không có thì tách
+  // gần giữa chuỗi tại khoảng trắng gần nhất.
+  const wrapLabel = (label: string): string[] => {
+    if (label.length <= 10) return [label];
+    const slashIdx = label.indexOf('/');
+    if (slashIdx !== -1) {
+      return [label.slice(0, slashIdx).trim(), label.slice(slashIdx + 1).trim()];
+    }
+    const mid = Math.floor(label.length / 2);
+    let splitAt = label.lastIndexOf(' ', mid);
+    if (splitAt === -1) splitAt = label.indexOf(' ', mid);
+    if (splitAt === -1) return [label];
+    return [label.slice(0, splitAt).trim(), label.slice(splitAt + 1).trim()];
+  };
+
   const gridPolys = rings.map(rr =>
     data.map((_, i) => pt(i, rr).join(',')).join(' '),
   );
@@ -56,16 +72,22 @@ export default function RadarChart({
           const [lx, ly] = pt(i, 1.2);
           const a = angleOf(i);
           const anchor = Math.abs(Math.cos(a)) < 0.3 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end';
+          const lines = wrapLabel(d.label);
+          const labelBaseY = ly - 4 - (lines.length - 1) * 12;
+          const valueY = ly + 11 + (lines.length - 1) * 12;
           return (
             <G key={`l${i}`}>
+              {lines.map((line, li) => (
+                <SvgText
+                  key={li}
+                  x={lx} y={labelBaseY + li * 12} fontSize="12" fontWeight="800"
+                  fill={COLORS.goldLight} textAnchor={anchor as any}
+                >
+                  {line}
+                </SvgText>
+              ))}
               <SvgText
-                x={lx} y={ly - 5} fontSize="15" fontWeight="800"
-                fill={COLORS.goldLight} textAnchor={anchor as any}
-              >
-                {d.label}
-              </SvgText>
-              <SvgText
-                x={lx} y={ly + 13} fontSize="14" fontWeight="700"
+                x={lx} y={valueY} fontSize="12" fontWeight="700"
                 fill="#ffffff" textAnchor={anchor as any}
               >
                 {d.value}

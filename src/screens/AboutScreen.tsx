@@ -9,13 +9,13 @@ import ScreenHeader from '../components/ScreenHeader';
 import BrandLogo from '../components/BrandLogo';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 
-const APP_NAME = 'Tuzi — Tử Vi & Bát Tự';
-const VERSION = '1.0.0';
-const AUTHOR = 'Nguyễn Văn Toàn';
+const APP_NAME = 'Tuzi — Trợ lý thông minh của bạn';
+const VERSION = '1.0.1';
+const AUTHOR = 'Tuzi.vn';
 const WEBSITE = 'https://tuzi.vn';
-const SUPPORT_EMAIL = 'support@tuzi.vn';
-const SUPPORT_PHONE = '0913 377 666';
-const YEAR = new Date().getFullYear();
+const SUPPORT_EMAIL = 'tuzi.vn@gmail.com';
+const SUPPORT_PHONE = '0325585825';
+const COPYRIGHT_YEAR = 2026;
 
 export default function AboutScreen() {
   const navigation = useNavigation<any>();
@@ -24,9 +24,9 @@ export default function AboutScreen() {
       <ScreenHeader title="Giới thiệu" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
-          <BrandLogo size={120} />
+          <BrandLogo size={150} />
           <Text style={styles.appName}>{APP_NAME}</Text>
-          <Text style={styles.tagline}>Lá số Tử Vi · Bát Tự · Luận giải bằng AI</Text>
+          <Text style={styles.tagline}>Hỏi Tuzi bất cứ điều gì · Việc & Mục tiêu · Tử Vi – Bát Tự chuyên sâu</Text>
           <View style={styles.verBadge}>
             <Text style={styles.verText}>Phiên bản {VERSION}</Text>
           </View>
@@ -36,34 +36,63 @@ export default function AboutScreen() {
           <Row label="Tên sản phẩm" value={APP_NAME} />
           <Row label="Phiên bản" value={VERSION} />
           <Row label="Tác giả" value={AUTHOR} />
-          <Row label="Website" value="tuzi.vn" />
+          <Row label="Website" value="Tuzi.vn" link={WEBSITE} />
           <Row label="Nền tảng" value="iOS · Android · Web" />
-          <Row label="Bản quyền" value={`© ${YEAR} ${AUTHOR}`} />
+          <Row label="Bản quyền" value={`© ${COPYRIGHT_YEAR} ${AUTHOR}`} />
         </Card>
 
         <Card title="Liên hệ & Hỗ trợ">
           <Row label="Email" value={SUPPORT_EMAIL} />
           <Row label="Điện thoại / Zalo" value={SUPPORT_PHONE} />
-          <Row label="Website" value="tuzi.vn" />
+          <Row label="Website" value="Tuzi.vn" link={WEBSITE} />
           <Row label="Địa chỉ" value="Hà Nội, Việt Nam" />
         </Card>
 
         <Card title="Giới thiệu">
           <Text style={styles.body}>
-            Ứng dụng hỗ trợ lập và luận giải lá số Tử Vi Đẩu Số (phái Nam Phái) cùng
-            Tứ Trụ Bát Tự, có biểu đồ Đại Vận – Tiểu Vận – Tài Lộc, bản đồ tròn 12 trục,
-            và luận giải chuyên sâu bằng AI. Toàn bộ logic an sao, đại vận, tiểu vận
-            được tính theo các tài liệu Tử Vi Đẩu Số truyền thống (Tử Vi Đẩu Số Toàn Thư,
-            Tử Vi Hàm Số…), đối chiếu với các phần mềm phổ biến.
+            Tuzi là <Text style={styles.em}>trợ lý thông minh cho đời sống hằng ngày</Text> — không chỉ là một ứng
+            dụng xem Tử Vi. Trung tâm của Tuzi là <Text style={styles.em}>Hỏi Tuzi</Text>, biểu tượng trợ lý AI
+            luôn sẵn sàng trên mọi màn hình, cùng bộ công cụ đồng hành mỗi ngày: quản lý <Text style={styles.em}>Việc
+            & Mục tiêu</Text>, và xem "Ngày hôm nay" thuận lợi hay cần thận trọng.
+          </Text>
+          <Text style={[styles.body, { marginTop: SPACING.sm }]}>
+            Tử Vi Đẩu Số & Tứ Trụ Bát Tự là <Text style={styles.em}>một module chuyên sâu</Text> bên trong Tuzi —
+            dành cho ai muốn một bản luận giải thực sự chi tiết, đúc kết từ nhiều trường phái và hàng nghìn trang
+            tài liệu chuyên sâu, kết hợp cùng AI thế hệ mới để cho ra luận giải mạch lạc, cá nhân hóa, bám sát
+            từng chi tiết của lá số.
           </Text>
         </Card>
 
+        <Card title="🧭 Đồng hành mỗi ngày">
+          <Bullet text="Hỏi Tuzi: đặt câu hỏi ngắn về công việc, cảm xúc, các mối quan hệ, mục tiêu cá nhân… và nhận câu trả lời ngắn gọn ngay lập tức, mọi lúc mọi nơi trong app." />
+          <Bullet text="Việc & Mục tiêu: quản lý việc ngắn hạn và mục tiêu dài hạn, chọn ngày bắt đầu/kết thúc qua lịch có tô màu ngày đẹp/xấu, sắp xếp thứ tự ưu tiên, nhận nhắc hạn đúng lúc." />
+          <Bullet text="Trang chủ: nhìn nhanh ngày hôm nay, nhịp cả tháng và việc quan trọng nhất — tất cả trong một màn hình." />
+        </Card>
+
+        <Card title="✨ Tử Vi & Bát Tự chuyên sâu">
+          <Text style={styles.body}>
+            Hai tầng luận giải bổ trợ cho nhau, mang lại chiều sâu mà các công cụ thông thường khó có:
+          </Text>
+          <Bullet text="Phân tích NÂNG CAO (offline): luận giải bài bản theo khung của các nhà nghiên cứu Tử Vi Nam Phái (Lê Quang Lăng) và phương pháp luận Diệu Xuân — chi tiết từng cung, từng đại/tiểu/nguyệt vận, không giới hạn độ dài." />
+          <Bullet text="Phân tích AI CHUYÊN SÂU: bản luận dài, cấu trúc nhiều mục, biến lá số thành tư vấn THỰC TẾ về sự nghiệp – tài chính – tình duyên – sức khỏe, kèm gợi ý ngành nghề cụ thể và chiến lược hành động theo từng giai đoạn." />
+          <Bullet text="Mọi nhận định đều dựa trên dữ kiện của chính lá số (chính tinh, miếu hãm, cách cục, Tứ Hóa, Phi Hóa, Thập Thần…), không nói chung chung, không mê tín." />
+        </Card>
+
         <Card title="Chức năng chính">
-          <Bullet text="Lập lá số Tử Vi đầy đủ 14 chính tinh, lục cát, lục sát, tứ hóa, vòng Trường Sinh, Thái Tuế, Bác Sĩ…" />
-          <Bullet text="Bát Tự (Tứ Trụ) với dụng/kỵ thần ngũ hành." />
-          <Bullet text="Đại Vận / Tiểu Vận với biểu đồ lượng hóa Tài lộc – Thách thức, bản đồ tròn 12 trục." />
-          <Bullet text="Phân tích chuyên sâu bằng AI cho từng cung và toàn lá số." />
-          <Bullet text="Xuất ảnh, phóng to lá số, lưu vào thư viện ảnh." />
+          <Bullet text="Lập lá số Tử Vi Nam Phái đầy đủ: 14 chính tinh, lục cát – lục sát, Tứ Hóa, Phi Hóa Nam Phái, vòng Trường Sinh – Thái Tuế – Lộc Tồn, Tuần/Triệt…" />
+          <Bullet text="Tứ Trụ Bát Tự chuyên sâu: thân vượng/nhược, Dụng – Hỷ – Kỵ thần, Thập Thần, cách cục, xung – hợp – hình – hại – phá, và phong thủy ngũ hành ứng dụng." />
+          <Bullet text="Đại Vận · Tiểu Vận · Nguyệt Vận · Nhật vận: biểu đồ lượng hóa Tài lộc – Thách thức, chấm điểm theo thang 10, bản đồ tròn 12 trục." />
+          <Bullet text="Luận giải từng cung & toàn lá số (cả Nâng cao lẫn AI), kèm tam hợp – nhị hợp – xung chiếu và vị trí từng sao." />
+          <Bullet text="Xem ngày tốt/xấu, khung giờ hợp, chọn ngày xuất hành riêng theo lá số của bạn." />
+          <Bullet text="Tư vấn ngành nghề, màu sắc, hướng, vật phẩm hợp mệnh theo Dụng thần." />
+          <Bullet text="Lưu nhiều lá số, xuất ảnh & phóng to lá số, tra cứu mọi lúc – mọi nơi." />
+        </Card>
+
+        <Card title="Dành cho ai?">
+          <Bullet text="Bất kỳ ai muốn một trợ lý đồng hành gọn nhẹ cho công việc, cảm xúc và mục tiêu hằng ngày — kể cả khi chưa cần xem Tử Vi/Bát Tự." />
+          <Bullet text="Người cần một bản luận giải chi tiết, sâu sắc và cá nhân hóa cho chính mình và người thân." />
+          <Bullet text="Người yêu thích, muốn học hỏi và nghiên cứu Tử Vi – Bát Tự một cách hệ thống, bài bản." />
+          <Bullet text="Người muốn ứng dụng mệnh lý vào quyết định thực tế: chọn nghề, chọn thời điểm, quản trị rủi ro." />
         </Card>
 
         <Card title="Lưu ý">
@@ -89,17 +118,24 @@ export default function AboutScreen() {
           <Text style={[styles.btnText, { color: COLORS.gold }]}>🌐 Truy cập tuzi.vn</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footer}>Made with ❤️ in Vietnam · {YEAR}</Text>
+        <Text style={styles.footer}>
+          Bộ ảnh nhân vật đại diện dùng tài nguyên "Fluent Emoji" của Microsoft Corporation, giấy phép MIT.
+        </Text>
+        <Text style={styles.footer}>Made with ❤️ in Vietnam · {COPYRIGHT_YEAR}</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, link }: { label: string; value: string; link?: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      {link ? (
+        <Text style={styles.rowLink} onPress={() => Linking.openURL(link)}>{value}</Text>
+      ) : (
+        <Text style={styles.rowValue}>{value}</Text>
+      )}
     </View>
   );
 }
@@ -125,7 +161,7 @@ const styles = StyleSheet.create({
   scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
   hero: { alignItems: 'center', gap: 6, paddingVertical: SPACING.md },
   logo: { fontSize: 56, color: COLORS.gold },
-  appName: { fontSize: FONTS.size.xxl, color: COLORS.gold, fontWeight: '800' },
+  appName: { fontSize: FONTS.size.lg, color: COLORS.gold, fontWeight: '800' },
   tagline: { fontSize: FONTS.size.sm, color: COLORS.textSecondary, fontStyle: 'italic' },
   verBadge: {
     marginTop: 6, backgroundColor: COLORS.surface,
@@ -141,7 +177,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   rowLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
   rowValue: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '700' },
-  body: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 22 },
+  rowLink: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700', textDecorationLine: 'underline' },
+  body: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 22, textAlign: 'justify' },
+  em: { color: COLORS.gold, fontWeight: '800' },
   bullet: { flexDirection: 'row', gap: 6, paddingVertical: 2 },
   bulletDot: { color: COLORS.gold, fontSize: FONTS.size.md, lineHeight: 22 },
   btn: {

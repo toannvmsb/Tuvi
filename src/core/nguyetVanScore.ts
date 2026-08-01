@@ -15,6 +15,7 @@
 
 import type { AstrologyResult, TuViHouse, StarEntry, FiveElement, EarthlyBranch } from '../types';
 import { scoreTieuVan } from './tieuVanScore';
+import { monthStem, luuTuHoaPositions } from './phiHoa';
 
 const BRANCHES: EarthlyBranch[] = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'];
 const bIdx = (b: string) => BRANCHES.indexOf(b as EarthlyBranch);
@@ -223,4 +224,226 @@ export function scoreAllNguyetVan(result: AstrologyResult, age: number): NguyetV
     if (sc) out.push(sc);
   }
   return out;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CHI TIẾT NGUYỆT VẬN — 10 chỉ số + 8 chủ đề (THAY ĐỔI THEO TỪNG THÁNG).
+//  Mỗi tháng cung lưu nguyệt DI CHUYỂN 1 cung + can tháng đổi → Lưu Tứ Hóa đổi
+//  → điểm từng mảng & trạng thái từng chủ đề khác nhau giữa 12 tháng.
+//  Dùng chung cho cả Nâng cao (offline) và Phân tích AI.
+// ════════════════════════════════════════════════════════════════
+
+const TAM_HOP_IDX: number[][] = [[8, 0, 4], [2, 6, 10], [5, 9, 1], [11, 3, 7]];
+const tamHopIdxOf = (i: number): number[] => (TAM_HOP_IDX.find(g => g.includes(i)) ?? [i]).filter(x => x !== i);
+
+/** Chất lượng "tĩnh" của một cung gốc (0–100) — từ chính tinh + miếu hãm + cát/sát + hóa. */
+export function palaceQuality(h?: TuViHouse): number {
+  if (!h) return 45;
+  let s = 50;
+  const chinh = h.stars.filter(x => x.type === 'chinh');
+  if (chinh.length === 0) s -= 6;
+  for (const st of chinh) s += BRIGHT_PT[st.brightness ?? 'bình'] ?? 0;
+  for (const st of h.stars) {
+    const nm = st.name.startsWith('L. ') ? st.name.slice(3) : st.name;
+    if (nm === 'Hóa Lộc') s += 7;
+    else if (nm === 'Hóa Quyền') s += 6;
+    else if (nm === 'Hóa Khoa') s += 5;
+    else if (nm === 'Hóa Kỵ') s -= 8;
+    else if (nm === 'Lộc Tồn') s += 5;
+    else if (CAT_PHU.has(nm)) s += 2;
+    else if (SAT_PHU.has(nm)) s -= 3;
+  }
+  return Math.max(5, Math.min(100, Math.round(s)));
+}
+
+export type NvActivation = 'đồng cung' | 'tam hợp' | 'xung chiếu' | '';
+export type NvTier = 'good' | 'mid' | 'low';
+
+export interface NvThemeStatus {
+  key: string;
+  label: string;
+  palace: string;          // cung gốc chủ quản chủ đề
+  score: number;           // 0–10 (đã tính tác động tháng — thang đồng nhất toàn app)
+  status: string;          // 'Thuận lợi' | 'Khá' | 'Trung tính' | 'Cần thận trọng'
+  activation: NvActivation;// tháng này kích hoạt cung đó theo dạng nào
+  luuHoa: string;          // Lưu hóa rơi vào cung này (nếu có) — 'Hóa Lộc'…
+  note: string;            // diễn giải động theo tháng
+  action: string;          // 1 hành động cụ thể
+}
+
+export interface NguyetVanDetail {
+  month: number;
+  branch: EarthlyBranch;
+  palaceName: string;
+  monthCan: string;
+  chinhTinh: string[];
+  tamHopPalaces: string[];
+  xungPalace: string;
+  luuHoa: { hoa: string; star: string; palace: string; branch: string }[];
+  scores: { key: string; label: string; value: number; isRisk?: boolean }[]; // 10 chỉ số, mỗi chỉ số thang 0–10
+  themes: NvThemeStatus[];                                                    // 8 chủ đề
+}
+
+// 8 chủ đề (mục 4 khung Nam Phái) → cung gốc chủ quản.
+export const THEME_DEFS: { key: string; label: string; palace: string }[] = [
+  { key: 'congViec', label: 'Công việc', palace: 'Quan Lộc' },
+  { key: 'taiChinh', label: 'Tài chính', palace: 'Tài Bạch' },
+  { key: 'kinhDoanh', label: 'Kinh doanh / Đối tác', palace: 'Thiên Di' },
+  { key: 'honNhan', label: 'Hôn nhân / Quan hệ', palace: 'Phu Thê' },
+  { key: 'giaDinh', label: 'Gia đình', palace: 'Phụ Mẫu' },
+  { key: 'taiSan', label: 'Tài sản / Nhà đất', palace: 'Điền Trạch' },
+  { key: 'sucKhoe', label: 'Sức khỏe', palace: 'Tật Ách' },
+  { key: 'hocTap', label: 'Học tập / Nâng cấp bản thân', palace: 'Phúc Đức' },
+];
+
+// Hành động cụ thể theo chủ đề × bậc (good/mid/low).
+const THEME_ACTION: Record<string, Record<NvTier, string>> = {
+  congViec: {
+    good: 'Đẩy mạnh việc trọng tâm, xin phụ trách dự án, trình bày kế hoạch, chốt KPI quan trọng.',
+    mid: 'Hoàn thiện việc dang dở, củng cố chuyên môn, chưa vội nhận thêm trách nhiệm lớn.',
+    low: 'Giữ nhịp, tránh va chạm với cấp trên/đồng nghiệp, không quyết định nhân sự vội.',
+  },
+  taiChinh: {
+    good: 'Thu hồi công nợ, chốt đơn, cân nhắc khoản đầu tư đã nghiên cứu kỹ.',
+    mid: 'Lập ngân sách, theo dõi dòng tiền, ưu tiên tích lũy hơn chi lớn.',
+    low: 'Siết chi tiêu, hoãn đầu tư/cho vay/bảo lãnh, kiểm tra hợp đồng tài chính kỹ.',
+  },
+  kinhDoanh: {
+    good: 'Mở rộng quan hệ, gặp đối tác, đàm phán hợp tác, tìm khách hàng mới.',
+    mid: 'Chăm sóc quan hệ sẵn có, thử nghiệm thị trường ở quy mô nhỏ.',
+    low: 'Thận trọng khi ký kết, rà soát điều khoản, tránh hợp tác mới chưa kiểm chứng.',
+  },
+  honNhan: {
+    good: 'Dành thời gian cho bạn đời, hâm nóng tình cảm, giải quyết khúc mắc bằng đối thoại.',
+    mid: 'Lắng nghe nhiều hơn, duy trì sự quan tâm đều đặn, tránh để hiểu lầm tích tụ.',
+    low: 'Giữ lời nói ôn hòa, tránh tranh cãi gay gắt, lùi một bước khi căng thẳng.',
+  },
+  giaDinh: {
+    good: 'Quây quần gia đình, thăm hỏi cha mẹ, giải quyết việc nhà còn tồn đọng.',
+    mid: 'Duy trì kết nối, san sẻ việc nhà, quan tâm sức khỏe người thân.',
+    low: 'Nhẫn nhịn với người lớn tuổi, tránh để mâu thuẫn gia đình bùng phát.',
+  },
+  taiSan: {
+    good: 'Xem xét mua/bán/sửa chữa nhà đất đã tính toán; củng cố tài sản tích lũy.',
+    mid: 'Bảo trì, dọn dẹp, lên kế hoạch tài sản dài hạn, chưa vội giao dịch lớn.',
+    low: 'Hoãn giao dịch bất động sản lớn, kiểm tra pháp lý giấy tờ thật kỹ.',
+  },
+  sucKhoe: {
+    good: 'Duy trì vận động, dưỡng sinh, tận dụng năng lượng tốt để xây thói quen lành mạnh.',
+    mid: 'Ngủ đủ, ăn điều độ, theo dõi các dấu hiệu nhỏ của cơ thể.',
+    low: 'Khám sức khỏe, giảm thức khuya/rượu bia, tránh gắng sức và stress kéo dài.',
+  },
+  hocTap: {
+    good: 'Đăng ký khóa học, đọc sách chuyên môn, học kỹ năng mới — tinh thần đang sắc bén.',
+    mid: 'Ôn lại kiến thức, hệ thống hóa ghi chú, học đều mỗi ngày một chút.',
+    low: 'Học nhẹ nhàng để giữ phong độ, tránh ôm đồm quá nhiều cùng lúc.',
+  },
+};
+
+const tierOf = (score: number): NvTier => (score >= 62 ? 'good' : score >= 46 ? 'mid' : 'low');
+const statusOf = (score: number): string =>
+  score >= 70 ? 'Thuận lợi' : score >= 55 ? 'Khá' : score >= 42 ? 'Trung tính' : 'Cần thận trọng';
+
+const HOA_BONUS: Record<string, number> = { 'Hóa Lộc': 10, 'Hóa Quyền': 7, 'Hóa Khoa': 6, 'Hóa Kỵ': -12 };
+
+/**
+ * Chi tiết Nguyệt vận 1 tháng: 10 chỉ số + 8 chủ đề, biến thiên theo tháng.
+ */
+export function nguyetVanDetail(result: AstrologyResult, age: number, month: number): NguyetVanDetail | null {
+  const sc = scoreNguyetVan(result, age, month);
+  const branch = nguyetVanBranch(result, age, month);
+  if (!sc || !branch) return null;
+
+  const houses = result.tuViChart.houses;
+  const byBranchIdx = (i: number) => houses.find(h => bIdx(h.branch) === i);
+  const byName = (name: string) => houses.find(h => h.palaceName === name);
+
+  const mIdx = bIdx(branch);
+  const tamHopIdx = tamHopIdxOf(mIdx);
+  const xungIdx = (mIdx + 6) % 12;
+  const monthHouse = byBranchIdx(mIdx);
+
+  const tamHopPalaces = tamHopIdx.map(i => byBranchIdx(i)?.palaceName).filter(Boolean) as string[];
+  const xungPalace = byBranchIdx(xungIdx)?.palaceName ?? '';
+  const chinhTinh = (monthHouse?.stars ?? []).filter(s => s.type === 'chinh')
+    .map(s => `${s.name}${s.brightness ? `(${s.brightness})` : ''}`);
+
+  const tv = result.tieuVans.find(x => x.age === age);
+  const monthCan = tv ? monthStem(tv.yearStem, month) : '';
+  const luuHoa = monthCan ? luuTuHoaPositions(result.tuViChart, monthCan) : [];
+
+  const activationOf = (pIdx: number): NvActivation =>
+    pIdx === mIdx ? 'đồng cung' : tamHopIdx.includes(pIdx) ? 'tam hợp' : pIdx === xungIdx ? 'xung chiếu' : '';
+
+  // Điểm 1 cung gốc CÓ tính tác động của tháng (kích hoạt + lưu hóa rơi vào cung).
+  const palaceMonthScore = (palaceName: string): { score: number; act: NvActivation; hoa: string } => {
+    const h = byName(palaceName);
+    let s = palaceQuality(h);
+    const act = h ? activationOf(bIdx(h.branch)) : '';
+    if (act === 'đồng cung') s += 12;
+    else if (act === 'tam hợp') s += 7;
+    else if (act === 'xung chiếu') s += 2;
+    let hoa = '';
+    for (const lh of luuHoa) {
+      if (lh.palace === palaceName) { s += HOA_BONUS[lh.hoa] ?? 0; hoa = lh.hoa; }
+    }
+    return { score: Math.max(5, Math.min(100, Math.round(s))), act, hoa };
+  };
+
+  // Quy đổi thang 0–100 (nội bộ) → thang 0–10 (đồng nhất với các chức năng khác), làm tròn.
+  const to10 = (v: number) => Math.max(1, Math.min(10, Math.round(v / 10)));
+
+  // ── 8 CHỦ ĐỀ ──
+  const themes: NvThemeStatus[] = THEME_DEFS.map(def => {
+    const { score: score100, act, hoa } = palaceMonthScore(def.palace);
+    const tier = tierOf(score100);
+    const actTxt =
+      act === 'đồng cung' ? `Tháng này lưu nguyệt ĐÓNG ngay tại cung ${def.palace} → chủ đề được kích hoạt MẠNH NHẤT.`
+      : act === 'tam hợp' ? `Cung ${def.palace} nằm trong TAM HỢP với cung lưu nguyệt → được hỗ trợ/cộng hưởng tháng này.`
+      : act === 'xung chiếu' ? `Cung ${def.palace} XUNG CHIẾU với cung lưu nguyệt → có tác động nhưng kèm lực đối nghịch, dễ căng.`
+      : `Cung ${def.palace} không bị tháng này kích hoạt trực tiếp → giữ nhịp nền.`;
+    const hoaTxt =
+      hoa === 'Hóa Lộc' ? ' Có Lưu Lộc rơi vào → đây là CỬA CƠ HỘI rõ nhất của tháng.'
+      : hoa === 'Hóa Quyền' ? ' Có Lưu Quyền → tăng quyền hành/trách nhiệm, nên chủ động đảm nhận.'
+      : hoa === 'Hóa Khoa' ? ' Có Lưu Khoa → dễ gặp quý nhân, được công nhận.'
+      : hoa === 'Hóa Kỵ' ? ' ⚠ Có Lưu Kỵ → ĐIỂM NGHẼN cần quản trị rủi ro ở mảng này.'
+      : '';
+    return {
+      key: def.key, label: def.label, palace: def.palace, score: to10(score100),
+      status: statusOf(score100), activation: act, luuHoa: hoa,
+      note: actTxt + hoaTxt,
+      action: THEME_ACTION[def.key][tier],
+    };
+  });
+
+  // ── 10 CHỈ SỐ (mục 5 khung Nam Phái) ──
+  const ps = (name: string) => palaceMonthScore(name).score;
+  const tongKhi = Math.max(5, Math.min(100, Math.round(50 + (sc.taiLoc - sc.thachThuc) / 2)));
+  const aus = luuHoa.filter(l => l.hoa !== 'Hóa Kỵ').length;          // số lưu cát
+  const kyCount = luuHoa.filter(l => l.hoa === 'Hóa Kỵ').length;       // số lưu kỵ
+  const monthCS = monthHouse
+    ? { cat: monthHouse.stars.filter(s => CAT_PHU.has(s.name.replace(/^L\. /, ''))).length,
+        sat: monthHouse.stars.filter(s => SAT_PHU.has(s.name.replace(/^L\. /, ''))).length }
+    : { cat: 0, sat: 0 };
+  const coHoi = Math.max(5, Math.min(100, Math.round(42 + aus * 11 + monthCS.cat * 4 + (sc.taiLoc - 50) * 0.3)));
+  const ruiRo = Math.max(5, Math.min(100, Math.round(28 + kyCount * 16 + monthCS.sat * 6 + (sc.thachThuc - 50) * 0.4
+    + ((monthHouse?.tuanAt || monthHouse?.trietAt) ? 6 : 0))));
+
+  const scores: NguyetVanDetail['scores'] = [
+    { key: 'tongKhi', label: 'Tổng khí tháng', value: to10(tongKhi) },
+    { key: 'congViec', label: 'Công việc', value: to10(ps('Quan Lộc')) },
+    { key: 'taiChinh', label: 'Tài chính', value: to10(ps('Tài Bạch')) },
+    { key: 'kinhDoanh', label: 'Kinh doanh', value: to10(ps('Thiên Di')) },
+    { key: 'quanHe', label: 'Quan hệ', value: to10(ps('Nô Bộc')) },
+    { key: 'giaDao', label: 'Gia đạo', value: to10(ps('Phụ Mẫu')) },
+    { key: 'honNhan', label: 'Hôn nhân', value: to10(ps('Phu Thê')) },
+    { key: 'sucKhoe', label: 'Sức khỏe', value: to10(ps('Tật Ách')) },
+    { key: 'coHoi', label: 'Cơ hội', value: to10(coHoi) },
+    { key: 'ruiRo', label: 'Rủi ro', value: to10(ruiRo), isRisk: true },
+  ];
+
+  return {
+    month, branch, palaceName: sc.palaceName, monthCan,
+    chinhTinh, tamHopPalaces, xungPalace, luuHoa, scores, themes,
+  };
 }

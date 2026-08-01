@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yêu cầu xoá tài khoản – Tuzi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px; line-height: 1.7; color: #1a1a1a;
+      background: #f9f7f4;
+    }
+    .header {
+      background: #1a0a2e; color: #fff;
+      padding: 48px 24px 40px; text-align: center;
+    }
+    .header h1 { font-size: 26px; font-weight: 600; margin-bottom: 8px; }
+    .header .app { font-size: 15px; color: #c4aef0; }
+    .container { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    .info-box {
+      background: #fff; border: 1px solid #e8e2f7;
+      border-left: 4px solid #7c5cbf;
+      border-radius: 8px; padding: 20px 24px; margin-bottom: 32px;
+    }
+    .info-box p { margin: 0; color: #3a3a4a; }
+
+    h2 {
+      font-size: 17px; font-weight: 600; color: #1a0a2e;
+      margin: 32px 0 12px; padding-bottom: 6px;
+      border-bottom: 1px solid #e8e2f7;
+    }
+    p { margin-bottom: 12px; color: #3a3a4a; }
+    ol, ul { padding-left: 22px; margin-bottom: 16px; }
+    li { margin-bottom: 8px; color: #3a3a4a; }
+
+    .step-box {
+      background: #fff; border: 1px solid #e8e2f7;
+      border-radius: 8px; padding: 20px 24px; margin-bottom: 16px;
+    }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #7c5cbf; color: #fff;
+      font-size: 13px; font-weight: 700;
+      margin-right: 10px; flex-shrink: 0;
+    }
+    .step-title {
+      display: flex; align-items: center;
+      font-weight: 600; color: #1a0a2e;
+      margin-bottom: 8px;
+    }
+    .step-desc { color: #3a3a4a; font-size: 15px; padding-left: 38px; }
+
+    .email-btn {
+      display: inline-block;
+      background: #7c5cbf; color: #fff;
+      padding: 12px 28px; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 15px;
+      margin-top: 8px;
+    }
+    .email-btn:hover { background: #6a4aad; }
+
+    table {
+      width: 100%; border-collapse: collapse;
+      background: #fff; border-radius: 8px; overflow: hidden;
+      border: 1px solid #e8e2f7; margin-bottom: 16px;
+    }
+    th {
+      background: #f3eeff; color: #1a0a2e;
+      font-weight: 600; text-align: left;
+      padding: 12px 16px; font-size: 14px;
+    }
+    td { padding: 11px 16px; font-size: 14px; color: #3a3a4a; border-top: 1px solid #f0ecf9; }
+    tr:first-child td { border-top: none; }
+    .tag-del { color: #c0392b; font-weight: 600; }
+    .tag-keep { color: #1a6630; font-weight: 600; }
+
+    .note-box {
+      background: #fef9ec; border: 1px solid #f0d97a;
+      border-radius: 8px; padding: 16px 20px; margin-top: 24px;
+      font-size: 14px; color: #7a5a00;
+    }
+
+    a { color: #7c5cbf; }
+    .footer {
+      text-align: center; font-size: 13px; color: #999;
+      padding: 28px 24px; border-top: 1px solid #e8e2f7;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Yêu cầu xoá tài khoản</h1>
+  <p class="app">Ứng dụng Tuzi – Tử Vi &amp; Bát Tự</p>
+</div>
+
+<div class="container">
+
+  <div class="info-box">
+    <p>Tại <strong>Tuzi</strong>, bạn có quyền yêu cầu xoá tài khoản và toàn bộ dữ liệu cá nhân bất cứ lúc nào. Chúng tôi sẽ xử lý yêu cầu trong vòng <strong>7 ngày làm việc</strong>.</p>
+  </div>
+
+  <!-- STEPS -->
+  <h2>Cách yêu cầu xoá tài khoản</h2>
+
+  <div class="step-box">
+    <div class="step-title"><span class="step-num">1</span>Gửi email yêu cầu</div>
+    <div class="step-desc">
+      Gửi email đến <strong>Tuzi.vn@gmail.com</strong> với tiêu đề:<br>
+      <em>"Yêu cầu xoá tài khoản Tuzi"</em>
+      <br><br>
+      <a class="email-btn" href="mailto:Tuzi.vn@gmail.com?subject=Y%C3%AAu%20c%E1%BA%A7u%20x%C3%B3a%20t%C3%A0i%20kho%E1%BA%A3n%20Tuzi&body=Ch%C3%A0o%20Tuzi%2C%0A%0AT%C3%B4i%20mu%E1%BB%91n%20y%C3%AAu%20c%E1%BA%A7u%20x%C3%B3a%20t%C3%A0i%20kho%E1%BA%A3n%20v%C3%A0%20to%C3%A0n%20b%E1%BB%99%20d%E1%BB%AF%20li%E1%BB%87u%20c%E1%BB%A7a%20t%C3%B4i.%0A%0AEmail%20t%C3%A0i%20kho%E1%BA%A3n%3A%20">
+        Gửi email ngay
+      </a>
+    </div>
+  </div>
+
+  <div class="step-box">
+    <div class="step-title"><span class="step-num">2</span>Cung cấp thông tin tài khoản</div>
+    <div class="step-desc">
+      Trong nội dung email, ghi rõ:<br>
+      • Địa chỉ email đã dùng để đăng ký tài khoản Tuzi<br>
+      • Lý do xoá (tuỳ chọn)
+    </div>
+  </div>
+
+  <div class="step-box">
+    <div class="step-title"><span class="step-num">3</span>Chờ xác nhận</div>
+    <div class="step-desc">
+      Chúng tôi sẽ phản hồi và hoàn tất xoá tài khoản trong vòng <strong>7 ngày làm việc</strong>. Bạn sẽ nhận email xác nhận khi quá trình hoàn tất.
+    </div>
+  </div>
+
+  <!-- DATA TABLE -->
+  <h2>Dữ liệu được xoá và dữ liệu giữ lại</h2>
+
+  <table>
+    <tr>
+      <th>Loại dữ liệu</th>
+      <th>Xử lý khi xoá tài khoản</th>
+      <th>Thời gian</th>
+    </tr>
+    <tr>
+      <td>Thông tin tài khoản (email, tên)</td>
+      <td class="tag-del">Xoá vĩnh viễn</td>
+      <td>Trong 7 ngày</td>
+    </tr>
+    <tr>
+      <td>Lá số đã lưu (tử vi, bát tự)</td>
+      <td class="tag-del">Xoá vĩnh viễn</td>
+      <td>Trong 7 ngày</td>
+    </tr>
+    <tr>
+      <td>Lịch sử phân tích AI</td>
+      <td class="tag-del">Xoá vĩnh viễn</td>
+      <td>Trong 7 ngày</td>
+    </tr>
+    <tr>
+      <td>Số dư xu còn lại</td>
+      <td class="tag-del">Xoá vĩnh viễn (không hoàn tiền)</td>
+      <td>Trong 7 ngày</td>
+    </tr>
+    <tr>
+      <td>Lịch sử giao dịch nạp xu</td>
+      <td class="tag-keep">Giữ lại (ẩn danh hoá)</td>
+      <td>Tối đa 5 năm*</td>
+    </tr>
+    <tr>
+      <td>Token thông báo đẩy</td>
+      <td class="tag-del">Xoá vĩnh viễn</td>
+      <td>Ngay lập tức</td>
+    </tr>
+  </table>
+
+  <div class="note-box">
+    * Lịch sử giao dịch tài chính được giữ lại ở dạng ẩn danh (không liên kết với tên hay email của bạn) để đáp ứng yêu cầu lưu trữ chứng từ tài chính theo quy định pháp luật.
+  </div>
+
+</div>
+
+<div class="footer">
+  &copy; 2025 Tuzi &nbsp;·&nbsp; <a href="/">Chính sách quyền riêng tư</a> &nbsp;·&nbsp; Liên hệ: Tuzi.vn@gmail.com
+</div>
+
+</body>
+</html>

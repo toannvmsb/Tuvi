@@ -16,7 +16,7 @@
  *      cộng xu (tránh gian lận). Khung dưới đây sẽ tự gọi function đó.
  */
 import { Platform } from 'react-native';
-import { XU_PACKS, XU_SKUS, type XuPack } from '../constants/payment';
+import { XU_PACKS, XU_SKUS_IOS, XU_SKUS_ANDROID, type XuPack } from '../constants/payment';
 import { deposit, seedWallet, wallet } from '../constants/premium';
 import { supabase } from './supabase';
 import { isOnlineMode } from './auth';
@@ -24,17 +24,24 @@ import { isOnlineMode } from './auth';
 let RNIap: any = null;
 try { RNIap = require('react-native-iap'); } catch { RNIap = null; }
 
+let Constants: any = null;
+try { Constants = require('expo-constants').default; } catch { Constants = null; }
+
 let purchaseUpdateSub: any = null;
 let purchaseErrorSub: any = null;
 let initialized = false;
 
-/** IAP có khả dụng không (đã cài package + đang trên thiết bị thật). */
+/** IAP có khả dụng không (đã cài package + đang trên thiết bị thật, không phải Expo Go). */
 export function isIapAvailable(): boolean {
+  // Expo Go không có native module của react-native-iap → tắt hoàn toàn
+  if (Constants?.appOwnership === 'expo') return false;
   return !!RNIap && (Platform.OS === 'ios' || Platform.OS === 'android');
 }
 
 const packOf = (productId: string): XuPack | undefined =>
-  XU_PACKS.find(p => p.productId === productId);
+  XU_PACKS.find(p =>
+    Platform.OS === 'ios' ? p.iosProductId === productId : p.productId === productId
+  );
 
 /**
  * Cộng xu sau khi mua. ƯU TIÊN xác thực biên nhận phía SERVER (Edge Function
@@ -105,15 +112,33 @@ export async function initIap(handlers?: {
 /** Lấy thông tin sản phẩm (giá localize từ store). Trả [] nếu không khả dụng. */
 export async function getXuProducts(): Promise<any[]> {
   if (!isIapAvailable() || !initialized) return [];
-  try { return (await RNIap.getProducts({ skus: XU_SKUS })) || []; }
-  catch { return []; }
+  // Thử getProducts (API ổn định), fallback sang fetchProducts nếu không có.
+  const skus = Platform.OS === 'ios' ? XU_SKUS_IOS : XU_SKUS_ANDROID;
+  const fn = RNIap.getProducts ?? RNIap.fetchProducts;
+  if (!fn) { console.warn('[IAP] Không tìm thấy getProducts/fetchProducts'); return []; }
+  try {
+    const products = await fn({ skus });
+    console.log('[IAP] getXuProducts =>', products?.length, products?.map((p: any) => p.productId || p.id));
+    return products || [];
+  } catch (e: any) {
+    console.error('[IAP] getXuProducts error:', e?.message, e?.code);
+    return [];
+  }
 }
 
 /** Mở hộp thoại mua 1 gói xu. */
 export async function buyXuPack(productId: string): Promise<void> {
   if (!isIapAvailable()) throw new Error('Nạp qua cửa hàng chỉ dùng trên bản cài từ App Store / CH Play.');
   if (!initialized) await initIap();
-  await RNIap.requestPurchase({ sku: productId, skus: [productId] });
+  console.log('[IAP] buyXuPack ->', productId);
+  // v15 API: type='inapp' bắt buộc, dùng ios/android (không phải apple/google)
+  await RNIap.requestPurchase({
+    type: 'inapp',
+    request: {
+      ios: { sku: productId },
+      android: { skus: [productId] },
+    },
+  });
 }
 
 /** Gỡ listener + đóng kết nối (gọi khi rời màn). */

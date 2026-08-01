@@ -132,7 +132,7 @@ export default function HouseCell({ house, width, height, showLuuStars = false, 
   const fontScale = Math.max(1, 1 + 0.85 * (width / BASE_CELL - 1));
   const headerFs = scaled ? Math.round(7 * fontScale) : Math.max(7, Math.round(width * 0.055));
   const chinhFs  = scaled ? Math.round(9 * fontScale) : Math.max(9, Math.round(width * 0.072));
-  const phuFs    = scaled ? Math.round(6 * fontScale) : Math.max(6, Math.round(width * 0.04));
+  const phuFs    = scaled ? Math.max(5, Math.round(5.3 * fontScale)) : Math.max(5, Math.round(width * 0.035));
   const luuFs    = scaled ? Math.round(5 * fontScale) : Math.max(5, Math.round(width * 0.038));
   const branchFs = scaled ? Math.round(8 * fontScale) : Math.max(8, Math.round(width * 0.06));
 

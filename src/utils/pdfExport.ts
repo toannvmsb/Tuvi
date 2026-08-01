@@ -9,12 +9,32 @@ import type { View } from 'react-native';
 import { STAR_NAME_REGEX, getElementOfStar } from '../data/starElements';
 import type { FiveElement } from '../types';
 
+export interface PdfDaiVanInfo {
+  label: string;       // "24–33 tuổi"
+  stemBranch: string;  // "Giáp Tý"
+  palaceName: string;  // "Quan Lộc"
+  chinhTinh?: string;  // chính tinh tọa thủ tại chính cung, vd "Tử Vi, Thiên Phủ"
+  cellImage?: string;  // ảnh ô cung (data URI PNG) — nếu có sẽ hiển thị thay cho text
+  isCurrent: boolean;
+}
+
+export interface PdfTieuVanInfo {
+  year: number;
+  age: number;
+  stemBranch: string;  // "Ất Sửu"
+  palaceName: string;  // "Tài Bạch"
+  chinhTinh?: string;  // chính tinh tọa thủ tại chính cung năm xem
+  cellImage?: string;  // ảnh ô cung (data URI PNG)
+}
+
 export interface PdfOptions {
   title: string;            // Tiêu đề lớn (vd "Phân tích Đại Vận 24–33 tuổi")
   subtitle?: string;        // Dòng phụ dưới tiêu đề
   headerLines?: string[];   // Các dòng thông tin lá số (tên, ngày sinh…)
   markdown: string;         // Nội dung chính (markdown rút gọn của app)
-  chartDataUri?: string;    // Ảnh lá số (data URI PNG) — nếu có sẽ chèn vào đầu
+  chartDataUri?: string;    // Ảnh lá số (data URI PNG) — nếu có sẽ chèn vào đầu PDF
+  daiVanInfo?: PdfDaiVanInfo;   // Thông tin đại vận hiện tại để hiển thị sidebar trang 1
+  tieuVanInfo?: PdfTieuVanInfo; // Thông tin tiểu vận năm xem để hiển thị sidebar trang 1
   badge?: string;           // Nhãn nguồn: "NÂNG CAO" / "PHÂN TÍCH AI"
   fileName?: string;        // Tên file PDF mong muốn (không cần đuôi .pdf)
 }
@@ -122,19 +142,54 @@ function markdownToHtml(md: string): string {
 }
 
 function buildHtml(opts: PdfOptions): string {
-  const { title, subtitle, headerLines = [], markdown, chartDataUri, badge } = opts;
+  const { title, subtitle, headerLines = [], markdown, chartDataUri, daiVanInfo, tieuVanInfo, badge, fileName } = opts;
   const today = new Date();
   const dateStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+  const docTitle = escapeHtml(sanitizeFileName(fileName || title));
   const body = markdownToHtml(markdown);
   const headerHtml = headerLines.length
     ? `<div class="info">${headerLines.map(l => `<div>${escapeHtml(l)}</div>`).join('')}</div>`
     : '';
-  const chartHtml = chartDataUri
-    ? `<div class="chart"><img src="${chartDataUri}" /><div class="chart-cap">Lá số Tử Vi</div></div>`
-    : '';
+
+  // Layout trang đầu: nếu có ảnh lá số → 2 cột (lá số trái, sidebar phải).
+  // Sidebar phải gồm: Đại vận hiện tại (trên) + Tiểu vận năm xem (dưới).
+  let firstPageHtml = '';
+  if (chartDataUri) {
+    const sidebarHtml = (daiVanInfo || tieuVanInfo) ? `
+      <div class="sidebar">
+        ${daiVanInfo ? `
+        <div class="side-box dv-box">
+          <div class="side-box-title">Đại Vận${daiVanInfo.isCurrent ? ' hiện tại' : ''}</div>
+          <div class="side-val">${escapeHtml(daiVanInfo.label)}</div>
+          <div class="side-sub">${escapeHtml(daiVanInfo.stemBranch)} · Cung ${escapeHtml(daiVanInfo.palaceName)}</div>
+          ${daiVanInfo.cellImage
+            ? `<img class="side-cell" src="${daiVanInfo.cellImage}" />`
+            : `<div class="side-palace">Cung ${escapeHtml(daiVanInfo.palaceName)}</div>${daiVanInfo.chinhTinh ? `<div class="side-stars">Chính tinh: ${escapeHtml(daiVanInfo.chinhTinh)}</div>` : ''}`}
+        </div>` : ''}
+        ${tieuVanInfo ? `
+        <div class="side-box tv-box">
+          <div class="side-box-title">Tiểu Vận năm ${tieuVanInfo.year}</div>
+          <div class="side-val">${tieuVanInfo.age} tuổi</div>
+          <div class="side-sub">${escapeHtml(tieuVanInfo.stemBranch)} · Cung ${escapeHtml(tieuVanInfo.palaceName)}</div>
+          ${tieuVanInfo.cellImage
+            ? `<img class="side-cell" src="${tieuVanInfo.cellImage}" />`
+            : `<div class="side-palace">Cung ${escapeHtml(tieuVanInfo.palaceName)}</div>${tieuVanInfo.chinhTinh ? `<div class="side-stars">Chính tinh: ${escapeHtml(tieuVanInfo.chinhTinh)}</div>` : ''}`}
+        </div>` : ''}
+      </div>` : '';
+
+    firstPageHtml = `
+      <div class="first-page">
+        <div class="chart-col">
+          <img class="chart-img" src="${chartDataUri}" />
+          <div class="chart-cap">Lá số Tử Vi</div>
+        </div>
+        ${sidebarHtml}
+      </div>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"/>
+<title>${docTitle}</title>
 <style>
   @page { margin: 20px 30px; }
   * { box-sizing: border-box; }
@@ -148,9 +203,31 @@ function buildHtml(opts: PdfOptions): string {
   .info { background: #faf6ec; border: 1px solid #e7d9b5; border-radius: 8px;
           padding: 7px 12px; margin: 8px 0; font-size: 11.5px; color: #4b4636; }
   .info div { margin: 1px 0; }
-  .chart { text-align: center; margin: 8px 0 10px; page-break-inside: avoid; }
-  .chart img { width: 56%; max-width: 330px; border: 1px solid #e7d9b5; border-radius: 8px; }
-  .chart-cap { color: #8a5a00; font-size: 10.5px; font-style: italic; margin-top: 3px; }
+
+  /* Layout trang đầu: lá số trái + sidebar phải */
+  .first-page { display: flex; gap: 14px; margin: 10px 0 14px; page-break-inside: avoid; align-items: flex-start; }
+  .chart-col { flex: 0 0 65%; display: flex; flex-direction: column; align-items: center; }
+  .chart-img { width: 100%; border: 1px solid #e7d9b5; border-radius: 8px; display: block; }
+  .chart-cap { color: #8a5a00; font-size: 10px; font-style: italic; margin-top: 4px; text-align: center; }
+  .sidebar { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .side-box { border-radius: 10px; padding: 12px 14px; }
+  .dv-box { background: #fdf3dc; border: 1.5px solid #d4a840; }
+  .tv-box { background: #f0f4ff; border: 1.5px solid #7b9fd4; }
+  .side-box-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+                    color: #8a6a00; margin-bottom: 6px; }
+  .tv-box .side-box-title { color: #2f5496; }
+  .side-val { font-size: 18px; font-weight: 800; color: #5a3a00; line-height: 1.2; }
+  .tv-box .side-val { color: #1a3a6e; }
+  .side-sub { font-size: 13px; color: #7a5800; margin-top: 2px; font-weight: 600; }
+  .tv-box .side-sub { color: #2f5496; }
+  .side-palace { margin-top: 6px; font-size: 11px; color: #666; background: rgba(0,0,0,0.05);
+                 border-radius: 4px; padding: 2px 7px; display: inline-block; }
+  .side-stars { margin-top: 5px; font-size: 11px; color: #5a3a00; font-weight: 600; line-height: 1.4; }
+  .tv-box .side-stars { color: #1a3a6e; }
+  .side-cell { display: block; width: 90%; max-width: none; height: auto; margin: 7px auto 0; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); }
+  /* Nội dung phân tích chi tiết bắt đầu từ TRANG 2 (sau trang bìa lá số). */
+  .page-2 { page-break-before: always; }
+
   h1, h2, h3 { color: #8a5a00; page-break-after: avoid; }
   h1 { font-size: 17px; border-bottom: 1.5px solid #e7d9b5; padding-bottom: 4px; margin: 18px 0 8px; }
   h2 { font-size: 15px; margin: 14px 0 6px; }
@@ -170,8 +247,8 @@ function buildHtml(opts: PdfOptions): string {
     ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
   </div>
   ${headerHtml}
-  ${chartHtml}
-  ${body}
+  ${firstPageHtml}
+  ${firstPageHtml ? `<div class="page-2">${body}</div>` : body}
   <div class="footer">Xuất ngày ${dateStr} từ ứng dụng Tử Vi · Bát Tự — Nội dung mang tính tham khảo.</div>
 </body></html>`;
 }
@@ -184,61 +261,26 @@ function buildHtml(opts: PdfOptions): string {
 export async function exportAnalysisToPdf(opts: PdfOptions): Promise<void> {
   const { printHtml } = await import('../lib/platform');
   const html = buildHtml(opts);
-  await printHtml(html);
-}
-
-/**
- * Đổi tên file PDF (expo-print tạo tên ngẫu nhiên) sang `fileName`.
- * Hỗ trợ cả API mới (expo-file-system v19 — File/Paths) lẫn API cũ (cacheDirectory/moveAsync).
- * Trả về uri mới, hoặc undefined nếu không đổi được (giữ uri gốc).
- */
-async function renamePdf(uri: string, fileName: string): Promise<string | undefined> {
-  const safe = sanitizeFileName(fileName);
-
-  // 1) API mới: expo-file-system v19 (SDK 54) — File / Paths
-  try {
-    const FS: any = require('expo-file-system');
-    if (FS?.File && FS?.Paths?.cache) {
-      const dest = new FS.File(FS.Paths.cache, `${safe}.pdf`);
-      try { if (dest.exists) dest.delete(); } catch {}
-      const src = new FS.File(uri);
-      src.move(dest);
-      return dest.uri ?? uri;
-    }
-    // API cũ nằm ngay trong entry mặc định (phiên bản cũ hơn)
-    if (FS?.cacheDirectory && FS?.moveAsync) {
-      const target = `${FS.cacheDirectory}${safe}.pdf`;
-      try { await FS.deleteAsync(target, { idempotent: true }); } catch {}
-      await FS.moveAsync({ from: uri, to: target });
-      return target;
-    }
-  } catch { /* thử legacy bên dưới */ }
-
-  // 2) Entry legacy: expo-file-system/legacy
-  try {
-    const Legacy: any = require('expo-file-system/legacy');
-    if (Legacy?.cacheDirectory && Legacy?.moveAsync) {
-      const target = `${Legacy.cacheDirectory}${safe}.pdf`;
-      try { await Legacy.deleteAsync(target, { idempotent: true }); } catch {}
-      await Legacy.moveAsync({ from: uri, to: target });
-      return target;
-    }
-  } catch { /* bỏ qua → giữ tên gốc */ }
-
-  return undefined;
+  await printHtml(html, opts.fileName ? sanitizeFileName(opts.fileName) : undefined);
 }
 
 /** Chụp lá số thành data URI PNG để nhúng vào PDF. */
 export async function captureChartDataUri(chartRef: RefObject<View | null>): Promise<string | undefined> {
+  return captureRefDataUri(chartRef);
+}
+
+/** Chụp một View bất kỳ (ref object HOẶC instance View) thành data URI PNG. */
+export async function captureRefDataUri(target: any): Promise<string | undefined> {
   let captureRef: any;
   try { captureRef = require('react-native-view-shot').captureRef; }
   catch { return undefined; }
-  if (!chartRef.current) return undefined;
+  const node = target && 'current' in target ? target.current : target;
+  if (!node) return undefined;
   try {
-    const data: string = await captureRef(chartRef, {
+    const data: string = await captureRef(node, {
       format: 'png', quality: 1, result: 'data-uri',
     });
-    return data; // đã ở dạng "data:image/png;base64,...."
+    return data; // "data:image/png;base64,...."
   } catch { return undefined; }
 }
 

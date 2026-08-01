@@ -14,40 +14,48 @@ export interface BankInfo {
   template?: string;    // mẫu QR: 'compact2' | 'compact' | 'qr_only' | 'print'
 }
 
-// TODO(CHỦ APP): thay bằng tài khoản nhận tiền thật trước khi phát hành.
+// Tài khoản nhận tiền (đã liên kết SePay để tự cộng xu khi có biến động số dư).
 export const BANK: BankInfo = {
   bankId: '970432',          // BIN VPBank (chuẩn VietQR, chắc chắn render được)
   bankLabel: 'VPBank',       // tên hiển thị
-  accountNo: '0913377666',
-  accountName: 'NGUYEN VAN TOAN',
+  accountNo: '3838386666',
+  accountName: 'LE NHU QUYNH',
   template: 'compact2',
 };
 
 /** Tỉ giá quy đổi: 1 xu = 100đ (10.000đ = 100 xu). */
 export const VND_PER_XU = 100;
 
+/** Trang nạp xu qua chuyển khoản trên website (dùng cho gợi ý "cách nạp khác"). */
+export const WEB_TOPUP_URL = 'https://tuzi.vn';
+
 export interface XuPack {
   xu: number;
   vnd: number;
-  label?: string;     // nhãn khuyến mãi (vd "+10% tặng")
-  productId: string;  // ID sản phẩm IAP (tạo trên App Store Connect / Play Console)
+  label?: string;
+  productId: string;     // Android Product ID (Google Play) — không đổi
+  iosProductId: string;  // iOS Product ID (App Store Connect) — bộ mới
 }
 
 /**
  * Các gói nạp xu (1 xu = 100đ).
- * `productId` phải KHỚP với ID sản phẩm "consumable" đã tạo trên store.
+ * Android: productId  (xu_100 … xu_5000) — GIỮ NGUYÊN, đang chạy ổn.
+ * iOS:     iosProductId (ios_xu_100 … ios_xu_5000) — bộ ID mới tạo lại trên App Store Connect.
  */
 export const XU_PACKS: XuPack[] = [
-  { vnd: 10000, xu: 100, productId: 'xu_100' },
-  { vnd: 20000, xu: 200, productId: 'xu_200' },
-  { vnd: 50000, xu: 500, label: 'Phổ biến', productId: 'xu_500' },
-  { vnd: 100000, xu: 1000, productId: 'xu_1000' },
-  { vnd: 200000, xu: 2000, productId: 'xu_2000' },
-  { vnd: 500000, xu: 5000, label: 'Tiết kiệm', productId: 'xu_5000' },
+  { vnd: 10000,  xu: 100,  productId: 'xu_100',  iosProductId: 'ios_xu_100' },
+  { vnd: 20000,  xu: 200,  productId: 'xu_200',  iosProductId: 'ios_xu_200' },
+  { vnd: 50000,  xu: 500,  productId: 'xu_500',  iosProductId: 'ios_xu_500',  label: 'Phổ biến' },
+  { vnd: 100000, xu: 1000, productId: 'xu_1000', iosProductId: 'ios_xu_1000' },
+  { vnd: 200000, xu: 2000, productId: 'xu_2000', iosProductId: 'ios_xu_2000' },
+  { vnd: 500000, xu: 5000, productId: 'xu_5000', iosProductId: 'ios_xu_5000', label: 'Tiết kiệm' },
 ];
 
-/** Toàn bộ SKU xu (dùng cho IAP getProducts). */
-export const XU_SKUS = XU_PACKS.map(p => p.productId);
+/** SKU cho từng platform (dùng cho IAP getProducts). */
+export const XU_SKUS_ANDROID = XU_PACKS.map(p => p.productId);
+export const XU_SKUS_IOS     = XU_PACKS.map(p => p.iosProductId);
+/** @deprecated dùng XU_SKUS_ANDROID hoặc XU_SKUS_IOS */
+export const XU_SKUS = XU_SKUS_ANDROID;
 
 /** Sinh MÃ ĐƠN nạp (dùng làm nội dung chuyển khoản để hệ thống tự khớp). */
 export function makeTopupCode(): string {

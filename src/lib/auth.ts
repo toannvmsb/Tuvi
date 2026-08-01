@@ -15,21 +15,18 @@ export async function signUp(email: string, password: string, displayName: strin
     email, password, options: { data: { display_name: displayName } },
   });
   if (error) throw new Error(viError(error.message));
-  // Gửi email chào mừng kèm thông tin đăng nhập (best-effort — không chặn đăng ký).
-  void sendWelcomeEmail(email, password, displayName);
+  void sendWelcomeEmail(email, displayName);
   return data;
 }
 
 /**
- * Gửi email CHÀO MỪNG sau đăng ký (kèm email + mật khẩu vừa đặt).
+ * Gửi email CHÀO MỪNG sau đăng ký. Không truyền mật khẩu vào email.
  * Best-effort: lỗi gửi mail KHÔNG làm hỏng luồng đăng ký.
  */
-export async function sendWelcomeEmail(email: string, password: string, displayName: string): Promise<void> {
+export async function sendWelcomeEmail(email: string, displayName: string): Promise<void> {
   try {
-    // LƯU Ý: functions.invoke KHÔNG throw khi HTTP lỗi — nó trả { data, error }.
-    // Phải đọc cả 2 để biết nguyên nhân (function chưa deploy / RESEND_API_KEY thiếu…).
     const { data, error } = await supabase.functions.invoke('auth-email', {
-      body: { action: 'welcome', email, password, displayName },
+      body: { action: 'welcome', email, displayName },
     });
     if (error) {
       console.warn('[auth-email] welcome LỖI:', error.message ?? error);

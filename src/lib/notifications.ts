@@ -10,6 +10,7 @@
  */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { isOnlineMode } from './auth';
 
@@ -48,6 +49,46 @@ export async function notifyLocal(title: string, body: string): Promise<void> {
     }
     await Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null });
   } catch { /* bỏ qua nếu môi trường không hỗ trợ */ }
+}
+
+// ───────────── LÊN LỊCH THÔNG BÁO (hiện cả khi app ĐÃ ĐÓNG) ─────────────
+const SCHED_IDS_KEY = 'scheduled_reminder_ids';
+
+async function ensurePermission(): Promise<boolean> {
+  const perm = await Notifications.getPermissionsAsync();
+  if (perm.granted || perm.status === 'granted') return true;
+  const req = await Notifications.requestPermissionsAsync();
+  return req.granted || req.status === 'granted';
+}
+
+/** Hủy toàn bộ thông báo đã lên lịch trước đó của app (trước khi lên lịch lại). */
+export async function cancelAppReminders(): Promise<void> {
+  if (!Notifications) return;
+  ensureConfig();
+  try {
+    const raw = await AsyncStorage.getItem(SCHED_IDS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    for (const id of ids) { try { await Notifications.cancelScheduledNotificationAsync(id); } catch {} }
+    await AsyncStorage.removeItem(SCHED_IDS_KEY);
+  } catch { /* bỏ qua */ }
+}
+
+/** Lên lịch 1 thông báo vào thời điểm `when` (tương lai). Lưu lại id để hủy sau. */
+export async function scheduleReminderAt(when: Date, title: string, body: string): Promise<void> {
+  if (!Notifications) return;
+  ensureConfig();
+  if (when.getTime() <= Date.now()) return;
+  try {
+    if (!(await ensurePermission())) return;
+    const id: string = await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: { type: 'date', date: when },
+    });
+    const raw = await AsyncStorage.getItem(SCHED_IDS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    ids.push(id);
+    await AsyncStorage.setItem(SCHED_IDS_KEY, JSON.stringify(ids));
+  } catch { /* Expo Go / không hỗ trợ → bỏ qua */ }
 }
 
 /** Xin quyền + lấy Expo push token + lưu vào hồ sơ (để webhook đẩy push). */

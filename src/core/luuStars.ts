@@ -42,6 +42,33 @@ export function luuStarsTamPhuong(
   return { same, tamHop, xung };
 }
 
+export interface LuuStarPos { name: string; branch: EarthlyBranch; palaceName: string }
+
+/**
+ * Như luuStarsTamPhuong nhưng GIỮ vị trí cung của từng sao (để hiển thị cụ thể
+ * "tam hợp tại Tài Bạch chiếu về"). Mỗi sao kèm chi + tên cung nơi sao đóng.
+ */
+export function luuStarsTamPhuongPos(
+  result: AstrologyResult, yearStem: HeavenlyStem, yearBranch: EarthlyBranch, cungBranch: string,
+): { same: LuuStarPos[]; tamHop: LuuStarPos[]; xung: LuuStarPos[] } {
+  const gender = result.birthInfo.gender;
+  const all = getLuuStarsForYear(result.tuViChart.houses, yearStem, yearBranch, gender);
+  const idx = bIdx(cungBranch);
+  const grp = TAM_HOP.find(g => g.includes(idx)) ?? [];
+  const tamHopIdx = grp.filter(i => i !== idx);
+  const xungIdx = (idx + 6) % 12;
+  const palaceAt = (bi: number): string =>
+    result.tuViChart.houses.find(h => bIdx(h.branch) === bi)?.palaceName ?? (BRANCHES[bi] ?? '');
+  const mk = (name: string, bi: number): LuuStarPos => ({ name, branch: BRANCHES[bi], palaceName: palaceAt(bi) });
+  const same: LuuStarPos[] = [], tamHop: LuuStarPos[] = [], xung: LuuStarPos[] = [];
+  for (const s of all) {
+    if (s.branchIdx === idx) same.push(mk(s.name, s.branchIdx));
+    else if (tamHopIdx.includes(s.branchIdx)) tamHop.push(mk(s.name, s.branchIdx));
+    else if (s.branchIdx === xungIdx) xung.push(mk(s.name, s.branchIdx));
+  }
+  return { same, tamHop, xung };
+}
+
 const XUNG: Record<string, EarthlyBranch> = {
   Tý: 'Ngọ', Ngọ: 'Tý', Sửu: 'Mùi', Mùi: 'Sửu', Dần: 'Thân', Thân: 'Dần',
   Mão: 'Dậu', Dậu: 'Mão', Thìn: 'Tuất', Tuất: 'Thìn', Tị: 'Hợi', Hợi: 'Tị',

@@ -132,6 +132,7 @@ export interface DaiVan {
   stem: HeavenlyStem;
   branch: EarthlyBranch;
   element: FiveElement;
+  /** @deprecated (V2.0) Dùng `scoreDaiVan(result, dv).taiLoc` (0–100) thay cho thang 1–10 này. Giữ lại cho WealthChart cũ. */
   wealthScore: number;  // 1–10 for chart
 }
 
@@ -154,7 +155,12 @@ export interface AstrologyResult {
   batTuChart: BatTuChart;
   daiVans: DaiVan[];
   tieuVans: TieuVan[];
+  /** (V2.0) Phiên bản schema của canonical model — optional để tương thích ngược. */
+  schemaVersion?: string;
 }
+
+/** Phiên bản canonical data model hiện tại (V2.0). */
+export const SCHEMA_VERSION = '2.0';
 
 // Navigation param list
 export type RootStackParamList = {
@@ -168,11 +174,16 @@ export type RootStackParamList = {
   WealthChart: { result: AstrologyResult };
   DailyView: { result: AstrologyResult };
   DayPicker: { result: AstrologyResult };
+  Tasks: { result: AstrologyResult };
+  Notes: undefined;
   MyCharts: undefined;
+  CompareCharts: { preSelectedResult?: AstrologyResult };
   Wallet: undefined;
   Privacy: undefined;
   Terms: undefined;
   About: undefined;
+  Notifications: undefined;
+  Promotions: undefined;
 };
 
 export type MainTabParamList = {

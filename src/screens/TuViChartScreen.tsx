@@ -173,7 +173,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   }, [birthInfo.name]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <ScreenHeader
         title="Lá Số"
         onBack={() => navigationRef.navigate('Home')}
@@ -279,23 +279,32 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           }
         />
 
-        {/* 2 nút: Xem ảnh & phóng to + Phân tích AI */}
+        {/* 2 nút: Lưu ảnh + So sánh lá số · 1 nút: Phân tích AI */}
         <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={[styles.exportBtn, exporting && { opacity: 0.5 }]}
-            onPress={handleExport}
-            disabled={exporting}
-          >
-            <Text style={styles.exportBtnText}>
-              {exporting ? '⏳ Đang xử lý...' : '🔍 Xem ảnh & phóng to lá số'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.exportRow}>
+            <TouchableOpacity
+              style={[styles.compareChartBtn]}
+              onPress={() => navigationRef.navigate('CompareCharts', { preSelectedResult: fullChartResult })}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.compareChartBtnText}>⚖️ So sánh lá số</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.exportBtn, exporting && { opacity: 0.5 }]}
+              onPress={handleExport}
+              disabled={exporting}
+            >
+              <Text style={styles.exportBtnText}>
+                {exporting ? '⏳ Đang xử lý...' : '💾 Lưu ảnh lá số'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={styles.aiChartBtn}
             onPress={() => navigationRef.navigate('FullChartAI', { result: fullChartResult })}
             activeOpacity={0.85}
           >
-            <Text style={styles.aiChartBtnText}>🤖 Phân tích AI toàn lá số (PRO) · năm {viewYear}</Text>
+            <Text style={styles.aiChartBtnText}>🔮 Phân tích chuyên sâu toàn lá số · {viewYear}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -412,11 +421,15 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', gap: SPACING.md, justifyContent: 'center', flexWrap: 'wrap' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   toggleLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  exportRow: { flexDirection: 'row', gap: SPACING.sm },
+  compareChartBtn: {
+    flex: 1, backgroundColor: COLORS.purple + '33', borderRadius: 8,
+    padding: SPACING.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.purple,
+  },
+  compareChartBtnText: { color: COLORS.purple, fontWeight: '700', fontSize: FONTS.size.md },
   exportBtn: {
-    backgroundColor: COLORS.gold,
-    borderRadius: 8,
-    padding: SPACING.md,
-    alignItems: 'center',
+    flex: 1, backgroundColor: COLORS.gold,
+    borderRadius: 8, padding: SPACING.md, alignItems: 'center',
   },
   exportBtnText: { color: '#1a0a00', fontWeight: '700', fontSize: FONTS.size.md },
   aiChartBtn: {

@@ -12,13 +12,41 @@ import { getStarInfo } from '../data/starInfo';
 import { detectCachCucInPalace } from '../data/cachCuc';
 import { scoreDaiVan } from '../core/daiVanScore';
 import { scoreTieuVan } from '../core/tieuVanScore';
-import { scoreNguyetVan, nguyetVanBranch } from '../core/nguyetVanScore';
+import { scoreNguyetVan, nguyetVanBranch, nguyetVanDetail } from '../core/nguyetVanScore';
+import { careerProfile } from '../data/careerByStar';
+import { summarizeBatTuAdvanced, computeThapThan, hyThanOf } from '../core/thapThan';
 import { analyzePhongThuyBatTu } from '../core/phongThuyBatTu';
 import { scoreNhatVan, generateNhatVanOffline } from '../core/nhatVan';
+import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE } from '../data/dayPickTasks';
 import { getServerAiKeys } from '../lib/aiKeys';
 import { luuStarsTamPhuong, luuSummary, yearVsTuoi } from '../core/luuStars';
 import { KHAI_QUAT_12_CUNG, CHINH_TINH_CORE } from '../data/lasoLuanGiaiGuide';
 import { computePhiHoa, summarizeAllPhiHoa, summarizeYearHoa, luuTuHoaPositions, monthStem } from '../core/phiHoa';
+import { buildCachCucContext, cachCucAtPalace } from '../core/cachCucEngine';
+
+/**
+ * Bản đồ 12 cung — nguồn chân lý về vị trí chính tinh dùng cho MỌI prompt AI
+ * (natal + đại/tiểu/nguyệt vận). AI PHẢI bám khi luận cách cục để không bịa
+ * (vd Tử Vi tại Tài Bạch, không phải Tật Ách).
+ */
+function palaceMapBlock(result: AstrologyResult): string {
+  const houses = result.tuViChart.houses;
+  const chinhOf = (h: typeof houses[number]) =>
+    h.stars.filter(s => s.type === 'chinh').map(s => s.name).join(', ') || 'Vô chính diệu';
+  const lines = houses.map(h =>
+    `  · ${h.palaceName} (${h.branch}): ${chinhOf(h)}${h.isManh ? ' [Mệnh]' : ''}${h.isThan ? ' [Thân]' : ''}${h.tuanAt ? ' [Tuần]' : ''}${h.trietAt ? ' [Triệt]' : ''}`,
+  );
+  return [
+    '★ BẢN ĐỒ 12 CUNG — NGUỒN CHÂN LÝ về vị trí chính tinh. AI TUYỆT ĐỐI phải bám khi luận sao/cách cục — KHÔNG được ghi sao X ở cung Y nếu bản đồ dưới không xác nhận:',
+    ...lines,
+  ].join('\n');
+}
+import { analyzeFinancialDNA, FINANCIAL_DIM_LABEL } from '../core/wealthAnalysis';
+import { extractChartFacts, validateAINarrative, type ChartFacts } from '../core/aiResponseValidator';
+import { analyzePalace } from '../core/palaceAnalysisService';
+import { natalFactsBlock } from '../core/natalAnalysisService';
+import { computeSixDomainScores } from '../core/offlineLuanGiai';
+import { STRUCTURED_INSTRUCTION, parseAndValidate, renderNarrative } from '../core/structuredAI';
 
 const ENDPOINT = 'https://text.pollinations.ai/openai';
 // Timeout 180s — bài luận Toàn lá số / Đại vận có thể tới ~7000 từ (~12K tokens),
@@ -53,6 +81,8 @@ function capWords(s: string, maxWords: number): string {
     cut.lastIndexOf('? '), cut.lastIndexOf('…'),
   );
   if (stop > cut.length * 0.6) cut = cut.slice(0, stop + 1);
+  // Xóa số thứ tự treo (vd "5." hoặc "**5.**") cuối chuỗi không có nội dung — do cắt giữa chừng.
+  cut = cut.replace(/\n\s*(\*{0,2})\d+[.)]\*{0,2}\s*$/, '');
   return cut.trim();
 }
 
@@ -184,7 +214,7 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
     const atPalace = trim(inf.byPalace?.[h.palaceName], 240);
     kbLines.push(`• ${nm}: ${brief}` + (atPalace ? ` [Tại ${h.palaceName}: ${atPalace}]` : ''));
   }
-  const cach = detectCachCucInPalace(h.stars.map(s => s.name), h.branch);
+  const cach = detectCachCucInPalace(h.stars.filter(s => s.type !== 'luu').map(s => s.name), h.branch, h.palaceName);
   const cachText = cach.length
     ? cach.map(c => `• ${c.name}: ${trim(c.meaning, 260)}`).join('\n')
     : '• (Các sao trong cung không tạo thành cách cục đặc biệt)';
@@ -199,15 +229,43 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
   const menhHouse = c.houses.find(x => x.isManh);
   const menhInfo = menhHouse ? `Cung Mệnh ở ${menhHouse.palaceName}(${menhHouse.branch}) — chính tinh ${starsOf(menhHouse).chinh.join(', ') || 'Vô chính diệu'}` : '';
 
+  // Gợi ý ngành nghề CỤ THỂ — chỉ chèn khi luận cung Quan Lộc hoặc cung Mệnh.
+  const cpPalace = careerProfile(result);
+  const careerHint = (cpPalace && (h.palaceName === 'Quan Lộc' || h.isManh))
+    ? `[★ GỢI Ý NGÀNH NGHỀ CỤ THỂ] Theo chính tinh ${cpPalace.names.join(', ')} tại ${cpPalace.src}: hợp với ${cpPalace.fields.join('; ')}. ` +
+      `Ở mục KẾT LUẬN, hãy nêu 4–8 NGÀNH/VỊ TRÍ CỤ THỂ (mở rộng từ gợi ý này, vd: tư vấn, cố vấn, marketing, tài chính, kỹ thuật, giáo dục…) kèm lý do ngắn — KHÔNG nói chung chung.`
+    : '';
+
+  // Giáp cung (Tầng 8 khung 10 tầng) — 2 cung liền kề tạo "môi trường xung quanh".
+  const giapTruoc = c.houses[(branchIndex + 1) % 12];
+  const giapSau = c.houses[(branchIndex + 11) % 12];
+  const giapTxt = (hh?: TuViHouse) => hh ? `${hh.palaceName}(${hh.branch}) — ${starsOf(hh).chinh.join(', ') || 'VCD'}` : '—';
+
   return [
     'Bạn là chuyên gia Tử Vi Đẩu Số phái NAM PHÁI Việt Nam (theo hệ thống Lê Quang Lăng kết hợp phương pháp luận Diệu Xuân).',
-    `Hãy luận giải CHỈ RIÊNG cung "${h.palaceName}" theo KHUNG LUẬN 12 PHẦN ở dưới. Mọi nhận định BẮT BUỘC theo cấu trúc: [Dữ kiện] → [Phân tích] → [Kết luận] → [Mức độ ảnh hưởng 1–10]. KHÔNG kết luận chỉ dựa vào 1 sao riêng lẻ. Không dùng ngôn ngữ mê tín; ưu tiên khuyến nghị thực tiễn về sự nghiệp – tài chính – quan hệ – sức khỏe – quản trị rủi ro.`,
+    `Hãy luận giải CHỈ RIÊNG cung "${h.palaceName}" theo KHUNG LUẬN ở dưới. Mọi nhận định BẮT BUỘC theo cấu trúc: [Dữ kiện] → [Phân tích] → [Kết luận] → [Mức độ ảnh hưởng 1–10]. KHÔNG kết luận chỉ dựa vào 1 sao riêng lẻ — mỗi kết luận quan trọng phải dựa trên ÍT NHẤT 2 DỮ KIỆN tổ hợp (vd: "bộ Tử Phủ + tam hợp hỗ trợ + Lộc nhập → khả năng quản trị là thế mạnh", KHÔNG nói "có Tử Vi nên làm lãnh đạo"). Không dùng ngôn ngữ mê tín; ưu tiên khuyến nghị thực tiễn về sự nghiệp – tài chính – quan hệ – sức khỏe – quản trị rủi ro.`,
+    '★ TRỌNG SỐ LUẬN (BẮT BUỘC phân bổ độ sâu phân tích theo tỷ lệ này): Chính tinh + cách cục 25% · Tứ Hóa 20% · Phi Hóa Nam Phái 20% · Tam hợp 15% · Xung chiếu 10% · Phụ tinh 5% · Giáp cung 5%. KHÔNG dành phần lớn bài để kể về sao — Tứ Hóa, Phi Hóa, Tam hợp và khí số cung mới quyết định cung vận hành ra sao trong thực tế.',
     '',
     `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}, sinh ${birthInfo.day}/${birthInfo.month}/${birthInfo.year} — Bản Mệnh ${c.napAmMenh}, Cục ${c.cucName}, Âm Dương ${c.amDuongThuanLy === 'thuận' ? 'Thuận Lý' : 'Nghịch Lý'}.`,
     menhInfo ? `(${menhInfo}.)` : '',
     '',
     '===== DỮ KIỆN CỐ ĐỊNH =====',
     '',
+    (() => {
+      const pf = analyzePalace(result, h.palaceName);
+      if (!pf) return '';
+      const pat = pf.patterns.length
+        ? pf.patterns.map(p => `${p.name}(${p.score}đ, đủ ${p.completeness}%, tin cậy ${p.confidence}%, ${p.status})`).join('; ')
+        : '(không có)';
+      return [
+        '[ENGINE FACTS — dữ kiện engine đã xác nhận, BẮT BUỘC bám sát, KHÔNG mâu thuẫn, KHÔNG bịa thêm cách cục ngoài đây]',
+        `- Độ mạnh cung: ${pf.strength.value}/100 (${pf.strength.level})${pf.strength.chinhTinhVCD ? ' — Vô chính diệu' : ''}.`,
+        `- Bộ chính tinh: ${pf.boSao}. Sắc thái cát/hung: ${pf.conflict.netTone} (cát ${pf.conflict.catScore} vs hung ${pf.conflict.hungScore}).`,
+        `- Cách cục tại cung: ${pat}.`,
+        pf.imbalances.length ? `- Mất cân bằng: ${pf.imbalances.join(' ')}` : '',
+        '',
+      ].filter(Boolean).join('\n');
+    })(),
     `[I] THÔNG TIN CƠ BẢN`,
     `- Tên cung: ${h.palaceName}`,
     `- Vị trí: đặt tại ${h.branch} (can ${h.can}); hành Chi cung = ${BRANCH_ELEMENT_VN[h.branch] || '?'}; thuộc nhóm ${BRANCH_GROUP[h.branch] || '?'}.`,
@@ -217,6 +275,7 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
     h.trietAt ? `- BỊ TRIỆT LỘ án ngữ` : '',
     `- Tam hợp gồm: chính cung ${h.palaceName}(${h.branch}) + ${tamHopHouses.map(x => `${x.palaceName}(${x.branch})`).join(' + ') || '(không có)'}.`,
     `- Cung xung chiếu: ${xung.palaceName}(${xung.branch}); cung nhị hợp: ${nhiHop ? `${nhiHop.palaceName}(${nhiHop.branch})` : '—'}.`,
+    `- GIÁP CUNG (môi trường 2 bên): giáp trước ${giapTxt(giapTruoc)}; giáp sau ${giapTxt(giapSau)}.`,
     '',
     `[II] CHÍNH TINH TỌA THỦ`,
     `- ${chinh.length ? chinh.join(', ') : 'Vô chính diệu (không có chính tinh) — phải mượn sao tam hợp/xung chiếu để luận.'}`,
@@ -248,6 +307,7 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
       ? `[XI] LƯU NIÊN năm ${viewYear ?? 'đang xem'}: cung này có lưu tinh ${luuHere.join(', ')}.`
       : `[XI] LƯU NIÊN năm ${viewYear ?? 'đang xem'}: không có lưu tinh nổi bật.`,
     '',
+    careerHint,
     '===== KIẾN THỨC CHUẨN VỀ TỪNG SAO (BẮT BUỘC bám, không tự bịa) =====',
     kbLines.length ? kbLines.join('\n') : '• (Không có dữ liệu sao)',
     (h.tuanAt || h.trietAt)
@@ -259,23 +319,32 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
     '',
     '===== YÊU CẦU TRÌNH BÀY =====',
     '- Tiếng Việt mạch lạc, đúng thuật ngữ Tử Vi Nam Phái; KHÔNG dùng bảng (markdown table), KHÔNG ký hiệu | hay ---; KHÔNG dùng từ ngữ mê tín.',
-    '- Tối đa 5000 từ, SÚC TÍCH nhưng đủ ý; KẾT THÚC trọn vẹn, KHÔNG bỏ dở.',
+    '- Viết 2500–4500 từ, SÂU và CỤ THỂ; KẾT THÚC trọn vẹn, KHÔNG bỏ dở.',
     '- Mỗi mục lớn phải kết bằng câu "Mức độ ảnh hưởng tới cung: x/10 — [lý do ngắn]" (x là số 1–10).',
     '- Chỉ dùng các sao ĐÃ NÊU; tuyệt đối không bịa thêm sao. KHÔNG nhắc khái niệm "Mệnh chủ"/"Thân chủ" (phái này không dùng). KHÔNG dự đoán sự kiện cụ thể vào ngày cụ thể; KHÔNG đưa lời khuyên y tế / tài chính cụ thể / pháp lý — luôn khuyến nghị tham vấn chuyên gia.',
     '',
-    `Hãy viết theo cấu trúc 12 mục sau (giữ đúng tiêu đề mục):`,
+    '===== CHỐNG NÓI CHUNG CHUNG (BẮT BUỘC TUÂN THỦ) =====',
+    '- CẤM các câu sáo rỗng vô thưởng vô phạt kiểu "cần cân bằng cuộc sống", "nên cẩn thận hơn", "giữ thái độ tích cực", "tu tâm dưỡng tính" — nếu nói thì PHẢI gắn vào sao/cách cục cụ thể và nói RÕ cân bằng cái gì với cái gì, cẩn thận điều gì, vào việc gì.',
+    '- Mỗi nhận định: nêu TÊN SAO/cách cục làm bằng chứng → diễn giải bản chất → suy ra biểu hiện THỰC TẾ trong đời sống người này. Ví dụ thay vì "Thiên Cơ giỏi tính toán" hãy viết "Thiên Cơ miếu + Hóa Khoa → tư duy phân tích, kế hoạch tốt; hợp việc cần mưu lược (lập kế hoạch, phân tích dữ liệu, tư vấn chiến lược) hơn là việc lặp đi lặp lại đơn điệu".',
+    '- Khi luận tính cách: mô tả CỤ THỂ cách người này hành xử trong công việc, trong quan hệ, khi gặp áp lực — kèm cả MẶT MẠNH và MẶT YẾU/điểm dễ vấp.',
+    '- Mọi lời khuyên phải THỰC THI ĐƯỢC: nói rõ NÊN làm hành động gì, TRÁNH điều gì, và (nếu suy ra được từ đại vận/lưu niên) thời điểm/giai đoạn nào nên đẩy mạnh — không khuyên chung chung.',
+    '- Khi cung cho phép (Mệnh, Quan, Tài, Phu Thê, Tật Ách…): gợi ý NGÀNH NGHỀ / HƯỚNG TÀI CHÍNH / KIỂU người bạn đời / NHÓM sức khỏe cần lưu ý một cách cụ thể, có lý do từ sao — KHÔNG nói "hợp nhiều ngành".',
+    '- Ưu tiên độ sâu cho 4 tầng quyết định (Chính tinh+cách cục, Tứ Hóa, Phi Hóa, Tam hợp + khí số); các mục phụ (Phụ tinh, Giáp cung) viết gọn nhưng vẫn phải cụ thể, tránh dàn đều hời hợt.',
+    '',
+    `Hãy viết theo cấu trúc 13 mục sau (giữ đúng tiêu đề mục):`,
     `1. THÔNG TIN CƠ BẢN — Vị trí, hành Chi, nhóm Tứ Chính/Sinh/Mộ; cung tam hợp/xung chiếu/nhị hợp. Ý nghĩa của thế đứng.`,
     `2. CHÍNH TINH — Phân tích từng chính tinh (Miếu/Vượng/Đắc/Bình/Hãm); âm/dương, động/tĩnh, văn/võ; năng lượng chủ đạo của cung. Nếu Vô chính diệu thì xét tam hợp/xung để mượn.`,
     `3. CÁCH CỤC — Bộ sao hình thành (Tử Phủ, Sát Phá Tham, Cơ Nguyệt Đồng Lương, Cự Nhật…); xếp Thượng/Trung/Hạ/Phá cách; điều kiện phát huy.`,
     `4. PHỤ TINH — Liệt kê theo nhóm: cát (quý nhân/học vấn/danh vọng/tài lộc) và hung (sát/không/hình/hao); đánh giá tăng giá trị / giảm giá trị / biến đổi tính chất.`,
     `5. TỨ HÓA TẠI CUNG — Hóa Lộc/Quyền/Khoa/Kỵ nào đóng tại cung và ý nghĩa cụ thể với cung này.`,
     `6. PHI HÓA NAM PHÁI — Cung này phát Lộc/Quyền/Khoa/Kỵ đi cung nào (ý nghĩa); cung này nhận hóa từ cung nào (ý nghĩa). Đây là điểm mấu chốt của Nam Phái — không được bỏ qua.`,
-    `7. TAM HỢP — Đánh giá chính cung + 2 cung tam hợp; tổng hợp lực tam hợp ủng hộ hay không.`,
-    `8. XUNG CHIẾU — Sao chính cung đối; mặt hỗ trợ và mặt cản trở.`,
-    `9. LIÊN HỆ VỚI MỆNH — Cung này CÓ LỢI / GÂY ÁP LỰC / HỖ TRỢ cho Mệnh đến đâu? Vai trò trong tổng thể cuộc đời.`,
-    `10. ĐẠI VẬN — Đại vận hiện tại có kích hoạt cung này không? Mặt tốt và mặt xấu.`,
-    `11. LƯU NIÊN — Năm xét: ảnh hưởng của lưu Lộc/Quyền/Khoa/Kỵ và các sao lưu khác tại cung.`,
-    `12. KẾT LUẬN — (a) Điểm mạnh nhất (3 ý); (b) Điểm yếu nhất (3 ý); (c) Rủi ro cần chú ý (3 ý); (d) Cơ hội lớn nhất (3 ý); (e) Hành động khuyến nghị: NÊN làm gì / TRÁNH điều gì / Thời điểm phù hợp.`,
+    `7. TAM HỢP — Đánh giá chính cung + 2 cung tam hợp; kết luận rõ: tam hợp đang NÂNG cung lên hay KÉO cung xuống.`,
+    `8. XUNG CHIẾU — Sao chính cung đối; lực chiếu về mang tính HỖ TRỢ hay CẢN TRỞ; áp lực bên ngoài đến từ đâu.`,
+    `9. GIÁP CUNG — 2 cung liền kề (đã cho ở mục [I]) tạo "môi trường xung quanh" thuận hay nghịch.`,
+    `10. THỂ – DỤNG (phương pháp Diệu Xuân) — THỂ (bản chất cung: chính tinh + miếu hãm) tốt hay yếu? DỤNG (cách vận hành: phụ tinh + Hóa + Tuần Triệt) thuận hay nghịch? Kết hợp 4 trường hợp: Thể tốt + Dụng thuận / Thể tốt + Dụng nghịch (có tài khó phát huy) / Thể yếu + Dụng thuận / Thể yếu + Dụng nghịch.`,
+    `11. LIÊN HỆ VỚI MỆNH & ĐẠI VẬN — Cung này CÓ LỢI / GÂY ÁP LỰC cho Mệnh đến đâu; đại vận hiện tại có kích hoạt cung này không.`,
+    `12. LƯU NIÊN — Năm xét: ảnh hưởng của lưu Lộc/Quyền/Khoa/Kỵ và các sao lưu khác tại cung.`,
+    `13. KHÍ SỐ CUNG & KẾT LUẬN — (a) CHẤM KHÍ SỐ CUNG x/10 (tổng hợp theo trọng số đã nêu) kèm 1 câu lý giải; (b) Điểm mạnh nhất (top 3); (c) Điểm yếu nhất (top 3); (d) Cơ hội lớn nhất (top 3); (e) Rủi ro lớn nhất (top 3); (f) Hành động nên làm (top 3): NÊN làm gì / TRÁNH điều gì / Thời điểm phù hợp; (g) Kết luận 10 dòng đúc kết toàn cung.`,
     'KHÔNG xuất JSON, KHÔNG ghi suy nghĩ nội bộ.',
   ].filter(Boolean).join('\n');
 }
@@ -619,6 +688,38 @@ async function requestAI(prompt: string, keysOrLegacy?: string | AIKeys): Promis
   return requestAIWithOrder(prompt, order, claudeKey, openaiKey);
 }
 
+/**
+ * (Phase 14) Gọi AI rồi KIỂM CHỨNG chống bịa cách cục dựa trên facts engine.
+ *  - Nếu phát hiện cách cục AI bịa: gắn ghi chú đính chính vào cuối (mặc định).
+ *  - `allowRetry`: thử lại 1 lần với chỉ dẫn sửa (TỐN thêm 1 lượt gọi AI — mặc
+ *    định TẮT để không phát sinh chi phí ngoài ý muốn); chỉ giữ bản retry nếu
+ *    số cách bịa giảm.
+ */
+async function requestValidatedAI(
+  prompt: string,
+  keys: AIKeys,
+  facts: ChartFacts,
+  opts: { allowRetry?: boolean } = {},
+): Promise<string> {
+  let text = await requestAI(prompt, keys);
+  let v = validateAINarrative(text, facts);
+
+  if (!v.ok && opts.allowRetry) {
+    const corrective = prompt +
+      '\n\n[SỬA LỖI BẮT BUỘC] Bản nháp trước đã nhắc tới cách cục KHÔNG có trên lá số này: ' +
+      v.hallucinatedFormations.join(', ') +
+      '. TUYỆT ĐỐI KHÔNG nhắc lại các cách đó. CHỈ dùng cách cục engine đã xác nhận trong dữ liệu.';
+    const retry = await requestAI(corrective, keys);
+    const v2 = validateAINarrative(retry, facts);
+    if (v2.hallucinatedFormations.length < v.hallucinatedFormations.length) {
+      text = retry; v = v2;
+    }
+  }
+
+  if (!v.ok) text += '\n\n' + v.note; // fallback đính chính, không tốn thêm lượt
+  return text;
+}
+
 async function requestAIWithOrder(
   prompt: string,
   order: ('claude' | 'openai')[],
@@ -775,7 +876,7 @@ export async function analyzePalaceWithAI(
 }
 
 /** Dữ liệu nền (context) dùng chung cho mọi PHẦN của bài luận toàn lá số. */
-function buildChartContext(result: AstrologyResult): { context: string; gender: string; orderTxt: string } {
+export function buildChartContext(result: AstrologyResult): { context: string; gender: string; orderTxt: string } {
   const { birthInfo, tuViChart: c } = result;
   const houses = [...c.houses].sort((a, b) => (a.isManh ? -1 : 0) - (b.isManh ? -1 : 0));
   // Helper: tóm tắt chính tinh + phụ tinh của 1 cung khác (dùng cho tam hợp/nhị hợp/xung).
@@ -795,9 +896,15 @@ function buildChartContext(result: AstrologyResult): { context: string; gender: 
     const xungHouse = c.houses[(idx + 6) % 12];
     const nhIdx = NHI_HOP[idx];
     const nhiHopHouse = nhIdx !== undefined ? c.houses[nhIdx] : undefined;
+    // Cách cục hình thành TẠI cung này — để AI luận cùng sao hiện có, không tách rời.
+    const cachTaiCung = cachCucAtPalace(result, h.palaceName);
+    const cachTxt = cachTaiCung.length
+      ? cachTaiCung.slice(0, 4).map(d => `${d.cach.name} (${d.score}đ)`).join(', ')
+      : '(không có)';
     return `- ${h.palaceName} (${BR(h)}${h.isManh ? ', MỆNH' : ''}${h.isThan ? ', THÂN' : ''}${tt}): `
       + `chính tinh ${chinh.join(', ') || 'Vô chính diệu'}`
       + (phu.length ? ` | phụ tinh ${phu.slice(0, 10).join(', ')}` : '')
+      + `\n   · Cách cục tại cung này: ${cachTxt}`
       + `\n   · Tam hợp: ${tamHopHouses.map(briefStars).join(' ; ') || '—'}`
       + `\n   · Nhị hợp: ${briefStars(nhiHopHouse)}`
       + `\n   · Xung chiếu: ${briefStars(xungHouse)}`;
@@ -840,6 +947,8 @@ function buildChartContext(result: AstrologyResult): { context: string; gender: 
     `Bản Mệnh ${c.napAmMenh} (hành ${napEl}), Cục ${c.cucName} (hành ${cucEl}), Âm Dương ${c.amDuongThuanLy === 'thuận' ? 'Thuận Lý' : 'Nghịch Lý'}.`,
     `★ DỮ KIỆN CỐ ĐỊNH — NGŨ HÀNH MỆNH-CỤC (BẮT BUỘC dùng nguyên văn, KHÔNG được tự suy diễn quan hệ khác): ${mcRel}.`,
     '',
+    palaceMapBlock(result),
+    '',
     '12 CUNG (M=Miếu V=Vượng Đ=Đắc B=Bình H=Hãm):',
     lines.join('\n'),
     '',
@@ -857,11 +966,20 @@ function buildChartContext(result: AstrologyResult): { context: string; gender: 
     '★ TỨ HÓA CỐ ĐỊNH:',
     summarizeYearHoa(c),
     '',
+    buildCachCucContext(result),
+    '',
     '★ PHI HÓA NAM PHÁI (4 hóa tinh phát đi từ CAN của mỗi cung — đây là KỸ THUẬT GỐC của Nam Phái, bắt buộc dùng trong phần "Phi Hóa & Khí số toàn lá số"):',
     summarizeAllPhiHoa(c) || '(không xác định được)',
     '',
     '★ DỮ KIỆN CỐ ĐỊNH — CHUỖI ĐẠI VẬN (BẮT BUỘC dùng ĐÚNG tên cung theo dữ liệu dưới đây, TUYỆT ĐỐI KHÔNG tự gán cung khác cho đại vận; vd đại vận 42-51t đóng cung gì thì ghi đúng cung đó, không được đổi sang Tật Ách / Tài Bạch / cung khác theo cảm tính):',
     dvLines.join('\n'),
+    '',
+    (() => {
+      const cp = careerProfile(result);
+      return cp
+        ? `★ GỢI Ý NGÀNH NGHỀ CỤ THỂ (theo chính tinh ${cp.names.join(', ')} tại ${cp.src}) — DÙNG LÀM ĐIỂM TỰA, AI hãy nêu rõ và MỞ RỘNG cụ thể hơn, KHÔNG nói chung chung: ${cp.fields.join('; ')}.`
+        : '';
+    })(),
   ].filter(Boolean).join('\n');
 
   return { context, gender, orderTxt };
@@ -894,8 +1012,8 @@ const FULLCHART_RULES =
   '★ KHÔNG đưa ra lời khuyên Y TẾ (chẩn đoán bệnh, thuốc), TÀI CHÍNH cụ thể (mua mã cổ phiếu X, đầu tư khoản Y), hay PHÁP LÝ (kiện ai, ký hợp đồng nào). Khi đề cập các chủ đề này, luôn khuyến nghị tham vấn chuyên gia (bác sĩ / cố vấn tài chính / luật sư). ' +
   '★ NGŨ HÀNH MỆNH-CỤC: BẮT BUỘC dùng đúng quan hệ đã ghi trong dòng "DỮ KIỆN CỐ ĐỊNH — NGŨ HÀNH MỆNH-CỤC" — KHÔNG được tự tính lại hay suy ra quan hệ khác. ' +
   '★ ĐẠI VẬN: BẮT BUỘC ghi đúng tên CUNG mà đại vận đóng theo dữ liệu "CHUỖI ĐẠI VẬN" — KHÔNG được đổi sang cung khác (vd dữ liệu ghi 42-51t cung Tài Bạch thì PHẢI ghi Tài Bạch, không được nói là Tật Ách hay cung khác). ' +
-  'Khi luận một cung, dựa vào: (a) chính tinh + phụ tinh tại CHÍNH CUNG ĐÓ; (b) các sao tại tam hợp/nhị hợp/xung chiếu (đã liệt kê dưới mỗi dòng cung); ' +
-  '(c) Tứ Hóa cố định + Phi Hóa Nam Phái của cung. KHÔNG nhầm "sao tại cung Mệnh" với "sao Mệnh chủ".';
+  'Khi luận một cung, dựa vào: (a) chính tinh + phụ tinh tại CHÍNH CUNG ĐÓ; (b) "Cách cục tại cung này" (đã liệt kê dưới mỗi dòng cung) — LUẬN CÙNG với các sao hiện có, KHÔNG tách rời cách cục khỏi phân tích sao của cung; (c) các sao tại tam hợp/nhị hợp/xung chiếu (đã liệt kê dưới mỗi dòng cung); ' +
+  '(d) Tứ Hóa cố định + Phi Hóa Nam Phái của cung. KHÔNG nhầm "sao tại cung Mệnh" với "sao Mệnh chủ". KHÔNG bịa cách cục ngoài danh sách "Cách cục tại cung này" hoặc "★ CÁCH CỤC ENGINE".';
 
 /**
  * Danh sách các PHẦN của bài luận toàn lá số. Mỗi phần là 1 request 4o-mini
@@ -916,6 +1034,7 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
       // Phần 1 (THỂ) + mục 1-2 trong AI output (Tổng quan + Bản chất con người).
       title: '1. Tổng quan lá số & bản chất con người (THỂ)',
       run: make(
+        natalFactsBlock(result) + '\n\n' +
         'Viết phần "# Tổng quan lá số & Bản chất con người" (~1400 từ, kết thúc trọn vẹn). ' +
         'Phải bao quát PHẦN THỂ: (1) Mệnh — chính tinh tọa thủ + miếu hãm + tính cách gốc; ' +
         '(2) Thân — vị trí Thân, cung Thân cư, lực Thân đối với Mệnh; ' +
@@ -928,19 +1047,38 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
       ),
     },
     {
+      // Phần 1b — Cách cục & Cơ chế vận mệnh (Tầng 9 theo khung luận chuẩn).
+      title: '2. Cách cục & Cơ chế vận mệnh',
+      run: make(
+        'Viết phần "# Cách cục & Cơ chế vận mệnh" (~1300 từ, kết thúc trọn vẹn). ' +
+        'BẮT BUỘC dựa trên "★ CÁCH CỤC ENGINE". ★★ ƯU TIÊN LUẬN TRƯỚC TIÊN mục "CÁCH CỤC CHÍNH — từ 4 cung TRỌNG YẾU Mệnh/Tài Bạch/Quan Lộc/Thiên Di" — đây là các cách quan trọng nhất, quyết định cốt lõi vận mệnh, PHẢI phân tích đầy đủ TỪNG cách trong mục này trước khi sang các cách khác. Sau đó mới luận "CÁCH CHỦ KHÁC", "CÁCH PHỤ", "CÁCH HUNG KHÁC". ' +
+        'PHÂN TÍCH TẤT CẢ cách có trong danh sách — KHÔNG thêm cách mới, KHÔNG bỏ sót bất kỳ cách nào trong danh sách (đặc biệt không được bỏ sót cách cục chính), KHÔNG liệt kê tên suốt. ' +
+        '(1) CÁCH CỤC CHÍNH (Mệnh/Tài Bạch/Quan Lộc/Thiên Di): với MỖI cách — (a) bằng chứng: sao nào hội, cung nào, miếu/hãm; (b) cách phá/cứu hiện diện; (c) CƠ CHẾ VẬN HÀNH cụ thể — tiền đến theo con đường nào, quyền lực/danh vọng qua cơ chế gì; (d) tác động 5 chiều: sự nghiệp, tài chính, quan hệ, hôn nhân, sức khỏe. ' +
+        '(2) CÁCH CHỦ/PHỤ KHÁC: vai trò bổ sung — hỗ trợ ở điểm nào, môi trường/thời điểm phát huy, điều kiện kích hoạt. ' +
+        '(3) CÁCH HUNG: điểm nghẽn cụ thể và cơ chế gây ra — KHÔNG hù dọa, phân tích phương án quản trị thực tế. ' +
+        '(4) CƠ CHẾ TỔNG HỢP: chốt "cơ chế vận mệnh" — lá số vận hành theo cơ chế gì, phát tài theo con đường nào, điểm dễ vấp ở đâu, chiến lược đời sống cốt lõi. ' +
+        'NGUYÊN TẮC: mỗi kết luận cần ít nhất 2 dữ kiện; không dùng ngôn ngữ mê tín.',
+        1600,
+      ),
+    },
+    {
       // Phần 2 (DỤNG) — năng lực vận hành cuộc đời.
-      title: '2. Sự nghiệp – Tài chính – Giao tiếp – Bất động sản (DỤNG)',
+      title: '3. Sự nghiệp – Tài chính – Giao tiếp – Bất động sản (DỤNG)',
       run: make(
         'Viết phần "# Năng lực vận hành cuộc đời (Quan – Tài – Di – Nô – Điền)" (~1600 từ, kết thúc trọn vẹn). ' +
         `Thứ tự ưu tiên cho ${gender}: ${orderTxt}. Phân tích từng cung: chính tinh & miếu hãm, phụ tinh & cát/sát, cách cục, tam hợp/xung chiếu, ` +
         'Tứ Hóa cố định tại cung, Tuần/Triệt nếu có. Mỗi cung kết bằng "Mức độ ảnh hưởng: x/10". ' +
+        '★ ĐỊNH HƯỚNG NGHỀ NGHIỆP — BẮT BUỘC CỤ THỂ: dựa trên chính tinh Quan Lộc (+ Mệnh, + Tài Bạch) và "GỢI Ý NGÀNH NGHỀ CỤ THỂ" trong dữ liệu, ' +
+        'hãy nêu 5–8 NGÀNH/VỊ TRÍ CỤ THỂ người này hợp (ví dụ: tư vấn, cố vấn, marketing, tài chính – kế toán, kỹ thuật – công nghệ, giáo dục, pháp lý, kinh doanh…), ' +
+        'kèm 1 câu lý do ngắn cho mỗi nhóm (bám sao/cách cục) và gợi ý NÊN LÀM CHỦ hay LÀM CÔNG, môi trường phù hợp. ' +
+        'TUYỆT ĐỐI KHÔNG nói chung chung kiểu "nghề trí tuệ", "hợp kinh doanh" — phải gọi tên ngành/vị trí cụ thể để người dùng có định hướng hành động. ' +
         'Kết luận: bộc lộ rõ ĐIỂM MẠNH NỔI BẬT về sự nghiệp/tài chính + ĐIỂM YẾU cần khắc phục.',
         1900,
       ),
     },
     {
       // Phần 3 (PHÚC KHÍ) + Phần 4 (TÌNH CẢM) + Phần 5 (SỨC KHỎE).
-      title: '3. Phúc khí, Gia đạo, Hôn nhân, Tử tức, Sức khỏe',
+      title: '4. Phúc khí, Gia đạo, Hôn nhân, Tử tức, Sức khỏe',
       run: make(
         'Viết phần "# Phúc khí – Gia đạo – Hôn nhân – Sức khỏe" (~1500 từ, kết thúc trọn vẹn). Bao gồm: ' +
         '(a) Phúc Đức — căn nguyên phúc khí, hưởng thụ tinh thần; ' +
@@ -955,7 +1093,7 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
     },
     {
       // Phần 6 (KHÍ SỐ TOÀN LÁ SỐ) — 6 trục đối.
-      title: '4. Khí số 6 trục đối của toàn lá số',
+      title: '5. Khí số 6 trục đối của toàn lá số',
       run: make(
         'Viết phần "# Khí số 6 trục đối toàn lá số" (~900 từ, kết thúc trọn vẹn). Phân tích lực kéo–đẩy của 6 trục: ' +
         '(1) Mệnh ↔ Thiên Di — bản thân vs môi trường ngoài; ' +
@@ -970,7 +1108,7 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
     },
     {
       // Phần 7 (NAM PHÁI) — Phi Hóa, Kỵ lớn nhất, nút thắt, nguồn lực.
-      title: '5. Phi Hóa Nam Phái — Nút thắt & Nguồn lực cuộc đời',
+      title: '6. Phi Hóa Nam Phái — Nút thắt & Nguồn lực cuộc đời',
       run: make(
         'Viết phần "# Phi Hóa Nam Phái — Tổng Lộc/Quyền/Khoa/Kỵ & Nút thắt cuộc đời" (~1200 từ, kết thúc trọn vẹn). ' +
         'BẮT BUỘC dùng dữ liệu PHI HÓA NAM PHÁI đã liệt kê. Phân tích: ' +
@@ -986,7 +1124,7 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
     },
     {
       // Phần 8 (ĐẠI VẬN).
-      title: '6. Vận hiện tại & 3 đại vận mạnh nhất / 3 đại vận khó nhất',
+      title: '7. Vận hiện tại & 3 đại vận mạnh nhất / 3 đại vận khó nhất',
       run: make(
         'Viết phần "# Vận trình các Đại vận" (~1100 từ, kết thúc trọn vẹn). ' +
         '(a) ĐẠI VẬN HIỆN TẠI — đang ở vận nào, cung gì, sao gì, tiên lượng 10 năm; ' +
@@ -998,7 +1136,7 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
     },
     {
       // Mục 11-12-13 trong AI output — 3 cơ hội / 3 rủi ro / hành động.
-      title: '7. 3 cơ hội lớn nhất & 3 rủi ro lớn nhất',
+      title: '8. 3 cơ hội lớn nhất & 3 rủi ro lớn nhất',
       run: make(
         'Viết phần "# 3 Cơ hội lớn nhất & 3 Rủi ro lớn nhất" (~700 từ, NGẮN GỌN, kết thúc trọn vẹn). ' +
         'Bám sát dữ liệu Phi Hóa (Lộc/Quyền/Khoa hội tụ) + đại vận sắp tới + các cách cục quý hiển: ' +
@@ -1010,13 +1148,46 @@ export function fullChartSections(result: AstrologyResult): { title: string; run
     },
     {
       // Mục 13 + Phần 9 (KẾT LUẬN — chấm điểm).
-      title: '8. Tổng khí số cuộc đời (chấm điểm) & Hành động khuyến nghị',
+      title: '9. Tổng khí số cuộc đời (chấm điểm) & Hành động khuyến nghị',
       run: make(
+        (() => {
+          const s = computeSixDomainScores(result);
+          return '[ĐIỂM ENGINE ĐÃ TÍNH — BẮT BUỘC dùng chính xác các con số này, KHÔNG được tự thay đổi]:\n' +
+            `- Phúc khí ${s.phuc}/10 (${s.phucLyDo})\n` +
+            `- Tài khí ${s.tai}/10 (${s.taiLyDo})\n` +
+            `- Quan khí ${s.quan}/10 (${s.quanLyDo})\n` +
+            `- Điền khí ${s.dien}/10 (${s.dienLyDo})\n` +
+            `- Hôn nhân ${s.hon}/10 (${s.honLyDo})\n` +
+            `- Sức khỏe ${s.skh}/10 (${s.skhLyDo})\n\n`;
+        })() +
         'Viết phần "# Tổng khí số cuộc đời & Hành động khuyến nghị" (~800 từ, BẮT BUỘC kết thúc trọn vẹn, không bỏ dở). ' +
-        '★ Phần 1 — Tổng khí số (chấm điểm 1-10 cho từng khía cạnh, kèm 1 câu giải thích): ' +
-        'Phúc khí (x/10), Tài khí (x/10), Quan khí (x/10), Điền khí (x/10), Hôn nhân (x/10), Sức khỏe (x/10). ' +
+        '★ Phần 1 — Tổng khí số: DÙNG LẠI ĐÚNG các số điểm ở trên, mỗi mảng kèm 1-2 câu diễn giải theo lý do đã cho. ' +
         '★ Phần 2 — 7 HÀNH ĐỘNG KHUYẾN NGHỊ cụ thể và thực tiễn (mỗi hành động 2-3 câu, có thể làm ngay): ' +
         'sự nghiệp, tài chính, quan hệ, sức khỏe, học hành/phát triển bản thân, gia đình, quản trị rủi ro.',
+        1100,
+      ),
+    },
+    {
+      title: '10. Ngành nghề cụ thể & Định hướng phát triển',
+      run: make(
+        'Viết phần "# Ngành nghề cụ thể & Định hướng phát triển" (~900 từ, kết thúc trọn vẹn). ' +
+        'Bám cung Mệnh + Quan Lộc + Tài Bạch + Thiên Di + cách cục chủ. ' +
+        '(1) 5-8 NGÀNH/VỊ TRÍ CỤ THỂ hợp nhất (gọi tên rõ, kèm lý do dựa vào sao/cách cục). ' +
+        '(2) 3-5 ngành/vị trí NÊN TRÁNH và lý do. ' +
+        '(3) Chiến lược phát triển sự nghiệp theo 3 giai đoạn (dưới 30 / 30-45 / trên 45 tuổi). ' +
+        '(4) Kỹ năng nên đầu tư sớm dựa vào bản chất sao chủ mệnh.',
+        1200,
+      ),
+    },
+    {
+      title: '11. Quản trị rủi ro & Kế hoạch phòng thủ',
+      run: make(
+        'Viết phần "# Quản trị rủi ro & Kế hoạch phòng thủ" (~800 từ, kết thúc trọn vẹn). ' +
+        '(1) 3-5 RỦI RO CỤ THỂ theo cách hung / cung yếu (không hù dọa, phân tích thực tế). ' +
+        '(2) Với mỗi rủi ro: cơ chế phát tác + dấu hiệu nhận biết sớm + hành động phòng ngừa cụ thể. ' +
+        '(3) Quản trị tài chính cá nhân (quỹ dự phòng bao nhiêu tháng, tránh loại đầu tư nào theo cách cục). ' +
+        '(4) Quản trị sức khỏe (theo Tật Ách). ' +
+        '(5) Quản trị quan hệ (theo cách chủ và cung Nô Bộc).',
         1100,
       ),
     },
@@ -1137,6 +1308,8 @@ function buildDaiVanContext(result: AstrologyResult, dvIndex: number): { context
     `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}, sinh ${birthInfo.year}. ` +
     `Đại vận ${dv.stem} ${dv.branch}, ${dv.startAge}-${dv.endAge} tuổi (năm ${startY}-${endY}), ` +
     `đóng tại cung ${h?.palaceName ?? dv.branch}. Đại vận này đang ở giai đoạn: ${timeline} (so với hiện tại của người xem).`,
+    '',
+    palaceMapBlock(result),
     `★ CHỦ ĐỀ CHÍNH gợi ý theo cung: ${palaceTopic} — AI cần gọi tên vận này thuộc loại nào (vận phát triển sự nghiệp / vận tích lũy tài chính / vận chuyển đổi / vận mở rộng xã hội / vận gia đạo–hôn nhân / vận sức khỏe – tái cấu trúc / vận học hỏi).`,
     '',
     '★ CUNG ĐẠI VẬN — đọc như cung độc lập:',
@@ -1163,6 +1336,8 @@ function buildDaiVanContext(result: AstrologyResult, dvIndex: number): { context
     `- ĐỊA LỢI : hành cung đại vận vs hành Mệnh → ${DL_TXT[sc.diaLoi]}`,
     `- NHÂN HÒA: bộ chính tinh đại vận vs bộ Mệnh → ${sc.nhanHoa}`,
     `→ Điểm Tài lộc ${sc.taiLoc} / Thách thức ${sc.thachThuc} → ${sc.rating}.`,
+    '',
+    buildCachCucContext(result, dv.branch, `Đại Vận ${dv.stem} ${dv.branch} (${dv.startAge}–${dv.endAge}t)`),
     '',
     '===== CÁC CUNG QUAN TRỌNG (luận đầy đủ trong đại vận) =====',
     importantPalaces.join('\n'),
@@ -1231,10 +1406,12 @@ export function daiVanSections(result: AstrologyResult, dvIndex: number): { titl
       // Mục 3-4: Điểm thuận lợi + Điểm bất lợi (tam hợp/xung chiếu/Tứ Hóa/Phi Hóa).
       title: '2. Điểm thuận lợi & Điểm bất lợi',
       run: make(
-        'Viết phần "# Điểm thuận lợi & Điểm bất lợi" (~1100 từ, kết thúc trọn vẹn). ' +
-        '★ PHẦN A — ĐIỂM THUẬN LỢI: phân tích từ TAM HỢP cung đại vận (hỗ trợ thế nào), từ Hóa LỘC/QUYỀN/KHOA tọa thủ và phi tới, từ cát tinh trong cung. ' +
-        '★ PHẦN B — ĐIỂM BẤT LỢI: phân tích từ XUNG CHIẾU (áp lực từ đâu — vd "Quan xung Phu → công việc dễ ảnh hưởng hôn nhân"; "Tài xung Phúc → tiền bạc kèm áp lực gia tộc"), Hóa KỴ phi tới/từ đâu, sát tinh/Tuần/Triệt. ' +
-        'Mỗi điểm phải nêu rõ "DỰA TRÊN dữ kiện gì" và "Hệ quả thực tế là gì". Lộc chỉ nơi có cơ hội, Kỵ chỉ nơi dễ phát sinh vấn đề.',
+        'Viết phần "# Cách cục kích hoạt & Điểm thuận lợi–bất lợi" (~1300 từ, kết thúc trọn vẹn). ' +
+        '★ PHẦN A — CÁCH CỤC ĐANG KÍCH HOẠT (BẮT BUỘC, bám "★ CÁCH CỤC ENGINE"): ' +
+        'Danh sách đã được lọc — chỉ chứa cách ĐANG KÍCH HOẠT trong đại vận này (NGỦ đã loại bỏ). ★★ ƯU TIÊN LUẬN TRƯỚC mục "CÁCH CỤC CHÍNH — từ 4 cung TRỌNG YẾU Mệnh/Tài Bạch/Quan Lộc/Thiên Di" nếu có — đây là các cách quan trọng nhất của lá số. Sau đó mới đến các cách khác. Với MỖI cách trong danh sách: (a) xác nhận bằng chứng — sao vận + sao gốc tạo kích hoạt; (b) trạng thái cụ thể (TĂNG CƯỜNG / KÍCH HOẠT / BIẾN CHẤT / PHÁT TÁC) và ý nghĩa; (c) tác động thực tế lên sự nghiệp–tài chính–quan hệ–sức khỏe trong giai đoạn 10 năm; (d) chiến lược phát huy hoặc quản trị rủi ro cụ thể. PHÂN TÍCH TẤT CẢ cách được liệt kê — không bỏ sót, không thêm cách mới ngoài danh sách. ' +
+        '★ PHẦN B — ĐIỂM THUẬN LỢI: tam hợp cung đại vận hỗ trợ thế nào, Hóa LỘC/QUYỀN/KHOA tọa thủ và phi tới, cát tinh trong cung. ' +
+        '★ PHẦN C — ĐIỂM BẤT LỢI: xung chiếu áp lực từ đâu (vd "Quan xung Phu → công việc dễ ảnh hưởng hôn nhân"), Hóa KỴ phi tới/từ đâu, sát tinh/Tuần/Triệt. ' +
+        'Mỗi điểm phải nêu rõ "DỰA TRÊN dữ kiện gì" và "Hệ quả thực tế là gì". Cách phá/cứu cần nêu phương án quản trị cụ thể.',
         1400,
       ),
     },
@@ -1401,6 +1578,10 @@ function buildTieuVanContext(result: AstrologyResult, age: number): { context: s
   const thanTV = c.houses.find(x => x.isThan);
 
   const context = [
+    palaceMapBlock(result),
+    '',
+    buildCachCucContext(result, tv.branch, `Tiểu Vận ${tv.stem} ${tv.branch} (${tv.age} tuổi, năm ${tv.year})`),
+    '',
     `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}. ` +
     `Năm ${tv.year} (Can–Chi năm: ${tv.yearStem} ${tv.yearBranch}) — ${tv.age} tuổi. ` +
     `Cung tiểu hạn: ${h?.palaceName ?? tv.branch} (${tv.branch}).`,
@@ -1516,11 +1697,13 @@ export function tieuVanSections(result: AstrologyResult, age: number): { title: 
       // Mục 5-7: Sao, cách cục, Lưu tinh, Lưu Tứ Hóa, Tam hợp/Xung chiếu.
       title: '3. Lưu tinh & Lưu Tứ Hóa – Tam hợp/Xung chiếu',
       run: make(
-        'Viết phần "# Lưu tinh, Lưu Tứ Hóa & Tam hợp/Xung chiếu" (~1500 từ, kết thúc trọn vẹn). ' +
-        '★ PHẦN A — LƯU TỨ HÓA (quan trọng nhất, bám sát context "LƯU TỨ HÓA NĂM"): nói cụ thể từng lưu hóa tại CUNG NÀO và ý nghĩa: Lưu Lộc=cơ hội ở đâu, Lưu Quyền=trách nhiệm/áp lực ở đâu, Lưu Khoa=quý nhân/danh tiếng ở đâu, Lưu Kỵ=ĐIỂM NGHẼN ở đâu. ' +
-        '★ PHẦN B — Các lưu tinh khác: Lưu Thái Tuế (chủ đề năm), Lưu Lộc Tồn (dòng tiền), Lưu Kình-Đà (áp lực), Lưu Mã (di chuyển), Lưu Khốc-Hư (cảm xúc), Lưu Tang-Hổ (gia đạo/sức khỏe), Lưu Đào-Hồng (tình duyên), Lưu Xương-Khúc (giấy tờ/học). ' +
-        '★ PHẦN C — Tam hợp tiểu vận có hỗ trợ không? Có liên thông Mệnh-Tài-Quan / Phúc-Tài-Di / Phu-Quan-Di không? ' +
-        '★ PHẦN D — Xung chiếu cho biết áp lực TRỰC DIỆN từ đâu.',
+        'Viết phần "# Cách cục năm & Lưu tinh–Lưu Tứ Hóa" (~1700 từ, kết thúc trọn vẹn). ' +
+        '★ PHẦN A — CÁCH CỤC NĂM (bám "★ CÁCH CỤC ENGINE"): ' +
+        'Danh sách đã lọc — chỉ chứa cách ĐANG KÍCH HOẠT trong tiểu vận này. ★★ ƯU TIÊN LUẬN TRƯỚC mục "CÁCH CỤC CHÍNH — từ 4 cung TRỌNG YẾU Mệnh/Tài Bạch/Quan Lộc/Thiên Di" nếu có — đây là các cách quan trọng nhất của lá số. PHÂN TÍCH TẤT CẢ cách trong danh sách: (a) trạng thái cụ thể (TĂNG CƯỜNG/KÍCH HOẠT/BIẾN CHẤT) + bằng chứng; (b) phân biệt cách gốc được năm kích hoạt vs cách chỉ xuất hiện do lưu Tứ Hóa (tạm thời, độ tin cậy thấp hơn); (c) tác động theo chủ đề (sự nghiệp/tài/quan hệ/sức khỏe); (d) chiến lược phát huy hoặc quản trị. ' +
+        'Quy tắc ưu tiên: Lá số gốc = KHẢ NĂNG → Đại vận = SÂN CHƠI → Tiểu vận = NHIỆM VỤ NĂM. KHÔNG thêm cách ngoài danh sách; KHÔNG bỏ sót cách có trong danh sách. ' +
+        '★ PHẦN B — LƯU TỨ HÓA NĂM (quan trọng nhất): nói cụ thể từng lưu hóa tại CUNG NÀO — Lưu Lộc=cơ hội ở đâu, Lưu Quyền=trách nhiệm ở đâu, Lưu Khoa=quý nhân ở đâu, Lưu Kỵ=ĐIỂM NGHẼN ở đâu. ' +
+        '★ PHẦN C — Các lưu tinh khác: Lưu Thái Tuế, Lưu Lộc Tồn, Lưu Kình-Đà, Lưu Mã, Lưu Khốc-Hư, Lưu Tang-Hổ, Lưu Đào-Hồng, Lưu Xương-Khúc. ' +
+        '★ PHẦN D — Tam hợp/Xung chiếu tiểu vận.',
         1900,
       ),
     },
@@ -1680,6 +1863,21 @@ export async function analyzeNguyetVanWithAI(
     sinhNhap: 'sinh nhập (rất tốt)', dongHanh: 'đồng hành (tốt)',
     khacXuat: 'khắc xuất (chật vật)', sinhXuat: 'sinh xuất (hao tổn)', khacNhap: 'khắc nhập (xấu)',
   };
+
+  // ─── Bảng điểm 10 mảng + 8 chủ đề (số liệu cụ thể THAY ĐỔI theo tháng → ép AI luận khác nhau) ───
+  const detail = nguyetVanDetail(result, age, month);
+  const scoreboardTxt = detail
+    ? detail.scores.map(s => `${s.label} ${s.value}/10${s.isRisk ? ' (rủi ro: cao=cần thận trọng)' : ''}`).join(' · ')
+    : '(không tính được)';
+  const themesTxt = detail
+    ? detail.themes.map(t =>
+        `• ${t.label} [${t.score}/10 – ${t.status}${t.activation ? `, ${t.activation}` : ''}${t.luuHoa ? `, ${t.luuHoa}` : ''}]: cung ${t.palace}`
+      ).join('\n')
+    : '(không tính được)';
+  const tamHopXungTxt = detail
+    ? `Cung lưu nguyệt TAM HỢP với: ${detail.tamHopPalaces.join(', ') || '—'}; XUNG CHIẾU với: ${detail.xungPalace || '—'}.`
+    : '';
+
   const prompt = [
     'Bạn là chuyên gia Tử Vi Nam Phái theo hướng THỰC TIỄN — đóng vai AI COACH cá nhân tư vấn 30 NGÀY cho người dùng. ' +
     '★ TINH THẦN CỐT LÕI: "NGUYỆT VẬN KHÔNG PHẢI để dự đoán số mệnh trong tháng. Hãy phân tích tháng này đang KÍCH HOẠT phần nào của ĐẠI VẬN và TIỂU VẬN, từ đó xác định cơ hội, rủi ro và KẾ HOẠCH HÀNH ĐỘNG cho người dùng trong 30 ngày tới." ' +
@@ -1690,6 +1888,10 @@ export async function analyzeNguyetVanWithAI(
     `THÁNG ${month} (âm lịch), trong năm ${tv?.year ?? ''} (${age} tuổi). ` +
     `Lưu nguyệt nhập cung ${h?.palaceName ?? branch} (${branch}, can tháng ${monthCan || '?'}, hành Chi tháng ${branchEl}).`,
     monthTopic ? `★ CHỦ ĐỀ THÁNG: ${monthTopic} — gọi tên tháng này thuộc loại nào (Tháng sự nghiệp / Tháng tiền bạc / Tháng mở rộng / Tháng đàm phán / Tháng tích lũy / Tháng gia đạo / Tháng sức khỏe / Tháng chuyển đổi).` : '',
+    '',
+    palaceMapBlock(result),
+    '',
+    buildCachCucContext(result, branch || undefined, branch ? `Nguyệt Vận ${branch} (tháng ${month})` : undefined),
     '',
     '★ CUNG LƯU NGUYỆT — đọc như cung tháng:',
     `- Chính tinh: ${sv.chinh.join(', ') || 'Vô chính diệu'}`,
@@ -1711,6 +1913,16 @@ export async function analyzeNguyetVanWithAI(
     `   ${luuHoaTxt}`,
     '(Lưu Lộc chỉ NƠI THÁNG NÀY CÓ CƠ HỘI; Lưu Quyền chỉ trách nhiệm/quyền lực; Lưu Khoa chỉ quý nhân/danh tiếng; Lưu Kỵ chỉ ĐIỂM NGHẼN tháng. AI BẮT BUỘC nói cụ thể từng lưu hóa tại cung nào.)',
     '',
+    '★ TAM HỢP & XUNG CHIẾU CUNG LƯU NGUYỆT (Bước 8 — tháng này "động" tới mảng nào):',
+    `   ${tamHopXungTxt}`,
+    '',
+    '★ BẢNG ĐIỂM 10 MẢNG THÁNG NÀY (thang 0–10, số liệu riêng của tháng — BÁM SÁT, KHÔNG nói chung chung):',
+    `   ${scoreboardTxt}`,
+    '',
+    '★ TRẠNG THÁI 8 CHỦ ĐỀ THÁNG NÀY (đã tính kích hoạt cung + Lưu Tứ Hóa — diễn giải ĐÚNG theo từng con số, mảng điểm cao thì khích lệ, mảng điểm thấp/có Lưu Kỵ thì cảnh báo):',
+    themesTxt,
+    '⚠ BẮT BUỘC: ở mục "8 chủ đề" phải phản ánh ĐÚNG điểm số & trạng thái ở trên — KHÔNG được cho mọi mảng cùng một sắc thái; mảng "đồng cung"/điểm cao là trọng tâm tháng, mảng có "Hóa Kỵ" là rủi ro chính.',
+    '',
     '3 YẾU TỐ cụ Thiên Lương (áp cho tháng này):',
     `- THIÊN THỜI: tam hợp cung lưu nguyệt vs tam hợp năm sinh → ${TT_TXT[sc.thienThoi]}`,
     `- ĐỊA LỢI : hành cung lưu nguyệt vs hành Mệnh → ${TT_TXT[sc.diaLoi]}`,
@@ -1723,7 +1935,7 @@ export async function analyzeNguyetVanWithAI(
     `# 2. Tương tác với Đại vận — tháng này KÍCH HOẠT gì trong đại vận?`,
     `# 3. Tương tác với Tiểu vận (NĂM) — tháng có phải tháng then chốt của năm không? Đây là phần quan trọng nhất.`,
     `# 4. Tương tác với Bát Tự — Chi tháng có tăng Dụng thần / kích hoạt Kỵ thần không?`,
-    `# 5. Phân tích sao & cách cục tháng — chính tinh + phụ tinh + Tuần/Triệt; Lưu Tứ Hóa tháng nói gì.`,
+    `# 5. Cách cục kích hoạt & Sao tháng — bám "★ CÁCH CỤC ENGINE": Danh sách đã lọc, chỉ chứa cách ĐANG KÍCH HOẠT trong tháng này. Ưu tiên luận trước mục "CÁCH CỤC CHÍNH — từ 4 cung TRỌNG YẾU Mệnh/Tài Bạch/Quan Lộc/Thiên Di" nếu có. PHÂN TÍCH TẤT CẢ cách trong danh sách: (a) trạng thái (TĂNG CƯỜNG/KÍCH HOẠT/BIẾN CHẤT/PHÁT TÁC) + bằng chứng sao; (b) ảnh hưởng thực tế trong 30 ngày; (c) micro-pattern chỉ gọi khi có ≥2–3 tín hiệu đồng thuận. KHÔNG thêm cách ngoài danh sách; KHÔNG bỏ sót cách có trong danh sách. Sau đó: phân tích chính tinh + phụ tinh + Tuần/Triệt tại cung lưu nguyệt; Lưu Tứ Hóa tháng.`,
     `# 6. Phân tích 8 chủ đề (mỗi mục 2-3 câu): Công việc / Tài chính / Kinh doanh / Đối tác / Hôn nhân / Gia đình / Sức khỏe / Học tập. Mỗi mục có Cơ hội + Rủi ro + Hành động.`,
     `# 7. Bản đồ 4 TUẦN trong tháng: Tuần 1 (Khởi động), Tuần 2 (Tăng tốc), Tuần 3 (Điểm nhấn), Tuần 4 (Tổng kết); tuần nào thuận nhất / tuần nào cần thận trọng.`,
     `# 8. Top 5 cơ hội tháng — mỗi cơ hội: Tên / Lĩnh vực / Điều kiện / Hành động.`,
@@ -1731,6 +1943,10 @@ export async function analyzeNguyetVanWithAI(
     `# 10. Chiến lược tháng — chọn 1 từ trong danh sách: TIẾN CÔNG / TÍCH LŨY / MỞ RỘNG / TÁI CẤU TRÚC / PHÒNG THỦ / CHUYỂN ĐỔI / ĐÀM PHÁN / CHỜ THỜI — và giải thích vì sao.`,
     `# 11. Việc NÊN làm / Việc NÊN TRÁNH trong 30 ngày — danh sách cụ thể có thể hành động ngay.`,
     `# 12. Kết luận 5 dòng — Dòng 1: tên tháng + đánh giá tổng. Dòng 2: cơ hội lớn nhất. Dòng 3: rủi ro lớn nhất. Dòng 4: việc ƯU TIÊN tuần này. Dòng 5: câu chốt định hướng cả tháng.`,
+    '★ CÂU KHÓA (định hướng toàn bài): KHÔNG chỉ nói tháng này tốt hay xấu. Hãy CHUYỂN dữ liệu Nguyệt vận ' +
+    'thành KẾ HOẠCH HÀNH ĐỘNG THỰC TẾ trong 30 ngày: nên tập trung GÌ, tránh GÌ, cơ hội nào nên tận dụng, ' +
+    'rủi ro nào cần quản trị. Mỗi tháng PHẢI có sắc thái RIÊNG (bám cung lưu nguyệt + bảng điểm + Lưu Tứ Hóa của ĐÚNG tháng này), ' +
+    'TUYỆT ĐỐI tránh viết chung chung có thể áp cho tháng nào cũng đúng.',
     'Chỉ dùng dữ liệu đã cho, không bịa thêm sao. TUYỆT ĐỐI KHÔNG nói "chắc chắn xảy ra X" — chỉ nói xu hướng.',
   ].filter(Boolean).join('\n');
   return capWords(await requestAI(prompt, aiKeysOf(birthInfo)), 5000);
@@ -1752,9 +1968,12 @@ function buildBatTuContext(result: AstrologyResult): string {
     `Nhật Chủ: ${b.dayMaster} (${b.dayMasterElement}) — ${pt.than.label}.`,
     `Phân bổ ngũ hành (tính cả tàng can): ${counts}.`,
     `Hành KHUYẾT: ${pt.khuyet.join(', ') || 'không'}; THIẾU: ${pt.thieu.join(', ') || 'không'}; THỪA: ${pt.thua.join(', ') || 'không'}.`,
-    `Dụng thần (nên bổ): ${pt.dungThan.join(', ')}; Kỵ thần (nên hạn chế): ${pt.kyThan.join(', ') || 'không rõ'}.`,
+    `Dụng thần (nên bổ): ${pt.dungThan.join(', ')}; Hỷ thần (hỗ trợ dụng thần): ${hyThanOf(pt.dungThan as any) || '—'}; Kỵ thần (nên hạn chế): ${pt.kyThan.join(', ') || 'không rõ'}.`,
     '⚠ QUY TẮC NHẤT QUÁN: mọi lời khuyên TĂNG/GIẢM hành phải bám theo DỤNG THẦN (tăng) và KỴ THẦN (giảm). ' +
     'TUYỆT ĐỐI không khuyên bổ một hành là kỵ thần (dù nó ít), cũng không khuyên giảm một hành là dụng thần (dù nó nhiều).',
+    '',
+    // ★ Dữ liệu MỚI: Thập Thần + cách cục + quan hệ can-chi (xung/hợp/hình/hại/phá) — cốt lõi để chuyển Bát Tự thành tư vấn thực tế.
+    summarizeBatTuAdvanced(b),
     '',
     '===== DỮ LIỆU NỀN (bản Nâng cao — DỰA VÀO và mở rộng sâu hơn, KHÔNG sơ sài hơn, KHÔNG mâu thuẫn) =====',
     pt.markdown,
@@ -1763,10 +1982,16 @@ function buildBatTuContext(result: AstrologyResult): string {
 }
 
 const BATTU_RULES =
-  'Bạn là thầy BÁT TỰ (Tứ Trụ) kiêm chuyên gia PHONG THỦY ngũ hành, tư vấn tiếng Việt ấm áp, có chiều sâu. ' +
+  'Bạn là chuyên gia BÁT TỰ (Tứ Trụ) theo hướng TƯ VẤN THỰC TIỄN cho phần mềm thương mại, kiêm chuyên gia PHONG THỦY ngũ hành, tư vấn tiếng Việt ấm áp, có chiều sâu. ' +
   'PHÂN TÍCH và TƯ VẤN CỤ THỂ, mỗi nhận định kèm hành động thực tế; có ví dụ đời thường; KHÔNG liệt kê khô khan; ' +
   'KHÔNG bảng/markdown; tiêu đề dạng "# Tên mục"; KHÔNG mở đầu lại bằng lời chào; viết thẳng vào phần được yêu cầu; ' +
-  'chỉ dùng dữ liệu đã cho, không bịa; bám DỤNG THẦN/KỴ THẦN, không mâu thuẫn.';
+  'chỉ dùng dữ liệu đã cho, không bịa; bám DỤNG THẦN/KỴ THẦN, không mâu thuẫn. ' +
+  '★ NGUYÊN TẮC LUẬN (BẮT BUỘC): (1) KHÔNG phán đoán tuyệt đối; (2) KHÔNG ngôn ngữ mê tín/hù dọa; ' +
+  '(3) KHÔNG chỉ mô tả Can-Chi mà phải CHUYỂN thành tư vấn thực tế; (4) mỗi kết luận quan trọng dựa trên ÍT NHẤT 2 DỮ KIỆN; ' +
+  '(5) luôn theo mạch DỮ KIỆN → PHÂN TÍCH → KẾT LUẬN → KHUYẾN NGHỊ; (6) nếu thiếu dữ liệu thì nói rõ chưa đủ cơ sở; ' +
+  '(7) KHÔNG nói chắc chắn giàu/nghèo, bệnh tật, ly hôn, tai họa — chỉ nói XU HƯỚNG, mức độ thuận lợi/rủi ro và chiến lược nên làm. ' +
+  '★ CÂU KHÓA: KHÔNG chỉ luận "mệnh tốt hay xấu"; hãy biến Bát Tự thành BẢN ĐỒ ỨNG DỤNG THỰC TẾ — nên chọn môi trường nào, ' +
+  'nghề gì, cách kiếm tiền nào, cách quản trị rủi ro nào và thời điểm nào nên hành động.';
 
 /**
  * Các PHẦN của bài luận Bát Tự + Phong Thủy. Mỗi phần 1 request riêng (ngắn,
@@ -1781,31 +2006,53 @@ export function batTuSections(result: AstrologyResult): { title: string; run: ()
   return [
     {
       title: 'Tổng quan Nhật Chủ',
-      run: make('Viết phần "# 1. Tổng quan Nhật Chủ & thế cục ngũ hành" (~700 từ): vượng/nhược vì sao; cục diện ngũ hành vẽ nên chân dung con người thế nào.', 700),
+      run: make('Viết phần "# 1. Tổng quan Nhật Chủ & thế cục ngũ hành" (~750 từ): hình tượng Nhật Chủ (vd Giáp Mộc = cây lớn/nguyên tắc; Quý Thủy = mưa sương/nhạy bén…); ' +
+        'thân VƯỢNG hay NHƯỢC và VÌ SAO (mùa sinh/tháng lệnh, có căn/Ấn sinh/Tỷ Kiếp trợ hay bị Tài-Quan-Thực Thương làm hao); ' +
+        'nêu rõ DỤNG THẦN – HỶ THẦN – KỴ THẦN và ý nghĩa thực tế (thân vượng nên tiết khí tạo giá trị; thân nhược cần nương Ấn/Tỷ, hệ thống, cộng sự). Theo mạch dữ kiện→phân tích→kết luận.', 800),
+    },
+    {
+      title: 'Thập Thần & cách cục',
+      run: make('Viết phần "# 2. Thập Thần nổi bật & Cách cục" (~850 từ). BÁM SÁT dữ liệu "THẬP THẦN" và "Cách cục" đã cho: ' +
+        'phân tích các Thập Thần NỔI BẬT (Quan/Sát, Tài, Ấn, Thực/Thương, Tỷ/Kiếp) nói lên điều gì về con người và cách họ vận hành; ' +
+        'gọi tên CÁCH CỤC chính (Tài cách / Quan Sát cách / Ấn cách / Thực Thương cách / Tỷ Kiếp cách) và tổ hợp đặc biệt nếu có (Thực Thương sinh Tài, Sát Ấn tương sinh, Tài Quan tương sinh). ' +
+        'KẾT LUẬN rõ: "người này nên THÀNH CÔNG bằng CON ĐƯỜNG NÀO" (con đường tổ chức/chức vụ, kinh doanh/tài chính, chuyên môn/học thuật, hay sáng tạo/sản phẩm) — cụ thể, có thể hành động.', 850),
     },
     {
       title: 'Tính cách & tâm lý',
-      run: make('Viết phần "# 2. Tính cách & tâm lý" (~800 từ): hành thiếu/thừa tạo nên nét tính cách gì; điểm mạnh nên phát huy và điểm yếu cần khắc phục (gợi ý cách rèn).', 800),
+      run: make('Viết phần "# 3. Tính cách & tâm lý" (~750 từ): kết hợp hành thiếu/thừa VÀ Thập Thần nổi bật để vẽ tính cách; động lực cốt lõi; 5 điểm mạnh nên phát huy và 5 điểm yếu cần khắc phục (kèm cách rèn).', 800),
     },
     {
-      title: 'Sức khỏe',
-      run: make('Viết phần "# 3. Sức khỏe" (~600 từ): tạng phủ cần lưu ý (gan/tim/tỳ/phế/thận theo Mộc/Hỏa/Thổ/Kim/Thủy), dấu hiệu nên để ý và cách dưỡng sinh.', 600),
+      title: 'Biến động (xung/hợp/hình/hại)',
+      run: make('Viết phần "# 4. Biến động cuộc đời (xung – hợp – hình – hại – phá)" (~650 từ). BÁM SÁT dữ liệu "QUAN HỆ CAN–CHI" đã cho và mức biến động: ' +
+        'giải thích các quan hệ HIỆN CÓ giữa 4 trụ nói lên điều gì về xu hướng đời sống (dễ đổi việc/đổi nơi ở? dễ mâu thuẫn quan hệ? dễ biến động tài chính? dễ hành động nóng?); ' +
+        'người mệnh nhiều xung-hình hợp môi trường biến đổi nhưng cần QUẢN TRỊ quyết định lớn. Kết bằng 3–5 lời khuyên quản trị biến động. Nếu ít biến động thì nói rõ là mệnh ổn định.', 700),
     },
     {
       title: 'Sự nghiệp – tài lộc',
-      run: make('Viết phần "# 4. Sự nghiệp – tài lộc" (~800 từ): ngành nghề/môi trường hợp dụng thần; nên làm chủ hay làm công; hướng phát triển; dùng phong thủy hỗ trợ công việc.', 800),
+      run: make('Viết phần "# 5. Sự nghiệp – Tài chính – Đầu tư" (~900 từ). Bám Thập Thần (Quan/Sát→tổ chức; Tài→kinh doanh/tài chính; Ấn→chuyên môn; Thực/Thương→sáng tạo/bán hàng) + DỤNG THẦN. ' +
+        '★ BẮT BUỘC nêu 5–8 NGÀNH/VỊ TRÍ CỤ THỂ hợp (gọi tên rõ, vd theo hành: Mộc → giáo dục, xuất bản, gỗ – nội thất, thời trang; Hỏa → marketing, truyền thông, F&B, điện – năng lượng, công nghệ; ' +
+        'Thổ → bất động sản, xây dựng, nông nghiệp, bảo hiểm, quản trị; Kim → tài chính – ngân hàng, cơ khí, luật, kiểm toán; Thủy → vận tải – logistics, du lịch, thương mại, dịch vụ, môi giới), mỗi nhóm 1 câu lý do; ' +
+        'nên LÀM CHỦ hay LÀM CÔNG; CÁCH KIẾM TIỀN nổi trội (lương/kinh doanh/đầu tư) và CÁCH GIỮ TIỀN; rủi ro tiền bạc cần tránh. TUYỆT ĐỐI KHÔNG nói chung chung kiểu "nghề hợp mệnh".', 950),
     },
     {
       title: 'Tình cảm – hôn nhân – bạn bè',
-      run: make('Viết phần "# 5. Tình cảm – hôn nhân – bạn bè" (~700 từ): tính cách trong tình cảm; nên kết giao người mang hành nào (theo dụng thần) và vì sao; kiểu người nên thận trọng; lời khuyên giữ quan hệ.', 700),
+      run: make('Viết phần "# 6. Tình cảm – hôn nhân – bạn bè" (~700 từ): tính cách trong tình cảm; nên kết giao/kết hợp người mang hành nào (theo dụng thần) và vì sao; điểm dễ xung đột; kiểu người nên thận trọng; lời khuyên giữ quan hệ.', 700),
+    },
+    {
+      title: 'Sức khỏe & thói quen',
+      run: make('Viết phần "# 7. Sức khỏe & thói quen" (~600 từ): KHÔNG phán bệnh — chỉ nói nhóm áp lực và tạng phủ cần lưu ý (gan/tim/tỳ/phế/thận theo Mộc/Hỏa/Thổ/Kim/Thủy, hành thừa-thiếu), lối sống cần cân bằng và thói quen nên điều chỉnh.', 650),
     },
     {
       title: 'Phong thủy ứng dụng',
-      run: make('Viết phần "# 6. Phong thủy ứng dụng chi tiết" (~900 từ), chia rõ: (a) Ăn uống, (b) Trang phục – màu sắc – phụ kiện, (c) Nơi ở – bố trí nhà, (d) Nơi làm việc – bàn ghế, (e) Hướng xuất hành & thời điểm khởi sự, (f) vật phẩm – con số may mắn. Bám dụng thần, không gợi ý theo kỵ thần.', 900),
+      run: make('Viết phần "# 8. Phong thủy ứng dụng chi tiết" (~900 từ), chia rõ: (a) Ăn uống, (b) Trang phục – màu sắc – phụ kiện, (c) Nơi ở – bố trí nhà, (d) Nơi làm việc – bàn ghế, (e) Hướng xuất hành & thời điểm khởi sự, (f) vật phẩm – con số may mắn. Bám dụng thần, không gợi ý theo kỵ thần.', 900),
     },
     {
-      title: 'Lời khuyên tổng hợp',
-      run: make('Viết phần "# 7. Lời khuyên tổng hợp" (~500 từ): 5-7 việc NÊN làm đều đặn để cân bằng ngũ hành & vượng vận, và những điều NÊN TRÁNH; kết thúc trọn vẹn.', 500),
+      title: 'Chấm điểm & Chiến lược hành động',
+      run: make('Viết phần "# 9. Chấm điểm 10 chỉ số & Chiến lược hành động" (~750 từ). ' +
+        'Chấm điểm THANG 1–10 (làm tròn) cho 10 chỉ số, mỗi chỉ số 1 câu lý do bám dữ kiện: ' +
+        'Cân bằng ngũ hành, Năng lượng bản thân (thân vượng/nhược), Sự nghiệp (Quan/Sát/Ấn/Thực Thương), Tài chính (Chính/Thiên Tài), Kinh doanh (Thiên Tài/Thực Thương), ' +
+        'Quản trị (Quan/Sát/Ấn), Sáng tạo (Thực/Thương), Quan hệ (Tài/Quan/Tỷ Kiếp tùy nam nữ), Ổn định (Ấn/Quan), Biến động (xung/hình/hại — điểm CÀNG CAO càng cần thận trọng). ' +
+        'Sau đó CHỐT CHIẾN LƯỢC HÀNH ĐỘNG: nên làm gì / không nên làm gì / nên chọn môi trường nào / nên hợp tác với kiểu người nào / nên học gì / quản trị rủi ro gì / giai đoạn nào nên chủ động – giai đoạn nào nên chậm lại. Kết thúc trọn vẹn.', 800),
     },
   ];
 }
@@ -1826,29 +2073,67 @@ export async function analyzeNhatVanWithAI(result: AstrologyResult, dateMs: numb
   const base = generateNhatVanOffline(result, date);
   const fav = (b.favorableElements || []).join(', ');
   const unfav = (b.unfavorableElements || []).join(', ');
+
+  // ── Đại Vận hiện tại ──
+  const age = Math.max(0, date.getFullYear() - (birthInfo.year || date.getFullYear()));
+  const curDV = result.daiVans?.find(dv => age >= dv.startAge && age <= dv.endAge);
+  const dvContext = curDV
+    ? (() => {
+        const dvSc = scoreDaiVan(result, curDV);
+        return `Đại Vận hiện tại: ${curDV.stem} ${curDV.branch} (tuổi ${curDV.startAge}–${curDV.endAge}) — ` +
+          `${dvSc.rating} (Tài lộc ${dvSc.taiLoc}/100, Thách thức ${dvSc.thachThuc}/100). ` +
+          `Thiên thời: ${dvSc.thienThoi}; Địa lợi: ${dvSc.diaLoi}; Nhân hòa: ${dvSc.nhanHoa}. ` +
+          `Tóm tắt: ${dvSc.summary.split('.')[0].trim()}.`;
+      })()
+    : 'Đại Vận hiện tại: chưa xác định (ngoài các giai đoạn đã tính).';
+
+  // ── Danh mục nhóm việc — AI hướng NÊN/KHÔNG NÊN vào đúng các nhóm này ──
+  const taskGroups = DAY_PICK_GROUPS
+    .filter(g => g.code !== NUMBER_GROUP_CODE)
+    .map(g => `  • ${g.name}: ${g.tasks.map(t => t.name).join(', ')}.`)
+    .join('\n');
+
   const prompt = [
     'Bạn là một thầy tư vấn Mệnh lý kiêm chọn ngày (trạch nhật) giàu kinh nghiệm. Tư vấn cho thân chủ về ' +
     'MỘT NGÀY cụ thể dựa trên lá số của họ, bằng tiếng Việt ấm áp, CỤ THỂ và thực tế. KHÔNG bảng/markdown.',
     '',
     `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}, tuổi (chi năm) ${result.tuViChart.lunarDate.yearBranch}. ` +
     `Nhật Chủ ${b.dayMaster} (${b.dayMasterElement}). Dụng thần: ${fav || 'không rõ'}; Kỵ thần: ${unfav || 'không rõ'}.`,
+    '',
     `Ngày xem: ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} — ngày ${sc.canChi.stem} ${sc.canChi.branch} ` +
-    `(Can hành ${sc.canChi.stemEl}, Chi hành ${sc.canChi.branchEl}). Đánh giá sơ bộ: ${sc.rating}` +
-    `${sc.xungTuoi ? ' (XUNG tuổi)' : sc.hopTuoi ? ' (hợp tuổi)' : ''}.`,
+    `(Can hành ${sc.canChi.stemEl}, Chi hành ${sc.canChi.branchEl}).` +
+    `${sc.xungTuoi ? ' ⚠ XUNG TUỔI.' : sc.hopTuoi ? ' Hợp tuổi.' : ''}`,
+    '',
+    '===== ĐIỂM NGÀY TỔNG HỢP (6 CẤP — bắt buộc bám khi luận) =====',
+    `Điểm tổng: ${sc.score100}/100 — ${sc.rating}.`,
+    `Cấp 1 – Điểm nền (10%): Trực ${sc.truc} · Lục Diệu ${sc.lucDieu} · ${sc.hoangDao ? 'Hoàng Đạo' : 'Hắc Đạo'} · Tú ${sc.nhi28Tu}.`,
+    `  (Tú ${sc.nhi28Tu}: xem mô tả trong dữ liệu nền; ảnh hưởng 25% điểm Cấp 1.)`,
+    `Cấp 2 – Bát Tự (35%): Can Chi ngày vs Dụng/Kỵ thần — xem chi tiết dữ liệu nền.`,
+    dvContext ? `Cấp 3 – Đại Vận (15%): ${dvContext}` : '',
+    `Cấp 4 – Lưu Niên (20%): hành năm ${date.getFullYear()} so Dụng/Kỵ thần — xem dữ liệu nền.`,
+    `Cấp 5 – Nguyệt Vận (10%): hành ngày trong tháng âm lịch — xem dữ liệu nền.`,
+    `Cấp 6 – Theo việc cụ thể (10%): Trực ${sc.truc} và hành ngày có lợi/bất lợi tùy từng loại công việc.`,
+    sc.warnings.length ? `Hard Rules: ${sc.warnings.join(' ')}` : '',
+    '=====',
     '',
     '===== DỮ LIỆU NỀN (bản Cơ bản — hãy DỰA VÀO và MỞ RỘNG SÂU, KHÔNG sơ sài hơn) =====',
     base,
     '=====',
     '',
-    'Viết một bản tư vấn cho NGÀY này (700–1400 từ), 6 mục có tiêu đề, KẾT THÚC trọn vẹn, cụ thể và đời thường:',
-    '1. TỔNG QUAN NGÀY: ngày này hợp/khắc gì với lá số, năng lượng chủ đạo ra sao.',
-    '2. NÊN LÀM: việc cụ thể nên ưu tiên (công việc, tài chính, ký kết, gặp gỡ…) — vì sao.',
-    '3. KHÔNG NÊN / KIÊNG: việc nên tránh, đặc biệt nếu xung tuổi.',
-    '4. ĂN UỐNG & SỨC KHỎE hôm nay: món/thực phẩm nên dùng, điều cần giữ gìn.',
-    '5. TRANG PHỤC – MÀU SẮC – HƯỚNG XUẤT HÀNH – CON SỐ may mắn cho ngày.',
-    '6. TÌNH CẢM – GIAO TIẾP: cách ứng xử, gặp gỡ ai/việc gì thuận trong ngày.',
-    'Tư vấn như đang dặn dò trực tiếp, dễ áp dụng. Chỉ dùng dữ liệu đã cho, không bịa.',
-  ].join('\n');
+    '===== DANH MỤC NHÓM VIỆC — mục NÊN LÀM / KHÔNG NÊN PHẢI bám vào các nhóm/việc này =====',
+    taskGroups,
+    '=====',
+    '',
+    'Viết một bản tư vấn cho NGÀY này (1200–1800 từ), 6 mục có tiêu đề, KẾT THÚC trọn vẹn, CỤ THỂ và đời thường. ' +
+    'Mỗi khuyến nghị PHẢI gắn với dữ kiện (can chi ngày / dụng–kỵ thần / trực ngày / tú / đại vận / hợp–xung tuổi / khung giờ), KHÔNG nói chung chung:',
+    '1. TỔNG QUAN NGÀY: diễn giải điểm ${sc.score100}/100 từ GÓC NHÌN 6 CẤP — Cấp 1 (trực, lục diệu, hoàng/hắc đạo, tú bát tú có thuận không), Cấp 2 (can chi ngày hợp/khắc dụng–kỵ thần), Cấp 3 (đại vận hiện tại đang thuận hay nghịch — nêu rõ đang vận gì, rating, ảnh hưởng tổng thể), Cấp 4–5 (năm tháng có tiếp khí hay tiêu hao), Hard Rules (có xung tuổi / Tam Nương / Nguyệt Kỵ không). Kết luận mức độ "đẹp" thực sự của ngày.',
+    '2. NÊN LÀM: DỰA VÀO DANH MỤC NHÓM VIỆC, chọn ra 3–5 NHÓM/VIỆC CỤ THỂ hợp nhất với ngày (gọi đúng tên việc). Với MỖI việc nêu rõ: (a) VÌ SAO hợp — liên hệ cụ thể với trực/tú/can chi ngày/dụng thần/đại vận; (b) KHUNG GIỜ nào tốt nhất (bám khung giờ trong dữ liệu nền). Việc trọng đại (cưới hỏi, động thổ, nhập trạch, khai trương…) chỉ khuyên khi ngày THẬT ĐẸP và không có hard rule nào.',
+    '3. KHÔNG NÊN / KIÊNG: DỰA VÀO DANH MỤC, chỉ rõ 3–5 NHÓM/VIỆC nên HOÃN; nêu VÌ SAO (kỵ thần vượng, xung tuổi, trực xấu, tú hung, đại vận nghịch…). Nếu BẮT BUỘC phải làm, hướng dẫn né khung giờ xấu và chọn giờ đỡ hơn. Khi xung tuổi, nhấn mạnh tránh mọi việc trọng đại.',
+    '4. ĂN UỐNG & SỨC KHỎE: gợi ý CỤ THỂ nhóm thực phẩm / món / vị / màu bổ theo DỤNG THẦN; món nên hạn chế theo kỵ thần; bộ phận cơ thể cần lưu ý hôm nay (liên hệ hành ngày / tú); 1–2 thói quen sức khỏe nên làm.',
+    '5. TRANG PHỤC – MÀU – HƯỚNG – SỐ: màu NÊN mặc (dụng thần) và TRÁNH (kỵ thần) kèm lý do; phụ kiện/đá hợp; HƯỚNG tốt xuất hành – khởi sự; con số may mắn của ngày.',
+    '6. TÌNH CẢM – GIAO TIẾP: thuận/không thuận cho việc gì trong đời sống tình cảm; nên gặp / hợp tác với người mang HÀNH nào và vì sao; chủ đề nên nói – nên tránh; khung giờ thuận cho cuộc trò chuyện quan trọng.',
+    'Tư vấn như đang dặn dò trực tiếp, dễ áp dụng. Chỉ dùng dữ liệu đã cho, không bịa thêm.',
+  ].filter(Boolean).join('\n');
   return capWords(await requestAI(prompt, aiKeysOf(birthInfo)), 5000);
 }
 
@@ -1879,8 +2164,21 @@ export async function analyzeWealthWithAI(result: AstrologyResult): Promise<stri
     'Khung: THIÊN THỜI · ĐỊA LỢI · NHÂN HÒA. "Đại vận lấn áp Tiểu vận" — gốc khá thì cành dễ tốt.',
     dvLines.join('\n'),
     '',
-    'Trình bày SÚC TÍCH mà đủ ý (TỐI ĐA khoảng 5000 từ), 6 mục có tiêu đề rõ, KẾT THÚC trọn vẹn, BÁM SÁT khung 3 yếu tố khi luận từng đại vận:',
-    '1. ĐẶC ĐIỂM TÀI LỘC CƠ BẢN: phân tích cung Tài Bạch (chính tinh + phụ tinh + miếu hãm); cách kiếm tiền NỔI TRỘI (lương / kinh doanh / đầu tư / nghệ thuật…); cách giữ tiền (Thiên Phủ → khéo cất; Vũ Khúc + Lộc → ổn định; Tham Lang → dễ phá tán nếu thiếu chế hóa); hợp với ngành nghề nào, kỵ ngành nào.',
+    (() => {
+      const dna = analyzeFinancialDNA(result);
+      const dims = (['earn', 'retain', 'cashflow', 'invest', 'leverage', 'property', 'business', 'risk'] as const)
+        .map(k => `${FINANCIAL_DIM_LABEL[k]}=${dna[k]}`).join(' · ');
+      return [
+        '===== ADN TÀI CHÍNH (Financial DNA — 8 chiều, engine pre-computed) =====',
+        `Điểm 8 chiều: ${dims} (mỗi chiều 0–100; "Rủi ro" CAO = dễ biến động).`,
+        `Chiều trội nhất: ${FINANCIAL_DIM_LABEL[dna.dominant]}. Chân dung: ${dna.archetype} Mức rủi ro: ${dna.riskLevel}. Độ tin cậy engine: ${dna.confidence}%.`,
+        dna.notes.length ? `Cơ chế (bằng chứng): ${dna.notes.join(' ')}` : '',
+        'BẮT BUỘC bám 8 chiều này khi luận — DIỄN GIẢI ý nghĩa từng chiều, KHÔNG đưa ra con số khác với engine, KHÔNG bịa thêm chiều mới.',
+      ].filter(Boolean).join('\n');
+    })(),
+    '',
+    'Trình bày SÚC TÍCH mà đủ ý (TỐI ĐA khoảng 5000 từ), 6 mục có tiêu đề rõ, KẾT THÚC trọn vẹn, BÁM SÁT khung 3 yếu tố + ADN tài chính khi luận:',
+    '1. ĐẶC ĐIỂM TÀI LỘC CƠ BẢN: phân tích cung Tài Bạch (chính tinh + phụ tinh + miếu hãm); cách kiếm tiền NỔI TRỘI (lương / kinh doanh / đầu tư / nghệ thuật…); cách giữ tiền (Thiên Phủ → khéo cất; Vũ Khúc + Lộc → ổn định; Tham Lang → dễ phá tán nếu thiếu chế hóa); ★ nêu 4–6 NGÀNH/LĨNH VỰC CỤ THỂ hợp để kiếm tiền (gọi tên rõ ràng, vd: tài chính – ngân hàng, bất động sản, kỹ thuật, tư vấn, marketing, ẩm thực…) và ngành KỴ — KHÔNG nói chung chung.',
     '2. CUNG ĐIỀN TRẠCH BỔ TRỢ: nhà cửa, bất động sản, gia tài lớn — có Long Phượng Thai Tọa, Tả Hữu Quan Phúc không; có thể đầu tư BĐS / xe lớn không.',
     '3. GIAI ĐOẠN TÀI LỘC THỊNH NHẤT (1-2 đại vận): chỉ rõ đại vận nào (tuổi) + Can Chi + cung; GIẢI THÍCH chi tiết theo Thiên thời / Địa lợi / Nhân hòa; nêu các sao tài (Lộc, Vũ, Âm, Trù, Riêu, Hỏa Linh hợp cách); lời khuyên dồn lực thời kỳ này.',
     '4. GIAI ĐOẠN THẬN TRỌNG về tiền bạc (1-2 đại vận): chỉ rõ đại vận + lý do CỤ THỂ (Hóa Kỵ về Tài, Không Kiếp Đại Hao chiếu, Thiên thời bị khắc nhập…); rủi ro chính (bị lừa, đầu tư hỏng, hao tổn vì người thân…); cách phòng tránh.',
@@ -1888,5 +2186,99 @@ export async function analyzeWealthWithAI(result: AstrologyResult): Promise<stri
     '6. KẾT LUẬN & 5-7 LỜI KHUYÊN HÀNH ĐỘNG cụ thể về quản lý tài chính cá nhân (nên có quỹ dự phòng bao nhiêu tháng, có nên vay nợ kinh doanh không, có nên đầu tư chứng khoán / vàng / BĐS không…).',
     'Chỉ dùng dữ liệu đã cho, không bịa thêm sao.',
   ].join('\n');
-  return capWords(await requestAI(prompt, aiKeysOf(birthInfo)), 5000);
+  const facts = extractChartFacts(result);
+  return capWords(await requestValidatedAI(prompt, aiKeysOf(birthInfo), facts), 5000);
+}
+
+/**
+ * (Phase 14-full — adoption) Tóm tắt toàn lá số bằng STRUCTURED OUTPUT: yêu cầu AI
+ * trả JSON có evidence_ids, parse + kiểm chứng theo facts; nếu JSON hỏng/bịa evidence
+ * thì FALLBACK về text thường (an toàn tuyệt đối — luôn trả markdown hiển thị được).
+ */
+export async function analyzeNatalStructured(result: AstrologyResult): Promise<string> {
+  const prompt = [
+    'Bạn là chuyên gia Tử Vi Đẩu Số phái NAM PHÁI. Tóm tắt SÚC TÍCH toàn lá số theo dữ kiện engine bên dưới.',
+    '',
+    natalFactsBlock(result),
+    '',
+    'Viết 3–5 mục (Bản chất · Cơ chế vận mệnh · Điểm mạnh · Điểm cần lưu tâm), mỗi mục 3–5 câu tiếng Việt.',
+    STRUCTURED_INSTRUCTION,
+  ].join('\n');
+  const raw = await requestAI(prompt, aiKeysOf(result.birthInfo));
+  const parsed = parseAndValidate(raw, result);
+  return parsed.ok && parsed.data ? renderNarrative(parsed.data) : (parsed.fallbackText ?? raw);
+}
+
+/** Tóm tắt nhanh 1 Đại Vận — structured, có evidence gating + fallback text. */
+export async function analyzeDaiVanStructured(result: AstrologyResult, dvIndex: number): Promise<string> {
+  const dv = result.daiVans[dvIndex];
+  if (!dv) return '⚠ Không tìm thấy đại vận.';
+  const sc = scoreDaiVan(result, dv);
+  const facts = [
+    '[ENGINE FACTS — đại vận]',
+    `- Đại vận ${dv.startAge}-${dv.endAge} tuổi, Can-Chi ${dv.stem} ${dv.branch}, cung ${sc.palaceName}.`,
+    `- Tài lộc: ${sc.taiLoc}/100 · Thách thức: ${sc.thachThuc}/100 · Xếp hạng: ${sc.rating}.`,
+    `- Sự nghiệp ${sc.career}/100 · Quan hệ ${sc.relationship}/100 · Sức khỏe ${sc.health}/100 · Tài sản ${sc.property}/100 · Cơ hội ${sc.opportunity}/100 · Biến động ${sc.volatility}/100.`,
+    `- Chiến lược: ${sc.strategyLabel}. Độ tin cậy: ${sc.confidence}%.`,
+    `- Tóm tắt engine: ${sc.summary}`,
+  ].join('\n');
+  const prompt = [
+    'Tóm tắt SÚC TÍCH đại vận này theo dữ kiện engine bên dưới. TIẾNG VIỆT tự nhiên.',
+    '',
+    facts,
+    '',
+    'Viết 3–4 mục (Chủ đề chính · Điểm thuận lợi · Điểm bất lợi · Khuyến nghị hành động), mỗi mục 3–5 câu.',
+    STRUCTURED_INSTRUCTION,
+  ].join('\n');
+  const raw = await requestAI(prompt, aiKeysOf(result.birthInfo));
+  const parsed = parseAndValidate(raw, result);
+  return parsed.ok && parsed.data ? renderNarrative(parsed.data) : (parsed.fallbackText ?? raw);
+}
+
+/** Tóm tắt nhanh 1 năm Tiểu Vận — structured. */
+export async function analyzeTieuVanStructured(result: AstrologyResult, age: number): Promise<string> {
+  const tv = result.tieuVans.find(t => t.age === age);
+  if (!tv) return '⚠ Không tìm thấy tiểu vận.';
+  const sc = scoreTieuVan(result, tv);
+  const facts = [
+    '[ENGINE FACTS — tiểu vận (năm)]',
+    `- Năm ${tv.year} (${tv.age} tuổi), Can-Chi năm ${tv.yearStem} ${tv.yearBranch}, cung tiểu hạn ${sc.palaceName} (${tv.branch}).`,
+    `- Tài lộc: ${sc.taiLoc}/100 · Thách thức: ${sc.thachThuc}/100 · Xếp hạng: ${sc.rating}.`,
+    `- Sự nghiệp ${sc.career}/100 · Quan hệ ${sc.relationship}/100 · Sức khỏe ${sc.health}/100 · Cơ hội ${sc.opportunity}/100 · Biến động ${sc.volatility}/100.`,
+    `- Tóm tắt engine: ${sc.summary}`,
+  ].join('\n');
+  const prompt = [
+    'Tóm tắt SÚC TÍCH năm này theo dữ kiện engine bên dưới. TIẾNG VIỆT tự nhiên.',
+    '',
+    facts,
+    '',
+    'Viết 3–4 mục (Chủ đề năm · Điểm thuận lợi · Điểm bất lợi · Khuyến nghị hành động 12 tháng), mỗi mục 3–5 câu.',
+    STRUCTURED_INSTRUCTION,
+  ].join('\n');
+  const raw = await requestAI(prompt, aiKeysOf(result.birthInfo));
+  const parsed = parseAndValidate(raw, result);
+  return parsed.ok && parsed.data ? renderNarrative(parsed.data) : (parsed.fallbackText ?? raw);
+}
+
+/** Tóm tắt nhanh 1 tháng Nguyệt Vận — structured. */
+export async function analyzeNguyetVanStructured(result: AstrologyResult, age: number, month: number): Promise<string> {
+  const sc = scoreNguyetVan(result, age, month);
+  if (!sc) return '⚠ Không tính được nguyệt vận.';
+  const facts = [
+    '[ENGINE FACTS — nguyệt vận (tháng)]',
+    `- Tháng ${sc.month} âm lịch, lưu tại cung ${sc.palaceName} (${sc.branch}).`,
+    `- Tài lộc: ${sc.taiLoc}/100 · Thách thức: ${sc.thachThuc}/100 · Xếp hạng: ${sc.rating}.`,
+    `- Tóm tắt engine: ${sc.summary}`,
+  ].join('\n');
+  const prompt = [
+    'Tóm tắt SÚC TÍCH tháng này theo dữ kiện engine bên dưới. TIẾNG VIỆT tự nhiên.',
+    '',
+    facts,
+    '',
+    'Viết 3 mục (Chủ đề tháng · Nên làm · Nên tránh), mỗi mục 2–3 câu.',
+    STRUCTURED_INSTRUCTION,
+  ].join('\n');
+  const raw = await requestAI(prompt, aiKeysOf(result.birthInfo));
+  const parsed = parseAndValidate(raw, result);
+  return parsed.ok && parsed.data ? renderNarrative(parsed.data) : (parsed.fallbackText ?? raw);
 }

@@ -36,9 +36,9 @@ Deno.serve(async (req) => {
   let p: any;
   try { p = await req.json(); } catch { return json({ error: 'bad_json' }, 400); }
 
-  // 2) Chỉ xử lý tiền VÀO
+  // 2) Chỉ xử lý tiền VÀO — bỏ qua nếu field vắng mặt hoặc không phải 'in'
   const type = String(p.transferType ?? '').toLowerCase();
-  if (type && type !== 'in') return json({ ok: true, skipped: 'not_incoming' });
+  if (type !== 'in') return json({ ok: true, skipped: 'not_incoming' });
 
   const amount = Number(p.transferAmount ?? p.amount ?? 0);
   const content = String(p.content ?? p.description ?? '').toUpperCase();

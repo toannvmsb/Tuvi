@@ -41,6 +41,144 @@ const CAT_PHU = new Set([
   'Hồng Loan', 'Đào Hoa', 'Thanh Long', 'Tấu Thư', 'Hỷ Thần', 'Giải Thần',
   'Thiên Giải', 'Địa Giải',
 ]);
+
+// V2.0 domain-specific star sets
+const CAREER_BOOST = new Set([
+  'Văn Xương', 'Văn Khúc', 'Tả Phù', 'Hữu Bật', 'Thiên Quan', 'Quốc Ấn', 'Thiên Phúc', 'Tấu Thư',
+]);
+const REL_BOOST = new Set([
+  'Hồng Loan', 'Thiên Hỷ', 'Đào Hoa', 'Phượng Các', 'Long Trì', 'Ân Quang', 'Thiên Quý', 'Thai Phụ',
+]);
+const PROPERTY_BOOST = new Set(['Thái Âm', 'Thiên Phủ', 'Long Đức', 'Phúc Đức']);
+const HAO_SAO = new Set(['Đại Hao', 'Tiểu Hao']);
+const VOLATILITY_SAT = new Set([
+  'Kình Dương', 'Đà La', 'Hỏa Tinh', 'Linh Tinh', 'Địa Không', 'Địa Kiếp',
+  'Thiên Riêu', 'Kiếp Sát', 'Tuế Phá', 'Phục Binh', 'Quan Phù',
+]);
+const CAREER_PALACES = new Set(['Quan Lộc', 'Tài Bạch', 'Phúc Đức']);
+const PROPERTY_PALACES = new Set(['Điền Trạch', 'Tài Bạch', 'Phúc Đức']);
+const REL_PALACES = new Set(['Hôn Nhân', 'Tử Tức', 'Phúc Đức']);
+
+export interface DomainScores {
+  career: number;
+  relationship: number;
+  health: number;
+  property: number;
+  opportunity: number;
+  volatility: number;
+  confidence: number;
+  strategyLabel: string;
+}
+
+/** Shared helper — tính domain scores từ sao/cung/điểm đã có. */
+export function computeDomainScores(
+  stars: StarEntry[],
+  palaceName: string,
+  taiLoc: number,
+  thachThuc: number,
+  nhanHoaLevel: 'cao' | 'kha' | 'binh' | 'kem',
+  hasTuanTriet: boolean,
+  isVCD: boolean,
+): DomainScores {
+  const norm = (n: string) => (n.startsWith('L. ') ? n.slice(3) : n);
+  const snames = stars.map(s => norm(s.name));
+  const has = (n: string) => snames.includes(n);
+
+  const hasHoaLoc = has('Hóa Lộc');
+  const hasHoaQuyen = has('Hóa Quyền');
+  const hasHoaKy = has('Hóa Kỵ');
+  const hasLoc = has('Lộc Tồn') || hasHoaLoc;
+  const hasMa = has('Thiên Mã');
+  const hasKinhDuong = has('Kình Dương');
+  const hasDaLa = has('Đà La');
+  const hasHoaTinh = has('Hỏa Tinh') || has('Linh Tinh');
+  const hasDoKhong = has('Địa Không') || has('Địa Kiếp');
+
+  // Sự nghiệp (Career)
+  let career = Math.round(taiLoc * 0.60 + 22);
+  career += snames.filter(n => CAREER_BOOST.has(n)).length * 5;
+  career += hasHoaQuyen ? 10 : 0;
+  career += hasHoaLoc ? 8 : 0;
+  career += CAREER_PALACES.has(palaceName) ? 10 : 0;
+  career -= hasKinhDuong ? 12 : 0;
+  career -= hasHoaKy ? 8 : 0;
+
+  // Tình cảm (Relationship)
+  const nhBonus: Record<string, number> = { cao: 20, kha: 10, binh: 0, kem: -18 };
+  let relationship = 50 + (nhBonus[nhanHoaLevel] ?? 0);
+  relationship += snames.filter(n => REL_BOOST.has(n)).length * 6;
+  relationship += hasHoaLoc ? 8 : 0;
+  relationship += REL_PALACES.has(palaceName) ? 10 : 0;
+  relationship -= hasKinhDuong ? 10 : 0;
+  relationship -= hasHoaKy ? 12 : 0;
+  relationship -= hasDoKhong ? 8 : 0;
+
+  // Sức khỏe (Health) — base high, penalty từ sát tinh bệnh hoạn
+  let health = 76;
+  health -= has('Bệnh Phù') ? 18 : 0;
+  health -= has('Tang Môn') || has('Thiên Thương') || has('Thiên Sứ') ? 10 : 0;
+  health -= has('Thiên Hư') || has('Thiên Khốc') ? 8 : 0;
+  health -= hasKinhDuong ? 8 : 0;
+  health -= hasHoaTinh ? 6 : 0;
+  health -= hasDoKhong ? 8 : 0;
+  health += has('Lộc Tồn') ? 5 : 0;
+  health -= palaceName === 'Tật Ách' ? 6 : 0;
+  health -= Math.max(0, thachThuc - 50) * 0.25;
+
+  // Tài sản (Property)
+  let property = Math.round(taiLoc * 0.50 + 26);
+  property += hasLoc ? 10 : 0;
+  property += PROPERTY_PALACES.has(palaceName) ? 12 : 0;
+  property += snames.filter(n => PROPERTY_BOOST.has(n)).length * 4;
+  property -= snames.filter(n => HAO_SAO.has(n)).length * 10;
+  property -= hasHoaKy ? 10 : 0;
+
+  // Cơ hội (Opportunity)
+  let opportunity = 48;
+  opportunity += hasMa ? 20 : 0;
+  opportunity += has('Lộc Tồn') ? 14 : 0;
+  opportunity += hasHoaLoc ? 12 : 0;
+  opportunity += hasHoaQuyen ? 8 : 0;
+  opportunity -= hasTuanTriet ? 15 : 0;
+  opportunity -= hasHoaKy ? 8 : 0;
+  opportunity += Math.max(0, taiLoc - 50) * 0.2;
+
+  // Biến động (Volatility) — cao = bất ổn
+  let volatility = 20;
+  volatility += hasKinhDuong ? 22 : 0;
+  volatility += hasDaLa ? 18 : 0;
+  volatility += hasHoaTinh ? 15 : 0;
+  volatility += hasDoKhong ? 12 : 0;
+  volatility += hasHoaKy ? 10 : 0;
+  volatility += hasTuanTriet ? 8 : 0;
+  volatility += snames.filter(n => VOLATILITY_SAT.has(n)).length * 2;
+
+  // Độ tin cậy (Confidence)
+  let confidence = 82;
+  confidence -= isVCD ? 10 : 0;
+  confidence -= hasTuanTriet ? 8 : 0;
+  confidence -= hasDoKhong ? 5 : 0;
+  confidence += hasLoc ? 3 : 0;
+
+  // V2.0 2×2 strategy matrix
+  const strategyLabel =
+    taiLoc >= 70 && thachThuc < 55 ? 'Thuận lợi rõ' :
+    taiLoc >= 70 && thachThuc >= 55 ? 'Cơ hội cao – áp lực cao' :
+    taiLoc < 55 && thachThuc < 55 ? 'Ổn định – ít đột phá' :
+    'Nhiều thách thức';
+
+  const clamp = (v: number) => Math.max(4, Math.min(96, Math.round(v)));
+  return {
+    career: clamp(career),
+    relationship: clamp(relationship),
+    health: clamp(health),
+    property: clamp(property),
+    opportunity: clamp(opportunity),
+    volatility: clamp(volatility),
+    confidence: clamp(confidence),
+    strategyLabel,
+  };
+}
 const SAT_PHU = new Set([
   'Kình Dương', 'Đà La', 'Hỏa Tinh', 'Linh Tinh', 'Địa Không', 'Địa Kiếp',
   'Thiên Hình', 'Thiên Riêu', 'Kiếp Sát', 'Đại Hao', 'Tiểu Hao', 'Tang Môn',
@@ -113,10 +251,19 @@ export interface DaiVanScore {
   thachThuc: number;
   rating: 'Rất tốt' | 'Tốt' | 'Khá' | 'Trung bình' | 'Nhiều thách thức';
   summary: string;
-  // Phân rã 3 yếu tố để hiển thị/debug
   thienThoi: Relation;
   diaLoi: Relation;
   nhanHoa: 'cao' | 'kha' | 'binh' | 'kem';
+  // V2.0 domain scores
+  career: number;
+  relationship: number;
+  health: number;
+  property: number;
+  opportunity: number;
+  volatility: number;
+  confidence: number;
+  strategyLabel: string;
+  formulaVersion: '2.0';
 }
 
 function ratingOf(net: number): DaiVanScore['rating'] {
@@ -225,6 +372,11 @@ export function scoreDaiVan(result: AstrologyResult, dv: DaiVan): DaiVanScore {
   const net = taiLoc - thachThuc * 0.5;
   const rating = ratingOf(net);
 
+  const hasTuanTriet = !!(h?.tuanAt || h?.trietAt);
+  const domains = computeDomainScores(
+    stars, h?.palaceName ?? '', taiLoc, thachThuc, nh.level, hasTuanTriet, chinh.length === 0,
+  );
+
   // Diễn giải ngắn
   const chinhTxt = chinh.length
     ? chinh.map(s => `${s.name}${s.brightness ? `(${s.brightness})` : ''}`).join(', ')
@@ -273,6 +425,8 @@ export function scoreDaiVan(result: AstrologyResult, dv: DaiVan): DaiVanScore {
     thienThoi,
     diaLoi,
     nhanHoa: nh.level,
+    ...domains,
+    formulaVersion: '2.0',
   };
 }
 

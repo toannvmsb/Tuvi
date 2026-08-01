@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
+import { syncBroadcasts } from './src/lib/broadcasts';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -10,6 +11,7 @@ import { loadLanguage } from './src/i18n';
 import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
 import WebAlertHost from './src/components/WebAlertHost';
+import AiChatBubble from './src/components/AiChatBubble';
 
 // Web: app fluid — tự fit TRỌN khung màn hình thiết bị (không giới hạn bề rộng).
 // Lá số & biểu đồ fill full chiều ngang cửa sổ; cỡ chữ lá số scale theo.
@@ -37,13 +39,28 @@ function Boot() {
     loadLanguage().then(() => setLangReady(true));
   }, []);
 
+  // Kéo thông báo mới từ admin: khi app từ background → foreground và mỗi 5 phút.
+  useEffect(() => {
+    if (!online) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void syncBroadcasts();
+    });
+    const timer = setInterval(() => void syncBroadcasts(), 5 * 60 * 1000);
+    return () => { sub.remove(); clearInterval(timer); };
+  }, [online]);
+
   const done = langReady && authReady;
 
   if (showSplash) {
     return <StartupProgress done={done} onFinish={() => setShowSplash(false)} />;
   }
   if (online && !user) return <LoginScreen />;
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator />
+      {online && user && <AiChatBubble />}
+    </>
+  );
 }
 
 export default function App() {

@@ -12,19 +12,26 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { scoreAllTieuVan, type TieuVanScore } from '../core/tieuVanScore';
+import { scoreDaiVan } from '../core/daiVanScore';
+import { getYearsForDaiVan } from '../core/annualPeriodService';
+import { DaiVanRadarBlock, Years10Chart, DomainScoresPanel } from '../components/VanVisualPanels';
+import { buildTieuVanCharts, type TieuVanChartData } from '../core/tieuVanCharts';
+import RadarChart from '../components/RadarChart';
+import Svg, { Polyline, Circle } from 'react-native-svg';
 import { tieuVanSections } from '../utils/aiAnalysis';
-import { generateOfflineTieuVan } from '../core/offlineLuanGiai';
+import { generateOfflineTieuVan, cutAtSection } from '../core/offlineLuanGiai';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import PaidGate from '../components/PaidGate';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { fkey } from '../lib/featureKey';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import ScreenHeader from '../components/ScreenHeader';
+import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TieuVan'>;
@@ -33,9 +40,96 @@ const RATING_COLOR: Record<TieuVanScore['rating'], string> = {
   'Rất tốt': '#22c55e', 'Tốt': '#5fdb8a', 'Khá': '#f5b942',
   'Trung bình': '#e0a23a', 'Nhiều thách thức': '#ff7a7a',
 };
-const CHART_H = 150;
-const GREEN = '#5fdb8a';
-const GRAY = '#7c8aa5';
+
+const TV_GREEN = '#5fdb8a';
+const TV_GRAY = '#7c8aa5';
+const TV_BLUE = '#60a5fa';
+const TV_MONTH_H = 90;
+
+/** Biểu đồ 1 (mục 5): Cột đôi 12 tháng — tài lộc/thách thức, dùng chung Nguyệt Vận Engine. */
+function TieuVanMonthsChart({ months }: { months: TieuVanChartData['months'] }) {
+  return (
+    <View style={vStyles.box}>
+      <View style={vStyles.headerRow}>
+        <Text style={vStyles.title}>Nhịp 12 tháng trong năm</Text>
+        <View style={vStyles.legend}>
+          <View style={[vStyles.dot, { backgroundColor: TV_GREEN }]} /><Text style={vStyles.legendTxt}>Tài lộc</Text>
+          <View style={[vStyles.dot, { backgroundColor: TV_GRAY }]} /><Text style={vStyles.legendTxt}>Thách thức</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: TV_MONTH_H, paddingTop: 4 }}>
+        {months.map(m => (
+          <View key={m.month} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', height: TV_MONTH_H, gap: 2 }}>
+            <View style={{ width: 5, height: (m.taiLoc / 100) * TV_MONTH_H, backgroundColor: TV_GREEN, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+            <View style={{ width: 5, height: (m.thachThuc / 100) * TV_MONTH_H, backgroundColor: TV_GRAY, borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: 0.9 }} />
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {months.map(m => (
+          <View key={m.month} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={vStyles.weekLabel}>{m.month}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={vStyles.caption}>Mỗi tháng: Tài lộc · Thách thức (0–100), tính bằng Nguyệt Vận Engine — dữ liệu khớp màn hình Nguyệt vận.</Text>
+    </View>
+  );
+}
+
+/** Biểu đồ 2 (mục 5): Radar năm — 8 domain, chấm theo kích hoạt cung năm + Lưu Tứ Hóa. */
+function TieuVanYearRadar({ radar }: { radar: TieuVanChartData['radar'] }) {
+  const width = useContentWidth();
+  return (
+    <View style={[vStyles.box, { alignItems: 'center' }]}>
+      <Text style={vStyles.title}>Cấu trúc năm — 8 lĩnh vực</Text>
+      <RadarChart data={radar} size={Math.min(width - 80, 320)} />
+    </View>
+  );
+}
+
+const TV_QUARTER_H = 100;
+
+/** Biểu đồ 3 (mục 5): Đường 4 quý — overall/opportunity, gộp từ 12 tháng đã tính. */
+function TieuVanQuartersChart({ quarters }: { quarters: TieuVanChartData['quarters'] }) {
+  const width = useContentWidth();
+  const chartW = Math.min(width - 64, 340);
+  const n = quarters.length;
+  const xOf = (i: number) => (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+  const yOf = (v: number) => TV_QUARTER_H - (v / 100) * TV_QUARTER_H;
+  const overallPts = quarters.map((q, i) => `${xOf(i)},${yOf(q.overall)}`).join(' ');
+  const oppPts = quarters.map((q, i) => `${xOf(i)},${yOf(q.opportunity)}`).join(' ');
+  return (
+    <View style={vStyles.box}>
+      <View style={vStyles.headerRow}>
+        <Text style={vStyles.title}>Nhịp triển khai 4 quý</Text>
+        <View style={vStyles.legend}>
+          <View style={[vStyles.dot, { backgroundColor: TV_GREEN }]} /><Text style={vStyles.legendTxt}>Tổng thể</Text>
+          <View style={[vStyles.dot, { backgroundColor: TV_BLUE }]} /><Text style={vStyles.legendTxt}>Cơ hội</Text>
+        </View>
+      </View>
+      <Svg width={chartW} height={TV_QUARTER_H + 8} style={{ marginTop: 4 }}>
+        <Polyline points={overallPts} fill="none" stroke={TV_GREEN} strokeWidth={2} />
+        <Polyline points={oppPts} fill="none" stroke={TV_BLUE} strokeWidth={2} />
+        {quarters.map((q, i) => (
+          <Circle key={`o${q.index}`} cx={xOf(i)} cy={yOf(q.overall)} r={3} fill={TV_GREEN} />
+        ))}
+        {quarters.map((q, i) => (
+          <Circle key={`p${q.index}`} cx={xOf(i)} cy={yOf(q.opportunity)} r={3} fill={TV_BLUE} />
+        ))}
+      </Svg>
+      <View style={{ flexDirection: 'row' }}>
+        {quarters.map(q => (
+          <View key={q.index} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={vStyles.weekLabel}>{q.label}</Text>
+            <Text style={vStyles.weekDays}>T{q.fromMonth}–T{q.toMonth}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={vStyles.caption}>Tổng thể/Cơ hội (0–100), gộp trực tiếp từ 12 tháng đã tính ở biểu đồ trên — không phát sinh dữ liệu mới.</Text>
+    </View>
+  );
+}
 
 export default function TieuVanScreen({ route }: Props) {
   const { result } = route.params;
@@ -56,10 +150,12 @@ export default function TieuVanScreen({ route }: Props) {
   const [tabMode, setTabMode] = useState<Record<number, 'offline' | 'ai'>>({});
 
   const headerLines = useMemo(() => chartHeaderLines(result), [result]);
-  const years = all.filter(t => t.daiVanIndex === dvIdx).sort((a, b) => a.age - b.age);
+  const breakdown = useMemo(() => getYearsForDaiVan(result, dvIdx, all), [result, dvIdx, all]);
+  const years = breakdown.years;
   const dv = daiVans.find(d => d.index === dvIdx);
-  const chartW = width - SPACING.lg * 2 - SPACING.md * 2;
-  const colW = Math.floor(chartW / Math.max(1, years.length));
+  const dvScore = useMemo(() => (dv ? scoreDaiVan(result, dv) : null), [result, dv]);
+  const cellW = Math.min(width - SPACING.lg * 2 - SPACING.md * 2, 320);
+  const cellH = Math.round(cellW * 1.18);
 
   const openAiTab = (age: number) => {
     setTabMode(s => ({ ...s, [age]: 'ai' }));
@@ -70,8 +166,8 @@ export default function TieuVanScreen({ route }: Props) {
     run(age, fkey(result, `tv:${age}:ai`), tieuVanSections(result, age), force, PREMIUM.COST.aiLarge);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Tiểu Vận" />
+    <SafeAreaView style={styles.container} edges={[]}>
+      <ScreenHeader title="Tiểu Vận" onBack={() => navigationRef.navigate('Home')} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Tiểu Vận của {result.birthInfo.name || 'bạn'}</Text>
         <Text style={styles.subtitle}>Chọn một đại vận để xem chi tiết vận từng năm</Text>
@@ -109,38 +205,14 @@ export default function TieuVanScreen({ route }: Props) {
           </Text>
         )}
 
-        {/* Biểu đồ năm */}
-        <View style={styles.chartBox}>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: GREEN }]} /><Text style={styles.legendTxt}>Tài lộc</Text></View>
-            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: GRAY }]} /><Text style={styles.legendTxt}>Thách thức</Text></View>
-          </View>
-          <View style={[styles.chartArea, { height: CHART_H }]}>
-            {[100, 50, 0].map(g => (
-              <View key={g} style={[styles.grid, { bottom: (g / 100) * CHART_H }]}>
-                <Text style={styles.gridTxt}>{g}</Text>
-              </View>
-            ))}
-            <View style={styles.barsRow}>
-              {years.map(d => {
-                const isNow = currentAge === d.age;
-                return (
-                  <View key={d.age} style={{ width: colW, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
-                    {isNow && <View style={[styles.nowLine, { height: CHART_H }]} />}
-                    <View style={{ width: colW * 0.6, height: (d.taiLoc / 100) * CHART_H, backgroundColor: GREEN, borderTopLeftRadius: 3, borderTopRightRadius: 3 }} />
-                    <View style={{ position: 'absolute', bottom: 0, width: colW * 0.34, height: (d.thachThuc / 100) * CHART_H, backgroundColor: GRAY, opacity: 0.92 }} />
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-          <View style={styles.xRow}>
-            {years.map(d => (
-              <Text key={d.age} style={[styles.xLabel, { width: colW }]} numberOfLines={1}>{d.age}</Text>
-            ))}
-          </View>
-          <Text style={styles.xCaption}>Tuổi (mỗi cột = 1 năm)</Text>
-        </View>
+        {/* Bản đồ tròn 12 trục + cung khởi nguồn của đại vận đang chọn */}
+        {dv && <DaiVanRadarBlock result={result} dv={dv} cellW={cellW} cellH={cellH} />}
+
+        {/* Biểu đồ 10 năm trong đại vận (đánh dấu năm đỉnh / năm cần cẩn trọng) */}
+        <Years10Chart breakdown={breakdown} currentAge={currentAge} />
+
+        {/* Bảng điểm 6 lĩnh vực của đại vận đang chọn */}
+        {dvScore && <DomainScoresPanel d={dvScore} />}
 
         {/* Danh sách từng năm */}
         {years.map(d => {
@@ -167,6 +239,18 @@ export default function TieuVanScreen({ route }: Props) {
                   </View>
                   <Text style={styles.summary}>{d.summary}</Text>
 
+                  {(() => {
+                    const charts = buildTieuVanCharts(result, d.age);
+                    if (!charts) return null;
+                    return (
+                      <View style={{ gap: SPACING.sm, marginBottom: SPACING.sm }}>
+                        <TieuVanMonthsChart months={charts.months} />
+                        <TieuVanYearRadar radar={charts.radar} />
+                        <TieuVanQuartersChart quarters={charts.quarters} />
+                      </View>
+                    );
+                  })()}
+
                   {/* Tab switcher: Nâng cao (offline) <-> AI */}
                   <View style={styles.tabsRow}>
                     <TouchableOpacity
@@ -185,25 +269,31 @@ export default function TieuVanScreen({ route }: Props) {
 
                   {(tabMode[d.age] || 'offline') === 'offline' ? (
                     <View style={styles.aiResult}>
-                      <PaidGate unlockKey={fkey(result, `tv:${d.age}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}>
-                        <SimpleMarkdown content={generateOfflineTieuVan(result, d.age)} />
+                      {(() => {
+                        const c = generateOfflineTieuVan(result, d.age);
+                        return (
+                          <PaidGate unlockKey={fkey(result, `tv:${d.age}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
+                            preview={cutAtSection(c, 'Sắc thái của năm')}>
+                        <SimpleMarkdown content={c} />
                         <ExportPdfButton
                           title={`Tiểu Vận ${d.age} tuổi — năm ${d.year} (${d.stem} ${d.branch})`}
                           subtitle="Bản Nâng cao (offline)"
                           badge="NÂNG CAO"
                           headerLines={headerLines}
-                          fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận - ${d.age}t-${d.year}`}
-                          getContent={() => generateOfflineTieuVan(result, d.age)}
+                          fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận ${d.age} tuổi năm ${d.year} - Nâng cao`}
+                          getContent={() => c}
                         />
-                      </PaidGate>
+                          </PaidGate>
+                        );
+                      })()}
                     </View>
                   ) : (
                     <>
                       {!a ? (
                         <View style={styles.aiResult}>
-                          <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>
+                          <Text style={styles.aiValueNote}>{AI_PREVIEW.tieuVan}</Text>
                           <TouchableOpacity style={styles.aiBtn} onPress={() => runAI(d.age)} activeOpacity={0.85}>
-                            <Text style={styles.aiBtnText}>🔍 Phân tích AI ({PREMIUM.COST.aiLarge} xu · {premiumBadgeNote()})</Text>
+                            <Text style={styles.aiBtnText}>🔍 Phân tích AI đầy đủ ({costNote(PREMIUM.COST.aiLarge)})</Text>
                           </TouchableOpacity>
                         </View>
                       ) : a.status === 'loading' ? (
@@ -224,7 +314,7 @@ export default function TieuVanScreen({ route }: Props) {
                               subtitle="Bản Phân tích AI"
                               badge="PHÂN TÍCH AI"
                               headerLines={headerLines}
-                              fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận - ${d.age}t-${d.year}`}
+                              fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận ${d.age} tuổi năm ${d.year} - AI`}
                               getContent={() => a.shown ?? a.text}
                             />
                           )}
@@ -263,19 +353,6 @@ const styles = StyleSheet.create({
   chipTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '700' },
   chipTxtActive: { color: '#1a0a00' },
   dvInfo: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
-  chartBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
-  legendRow: { flexDirection: 'row', gap: SPACING.lg, justifyContent: 'flex-end', marginBottom: SPACING.sm },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot: { width: 12, height: 12, borderRadius: 3 },
-  legendTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.xs },
-  chartArea: { position: 'relative', justifyContent: 'flex-end' },
-  grid: { position: 'absolute', left: 0, right: 0, borderTopWidth: 0.5, borderTopColor: COLORS.border },
-  gridTxt: { color: COLORS.textMuted, fontSize: 9, position: 'absolute', left: -2, top: -6 },
-  barsRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  nowLine: { position: 'absolute', width: 2, backgroundColor: COLORS.red, opacity: 0.7 },
-  xRow: { flexDirection: 'row', marginTop: 4 },
-  xLabel: { color: COLORS.gold, fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  xCaption: { color: COLORS.textMuted, fontSize: 9, textAlign: 'center', marginTop: 2, fontStyle: 'italic' },
   card: { backgroundColor: COLORS.card, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   cardNow: { borderColor: COLORS.gold, borderWidth: 2.5 },
   nowBadge: { color: COLORS.gold, fontSize: FONTS.size.xs, fontWeight: '800', paddingHorizontal: SPACING.md, paddingTop: 6 },
@@ -312,4 +389,19 @@ const styles = StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: COLORS.gold,
   },
   nguyetBtnText: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.sm },
+});
+
+const vStyles = StyleSheet.create({
+  box: {
+    backgroundColor: COLORS.surface, borderRadius: 10, padding: SPACING.sm,
+    borderWidth: 1, borderColor: COLORS.border, gap: 6,
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+  title: { color: COLORS.goldLight, fontSize: 11, fontWeight: '700' },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 8, height: 8, borderRadius: 2 },
+  legendTxt: { color: COLORS.textSecondary, fontSize: 9, marginRight: 4 },
+  weekLabel: { color: COLORS.gold, fontSize: 10, fontWeight: '700' },
+  weekDays: { color: COLORS.textMuted, fontSize: 8 },
+  caption: { color: COLORS.textSecondary, fontSize: 9, fontStyle: 'italic', lineHeight: 13 },
 });

@@ -209,6 +209,7 @@ src/
 - **Mobile (dev mode, `__DEV__`)**: cả IAP và VietQR (cho dễ test). Production build: chỉ IAP.
 - **Web (tuzi.vn)**: CHỈ VietQR/SePay — IAP bị ẩn hoàn toàn.
 - File điều khiển: `src/screens/WalletScreen.tsx` — guard `isWeb || __DEV__` cho VietQR, `!isWeb && !__DEV__` cho IAP.
+- **Gợi ý "Cách nạp khác → website tuzi.vn"** (chuyển khoản): card trong WalletScreen, gated bởi `SHOW_WEB_TOPUP` — **Android BẬT, iOS TẮT** mặc định (`ALLOW_WEB_TOPUP_IOS=false`) để tránh Apple từ chối (anti-steering). Ngôn từ trung tính (không so sánh giá). Chỉ hiện production mobile (web đã có VietQR). URL: `WEB_TOPUP_URL` trong `payment.ts`.
 - Combo trọn đời: lifetime_basic (490 xu / 49k), lifetime_full (990 xu / 99k)
 - Bank: VPBank 0913 377 666 — NGUYỄN VĂN TOÀN (real account)
 - File: `src/constants/payment.ts`, `src/constants/combos.ts`, `src/lib/iap.ts`, `src/lib/topup.ts`

@@ -1,3 +1,5 @@
+import { VND_PER_XU } from './payment';
+
 /**
  * Ví xu (credit) + tính phí theo từng tính năng.
  *
@@ -31,20 +33,66 @@ export const PREMIUM = {
     ai: 30,             // AI nhỏ: cung / nguyệt vận / xem ngày
     aiMedium: 50,       // AI vừa: Bát Tự / Tài Lộc / mỗi năm Tiểu vận
     aiLarge: 100,       // AI lớn: Toàn lá số / mỗi Đại vận
+    aiCompare: 30,      // AI So sánh lá số (12 tầng song song)
+    aiChat: 1,          // Chat AI nổi — 1 lượt hỏi vượt quota miễn phí/ngày
   },
 };
 
+/** Số lượt Chat AI nổi MIỄN PHÍ mỗi ngày trước khi tính xu (khớp FREE_DAILY_LIMIT ở Edge Function ai-chat). */
+export const AI_CHAT_FREE_DAILY_LIMIT = 5;
+
 /** Nhãn truyền tải giá trị Phân tích AI (hiển thị cạnh nút AI). */
 export const AI_VALUE_NOTE =
-  'Phân tích AI chuyên sâu từ 5 đến 10 trang A4, cá nhân hóa lá số của bạn theo biến động thời gian và thời cuộc.';
+  'Phân tích AI chuyên sâu, cá nhân hóa lá số của bạn theo biến động thời gian và thời cuộc.';
+
+/** Nội dung xem trước cho từng màn Phân tích AI — liệt kê các mục AI sẽ phân tích. */
+export const AI_PREVIEW = {
+  fullChart:
+    'Phân tích tổng thể lá số bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 13 mục như nội dung bên dưới.\n' +
+    '1. Tổng quan lá số\n2. Bản chất con người\n3. Điểm mạnh nổi bật\n4. Điểm yếu cần khắc phục\n' +
+    '5. Sự nghiệp\n6. Tài chính\n7. Hôn nhân\n8. Gia đạo\n9. Sức khỏe\n' +
+    '10. Vận hiện tại\n11. 3 cơ hội lớn nhất\n12. 3 rủi ro lớn nhất\n13. Hành động khuyến nghị',
+  daiVan:
+    'Phân tích chi tiết Đại Vận bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 14 mục như nội dung bên dưới.\n' +
+    '1. Tổng quan đại vận\n2. Chủ đề chính\n3. Điểm thuận lợi\n4. Điểm bất lợi\n' +
+    '5. Phân tích sự nghiệp\n6. Phân tích tài chính\n7. Phân tích quan hệ/hôn nhân\n8. Phân tích tài sản\n' +
+    '9. Phân tích sức khỏe\n10. Bản đồ 10 năm\n11. Top 5 cơ hội\n12. Top 5 rủi ro\n' +
+    '13. Chiến lược hành động\n14. Kết luận 5 dòng',
+  tieuVan:
+    'Phân tích chi tiết Tiểu Vận bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 13 mục như nội dung bên dưới.\n' +
+    '1. Tổng quan Tiểu vận\n2. Chủ đề chính của năm\n3. Mức độ thuận lợi/rủi ro\n4. Tương tác với Đại vận hiện tại\n' +
+    '5. Phân tích sao và cách cục\n6. Lưu tinh và Lưu Tứ Hóa\n7. Tam hợp/xung chiếu\n8. Phân tích theo 8 chủ đề\n' +
+    '9. Bản đồ 4 quý\n10. Top 5 cơ hội\n11. Top 5 rủi ro\n12. Chiến lược hành động của năm\n13. Kết luận 5 dòng',
+  nguyetVan:
+    'Phân tích chi tiết Nguyệt Vận bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 12 mục như nội dung bên dưới.\n' +
+    '1. Tổng quan tháng\n2. Chủ đề chính của tháng\n3. Tương tác với Bát Tự\n4. Tương tác với Đại vận và Tiểu vận\n' +
+    '5. Phân tích cung Nguyệt vận\n6. Lưu nguyệt Tứ Hóa\n7. Phân tích theo 8 chủ đề\n8. Bản đồ 4 tuần\n' +
+    '9. Top 5 cơ hội\n10. Top 5 rủi ro\n11. Việc nên làm / không nên làm\n12. Kết luận 5 dòng',
+  palace:
+    'Phân tích chi tiết Cung bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 10 mục như nội dung bên dưới.\n' +
+    '1. Vai trò của cung\n2. Khí số cung\n3. Điểm mạnh\n4. Điểm yếu\n5. Nguồn lực hỗ trợ\n' +
+    '6. Nút thắt cần vượt qua\n7. Cơ hội\n8. Rủi ro\n9. Chiến lược phát triển\n10. Kết luận 10 dòng',
+  batTu:
+    'Phân tích chi tiết Bát Tự bằng AI sẽ phân tích chi tiết và cung cấp thông tin đầy đủ cho 15 mục như nội dung bên dưới.\n' +
+    '1. Tổng quan mệnh cục\n2. Nhật chủ và sức mạnh bản thân\n3. Ngũ hành thừa thiếu\n4. Dụng thần - Hỷ thần - Kỵ thần\n' +
+    '5. Thập Thần nổi bật\n6. Cách cục chính\n7. Điểm mạnh\n8. Điểm yếu\n9. Sự nghiệp phù hợp\n' +
+    '10. Tài chính và đầu tư\n11. Quan hệ và hôn nhân\n12. Sức khỏe và thói quen\n' +
+    '13. Đại vận hiện tại\n14. Lưu niên hiện tại\n15. Khuyến nghị hành động',
+};
 
 export type FeatureKind = 'advanced' | 'ai';
 
-/** Ví xu trong phiên. Admin 100.000 xu, reset mỗi lần chạy app. */
+/**
+ * Ví xu trong phiên.
+ * QUAN TRỌNG: mặc định là NGƯỜI DÙNG THƯỜNG (isAdmin=false), KHÔNG còn tự cấp Admin.
+ *  - Online: quyền admin LẤY TỪ DB (profiles.is_admin) qua loadProfileIntoWallet → seedWallet.
+ *  - Offline/khách: là người dùng thường, số dư 0 (chỉ dùng tính năng miễn phí).
+ * Muốn tự cấp Admin để test cục bộ: tạm đặt isAdmin:true ở đây, NHỚ trả lại false trước khi phát hành.
+ */
 export const wallet = {
-  isAdmin: true,
-  userName: 'Admin',
-  balance: 100000,
+  isAdmin: false,
+  userName: 'Khách',
+  balance: 0,
 };
 
 /** Tập các mục ĐÃ MỞ KHÓA (đọc lại miễn phí). */
@@ -162,6 +210,13 @@ export function premiumBadgeNote(): string {
   if (PREMIUM.UNLOCKED) return 'Đang mở miễn phí';
   return `Số dư ${wallet.balance.toLocaleString('vi-VN')} xu`;
 }
+
+/** "20 xu - 2.000đ" — số xu kèm quy đổi tiền VNĐ (1 xu = 100đ). */
+export const xuVnd = (xu: number): string =>
+  `${xu.toLocaleString('vi-VN')} xu - ${(xu * VND_PER_XU).toLocaleString('vi-VN')}đ`;
+
+/** Nhãn chi phí cho NÚT MỞ: "miễn phí" nếu đang mở free, ngược lại "20 xu - 2.000đ". */
+export const costNote = (xu: number): string => (PREMIUM.UNLOCKED ? 'miễn phí' : xuVnd(xu));
 
 // ───────────── Tương thích ngược (các màn cũ còn dùng spendCredit) ─────────────
 export type PremiumFeature = 'advanced' | 'aiPalace' | 'aiChart';

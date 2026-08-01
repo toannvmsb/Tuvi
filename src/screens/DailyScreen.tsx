@@ -12,19 +12,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { scoreNhatVan, generateNhatVanOffline } from '../core/nhatVan';
+import { scoreNhatVan, generateNhatVanOffline, type NhatVanScore } from '../core/nhatVan';
+import { buildMonthHeatmap } from '../core/dailyPeriodService';
+import { solarToLunar } from '../core/lunarCalendar';
 import { analyzeNhatVanWithAI } from '../utils/aiAnalysis';
+import LunarCalendarPicker from '../components/LunarCalendarPicker';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
 import MedDisclaimer from '../components/MedDisclaimer';
-import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { costNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyView'>;
 
@@ -32,6 +34,28 @@ const RATING_COLOR: Record<string, string> = {
   'Rất tốt': '#22c55e', 'Tốt': '#5fdb8a', 'Bình thường': '#f5b942',
   'Cần thận trọng': '#e0a23a', 'Xấu': '#ff7a7a',
 };
+
+function DayInfoBar({ sc }: { sc: NhatVanScore }) {
+  const hdColor = sc.hoangDao ? '#22c55e' : '#94a3b8';
+  const hdLabel = sc.hoangDao ? '☀ Hoàng Đạo' : '🌑 Hắc Đạo';
+  return (
+    <View style={dibStyles.row}>
+      <View style={dibStyles.chip}><Text style={dibStyles.chipTxt}>Trực {sc.truc}</Text></View>
+      <View style={dibStyles.chip}><Text style={dibStyles.chipTxt}>{sc.lucDieu}</Text></View>
+      <View style={[dibStyles.chip, { borderColor: hdColor }]}><Text style={[dibStyles.chipTxt, { color: hdColor }]}>{hdLabel}</Text></View>
+      <View style={dibStyles.chip}><Text style={dibStyles.chipTxt}>Tú {sc.nhi28Tu}</Text></View>
+      <View style={[dibStyles.chip, { borderColor: RATING_COLOR[sc.rating] || '#f5b942' }]}>
+        <Text style={[dibStyles.chipTxt, { color: RATING_COLOR[sc.rating] || '#f5b942' }]}>{sc.score100}/100</Text>
+      </View>
+    </View>
+  );
+}
+
+const dibStyles = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
+  chip: { borderWidth: 1, borderColor: '#475569', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  chipTxt: { color: '#94a3b8', fontSize: 11, fontWeight: '700' },
+});
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(12, 0, 0, 0); return x; }
 
@@ -41,16 +65,26 @@ export default function DailyScreen({ route, navigation }: Props) {
   const [mode, setMode] = useState<'offline' | 'ai'>('offline');
   const [ai, setAi] = useState<{ status: 'idle' | 'loading' | 'done' | 'error'; text: string }>({ status: 'idle', text: '' });
 
+  // Tháng đang HIỂN THỊ trên lịch — có thể khác tháng của `date` khi người
+  // dùng bấm ‹ › xem tháng khác mà CHƯA chọn ngày nào trong đó. Heatmap phải
+  // tính theo đúng tháng này (không phải theo `date`) để không lệch màu.
+  const [viewYM, setViewYM] = useState<{ year: number; month0: number }>(
+    () => ({ year: date.getFullYear(), month0: date.getMonth() }),
+  );
+  const heatmap = useMemo(
+    () => buildMonthHeatmap(result, viewYM.year, viewYM.month0 + 1),
+    [result, viewYM.year, viewYM.month0],
+  );
+
   const sc = useMemo(() => scoreNhatVan(result, date), [result, date]);
   const offlineText = useMemo(() => generateNhatVanOffline(result, date), [result, date]);
+  const lunarDate = useMemo(() => solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear()), [date]);
   const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 
-  const shift = (days: number) => {
-    const d = new Date(date); d.setDate(d.getDate() + days);
-    setDate(startOfDay(d));
+  const selectDate = (d: Date) => {
+    setDate(d);
     setAi({ status: 'idle', text: '' });
   };
-  const today = () => { setDate(startOfDay(new Date())); setAi({ status: 'idle', text: '' }); };
 
   const runAI = async (force = false) => {
     const key = fkey(result, `day:${dayKey}:ai`);
@@ -81,18 +115,39 @@ export default function DailyScreen({ route, navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Xem ngày cho {result.birthInfo.name || 'bạn'}</Text>
 
-        {/* Bộ chọn ngày */}
-        <View style={styles.dateBar}>
-          <TouchableOpacity style={styles.navBtn} onPress={() => shift(-1)}><Text style={styles.navTxt}>‹ Hôm trước</Text></TouchableOpacity>
-          <View style={styles.dateMid}>
-            <Text style={styles.dateBig}>{date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}</Text>
-            <Text style={[styles.ratingChip, { backgroundColor: RATING_COLOR[sc.rating] || COLORS.gold }]}>{sc.rating}</Text>
+        {/* Lịch âm dương chọn ngày — đã hợp nhất bản đồ nhiệt + thống kê tháng
+            ngay bên dưới lưới ngày (không tách khối riêng). */}
+        <LunarCalendarPicker
+          selectedDate={date}
+          onSelectDate={selectDate}
+          monthHeatmap={heatmap}
+          onViewMonthChange={(year, month0) => setViewYM({ year, month0 })}
+        />
+
+        {/* Thông tin ngày đang chọn */}
+        <View style={styles.selectedBar}>
+          <View style={styles.selectedLeft}>
+            <Text style={styles.dateBig}>
+              {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
+            </Text>
+            <Text style={styles.dateLunar}>
+              Âm lịch: {lunarDate.day}/{lunarDate.month}{lunarDate.isLeapMonth ? ' nhuận' : ''}/{lunarDate.year}
+            </Text>
           </View>
-          <TouchableOpacity style={styles.navBtn} onPress={() => shift(1)}><Text style={styles.navTxt}>Hôm sau ›</Text></TouchableOpacity>
+          <Text style={[styles.ratingChip, { backgroundColor: RATING_COLOR[sc.rating] || COLORS.gold }]}>
+            {sc.rating}
+          </Text>
         </View>
-        <TouchableOpacity style={styles.todayBtn} onPress={today}><Text style={styles.todayTxt}>● Về hôm nay</Text></TouchableOpacity>
 
         <Text style={styles.canchi}>Ngày {sc.canChi.stem} {sc.canChi.branch} · Can {sc.canChi.stemEl} · Chi {sc.canChi.branchEl}</Text>
+
+        <DayInfoBar sc={sc} />
+
+        {sc.warnings.length > 0 && (
+          <View style={styles.warningBox}>
+            {sc.warnings.map((w, i) => <Text key={i} style={styles.warningTxt}>{w}</Text>)}
+          </View>
+        )}
 
         {/* Tabs */}
         <View style={styles.tabsRow}>
@@ -110,14 +165,13 @@ export default function DailyScreen({ route, navigation }: Props) {
 
         {mode === 'offline' ? (
           <View style={styles.resultBox}>
-            {/* Cơ bản: MIỄN PHÍ — không trừ xu. */}
             <SimpleMarkdown content={offlineText} />
             <ExportPdfButton
               title={`Xem ngày ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`}
               subtitle="Bản Cơ bản (miễn phí)"
               badge="CƠ BẢN"
               headerLines={chartHeaderLines(result)}
-              fileName={`${result.birthInfo.name || 'Lá số'} - Xem theo ngày - ${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`}
+              fileName={`${result.birthInfo.name || 'Lá số'} - Xem ngày ${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()} - Cơ bản`}
               getContent={() => offlineText}
             />
           </View>
@@ -125,7 +179,7 @@ export default function DailyScreen({ route, navigation }: Props) {
           <View style={styles.resultBox}>
             <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>
             <TouchableOpacity style={styles.aiBtn} onPress={() => runAI()} activeOpacity={0.85}>
-              <Text style={styles.aiBtnText}>🔍 Phân tích ngày này bằng AI ({PREMIUM.COST.ai} xu · {premiumBadgeNote()})</Text>
+              <Text style={styles.aiBtnText}>🔍 Phân tích ngày này bằng AI ({costNote(PREMIUM.COST.ai)})</Text>
             </TouchableOpacity>
           </View>
         ) : ai.status === 'loading' ? (
@@ -139,7 +193,7 @@ export default function DailyScreen({ route, navigation }: Props) {
               subtitle="Bản Phân tích AI"
               badge="PHÂN TÍCH AI"
               headerLines={chartHeaderLines(result)}
-              fileName={`${result.birthInfo.name || 'Lá số'} - Xem theo ngày - ${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`}
+              fileName={`${result.birthInfo.name || 'Lá số'} - Xem ngày ${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()} - AI`}
               getContent={() => ai.text}
             />
             <TouchableOpacity onPress={() => runAI(true)}><Text style={styles.retry}>↻ Phân tích lại (−{PREMIUM.COST.ai} xu)</Text></TouchableOpacity>
@@ -151,7 +205,6 @@ export default function DailyScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Nút cuối: nhảy sang "Xem ngày tốt" cho việc cụ thể */}
         <TouchableOpacity
           style={styles.pickerBtn}
           onPress={() => navigation.navigate('DayPicker', { result })}
@@ -170,14 +223,20 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
   title: { fontSize: FONTS.size.lg, fontWeight: 'bold', color: COLORS.gold, textAlign: 'center' },
-  dateBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm },
-  navBtn: { paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, backgroundColor: COLORS.card },
-  navTxt: { color: COLORS.gold, fontWeight: '700', fontSize: FONTS.size.sm },
-  dateMid: { flex: 1, alignItems: 'center', gap: 4 },
+
+  selectedBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: COLORS.card, borderRadius: 10, padding: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  selectedLeft: { gap: 2 },
   dateBig: { color: COLORS.textPrimary, fontSize: FONTS.size.xl, fontWeight: '900' },
-  ratingChip: { color: '#1a0a00', fontSize: FONTS.size.xs, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, overflow: 'hidden' },
-  todayBtn: { alignSelf: 'center' },
-  todayTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '700' },
+  dateLunar: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontStyle: 'italic' },
+  ratingChip: {
+    color: '#1a0a00', fontSize: FONTS.size.sm, fontWeight: '800',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, overflow: 'hidden',
+  },
+
   canchi: { color: COLORS.goldLight, fontSize: FONTS.size.sm, textAlign: 'center', fontWeight: '700' },
   pickerBtn: {
     marginTop: SPACING.md, alignSelf: 'stretch',
@@ -200,4 +259,9 @@ const styles = StyleSheet.create({
   aiBtnText: { color: '#fff', fontSize: FONTS.size.sm, fontWeight: '800', textAlign: 'center' },
   dim: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontStyle: 'italic', marginTop: SPACING.xs },
   retry: { color: COLORS.purple, fontSize: FONTS.size.sm, fontWeight: '700', marginTop: 4 },
+  warningBox: {
+    backgroundColor: '#431407', borderRadius: 8, padding: SPACING.sm,
+    borderWidth: 1, borderColor: '#ef4444', gap: 4,
+  },
+  warningTxt: { color: '#fca5a5', fontSize: FONTS.size.xs, fontWeight: '700', lineHeight: 18 },
 });

@@ -4,7 +4,7 @@
  *  - Android: overlay tuyệt đối phủ toàn màn.
  *  - Điều hướng qua navigationRef toàn cục (StackActions.push / reset Home).
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions,
   Platform, ActionSheetIOS,
@@ -14,16 +14,26 @@ import { useFocusEffect, StackActions, CommonActions } from '@react-navigation/n
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { navigationRef } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
+import { loadNotifications, subscribeNotifications, unreadCount } from '../lib/notificationCenter';
 
 type MenuAction = { label: string; emoji: string; run: () => void; danger?: boolean };
 
 export default function HeaderMenuButton({ color }: { color?: string }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(unreadCount());
   const { online, logout: authLogout } = useAuth();
+
+  useEffect(() => {
+    let mounted = true;
+    loadNotifications().then(() => { if (mounted) setUnread(unreadCount()); });
+    const unsub = subscribeNotifications(() => { if (mounted) setUnread(unreadCount()); });
+    return () => { mounted = false; unsub(); };
+  }, []);
 
   useFocusEffect(useCallback(() => {
     setOpen(false);
+    setUnread(unreadCount());
     return () => setOpen(false);
   }, []));
 
@@ -43,6 +53,8 @@ export default function HeaderMenuButton({ color }: { color?: string }) {
 
   const actions: MenuAction[] = [
     { label: 'Trang chủ', emoji: '🏠', run: () => goRoot('Home') },
+    { label: `Tin thông báo (${unread})`, emoji: '🔔', run: () => goRoot('Notifications') },
+    { label: 'Khuyến mại', emoji: '🎁', run: () => goRoot('Promotions') },
     { label: 'Lập lá số mới', emoji: '🧾', run: () => goRoot('Input') },
     { label: 'Lá số của tôi (đã lưu)', emoji: '🗂️', run: () => goRoot('MyCharts') },
     { label: 'Thông tin tài khoản', emoji: '👤', run: () => goRoot('Account') },

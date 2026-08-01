@@ -13,16 +13,16 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
+  Modal, TextInput, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, StarEntry, TuViHouse } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { getStarColor } from '../data/starElements';
-import { getStarInfo } from '../data/starInfo';
-import { detectCachCucInPalace, detectCachCucInGroup } from '../data/cachCuc';
+import { getStarInfo, ALL_STAR_NAMES } from '../data/starInfo';
 import { analyzePalaceWithAI } from '../utils/aiAnalysis';
-import { generateOfflinePalaceLuu } from '../core/offlineLuanGiai';
+import { generateOfflinePalaceLuu, generateOfflinePalaceAdvanced, cutAtSection } from '../core/offlineLuanGiai';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
@@ -30,7 +30,7 @@ import { chartHeaderLines } from '../utils/pdfExport';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { premiumBadgeNote, costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PalaceDetail'>;
@@ -55,16 +55,28 @@ function brightnessLabel(b?: string): string {
   }
 }
 
+// Vòng sao trung tinh phân loại hung (đồng bộ với HouseCell trên lá số).
+const VONG_HUNG = new Set([
+  'Thái Tuế', 'Tang Môn', 'Quan Phù', 'Tử Phù', 'Tuế Phá',
+  'Bạch Hổ', 'Điếu Khách', 'Trực Phù',
+  'Tiểu Hao', 'Đại Hao', 'Bệnh Phù', 'Quan Phủ', 'Phục Binh', 'Phi Liêm',
+]);
+
+/** Phân loại sao: chính tinh, phụ CÁT (trái), phụ SÁT/HUNG (phải), lưu sao. */
 function categorize(stars: StarEntry[]) {
   const chinh: StarEntry[] = [];
-  const phu: StarEntry[] = [];
+  const cat: StarEntry[] = [];
+  const hung: StarEntry[] = [];
   const luu: StarEntry[] = [];
   for (const s of stars) {
-    if (s.name.startsWith('L. ') || s.type === 'luu') luu.push(s);
-    else if (s.type === 'chinh') chinh.push(s);
-    else phu.push(s);
+    if (s.name.startsWith('L. ') || s.type === 'luu') { luu.push(s); continue; }
+    if (s.type === 'chinh') { chinh.push(s); continue; }
+    if (s.type === 'trung') { (VONG_HUNG.has(s.name) ? hung : cat).push(s); continue; }
+    if (s.type === 'hung') { hung.push(s); continue; }
+    cat.push(s);
   }
-  return { chinh, phu, luu };
+  const phu = [...cat, ...hung];
+  return { chinh, phu, cat, hung, luu };
 }
 
 function chinhOf(h: TuViHouse): string {
@@ -73,28 +85,6 @@ function chinhOf(h: TuViHouse): string {
     .map(s => `${s.name}${s.brightness ? `(${brightnessLabel(s.brightness)})` : ''}`)
     .join(', ');
   return c || 'Vô chính diệu';
-}
-
-/** Dòng quan hệ (Tam hợp / Nhị hợp / Xung chiếu) — nếu cung VCD thì xét phụ tinh,
- *  KHÔNG coi "Vô chính diệu" là một sao. */
-function RelLine({ type, h, note }: { type: string; h: TuViHouse; note: string }) {
-  const chinh = h.stars
-    .filter(s => s.type === 'chinh')
-    .map(s => `${s.name}${s.brightness ? `(${brightnessLabel(s.brightness)})` : ''}`);
-  const phu = h.stars
-    .filter(s => s.type !== 'chinh' && s.type !== 'luu' && !s.name.startsWith('L. '))
-    .map(s => s.name).slice(0, 6);
-  return (
-    <Text style={styles.relDetail}>
-      • <Text style={styles.relTag}>{type}</Text> — cung {h.palaceName} ({h.branch}):{' '}
-      {chinh.length > 0 ? (
-        <>sao <Text style={styles.relStar}>{chinh.join(', ')}</Text>. {note}</>
-      ) : (
-        <>vô chính diệu — xét các phụ tinh{' '}
-          <Text style={styles.relStar}>{phu.length ? phu.join(', ') : '(không có sao phụ đáng kể)'}</Text>. {note}</>
-      )}
-    </Text>
-  );
 }
 
 /** Mục có thể đóng/mở */
@@ -122,7 +112,7 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
   const { result, branchIndex } = route.params;
   const chart = result.tuViChart;
   const house: TuViHouse = chart.houses[branchIndex];
-  const { chinh, phu, luu } = categorize(house.stars);
+  const { chinh, phu, cat, hung, luu } = categorize(house.stars);
 
   // Nhận định CỤ THỂ ảnh hưởng Tuần/Triệt: xét cung vốn tốt hay xấu rồi suy ra
   // Tuần/Triệt đang "giảm/hoãn cái tốt" hay "che chắn cái xấu".
@@ -154,8 +144,26 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
   );
   const [basicOpen, setBasicOpen] = useState(true);
   const [advOpen, setAdvOpen] = useState(true);
-  const [aiOpen, setAiOpen] = useState(true);
-  const [luuOpen, setLuuOpen] = useState(true);
+  // Ô tra cứu BẤT KỲ sao nào trong Tử Vi (không cần sao đó có tại cung), TẠI cung bất kỳ.
+  const [starPickerOpen, setStarPickerOpen] = useState(false);
+  const [starSearch, setStarSearch] = useState('');
+  const [palacePickerOpen, setPalacePickerOpen] = useState(false);
+  // Cung để xem "ý nghĩa tại cung" — mặc định là cung đang xem; có thể đổi.
+  const [viewPalace, setViewPalace] = useState(house.palaceName);
+  const palaceOptions = useMemo(
+    () => result.tuViChart.houses.map(h => h.palaceName),
+    [result],
+  );
+  const filteredStars = useMemo(() => {
+    const q = starSearch.trim().toLowerCase();
+    return q ? ALL_STAR_NAMES.filter(n => n.toLowerCase().includes(q)) : ALL_STAR_NAMES;
+  }, [starSearch]);
+  const pickStar = (name: string) => {
+    setSelected(name); setBasicOpen(true); setAdvOpen(true);
+    setStarPickerOpen(false); setStarSearch('');
+  };
+  const advText = useMemo(() => generateOfflinePalaceAdvanced(result, branchIndex), [result, branchIndex]);
+  const [palaceTab, setPalaceTab] = useState<'offline' | 'ai'>('offline');
   // Luận OFFLINE sao lưu của năm xem ảnh hưởng tới cung này ('' nếu chưa chọn năm).
   const luuText = useMemo(() => generateOfflinePalaceLuu(result, branchIndex), [result, branchIndex]);
   const pdfHeader = useMemo(() => chartHeaderLines(result), [result]);
@@ -194,48 +202,19 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
     return { tamHop, xung, nhiHop };
   }, [branchIndex, chart]);
 
-  const { sameCach, groupCach } = useMemo(() => {
-    const palaceNames = house.stars.map(s => s.name);
-    const same = detectCachCucInPalace(palaceNames, house.branch);
-    const groupSet = new Set<string>(palaceNames);
-    relations.tamHop.forEach(h => h.stars.forEach(s => groupSet.add(s.name)));
-    relations.xung?.stars.forEach(s => groupSet.add(s.name));
-    relations.nhiHop?.stars.forEach(s => groupSet.add(s.name));
-    const group = detectCachCucInGroup(Array.from(groupSet), house.branch);
-    const sameNames = new Set(same.map(c => c.name));
-    return { sameCach: same, groupCach: group.filter(c => !sameNames.has(c.name)) };
-  }, [house, relations]);
-
-  // Cách cục tạo bởi cung này + TỪNG quan hệ → kèm ý nghĩa.
-  const relCach = useMemo(() => {
-    const base = house.stars.map(s => s.name);
-    const sameNames = new Set(detectCachCucInPalace(base, house.branch).map(c => c.name));
-    const calc = (h?: TuViHouse) =>
-      h ? detectCachCucInGroup([...base, ...h.stars.map(s => s.name)], house.branch)
-            .filter(c => !sameNames.has(c.name))
-        : [];
-    return {
-      tamHop: relations.tamHop.map(h => ({ h, cach: calc(h) })),
-      nhiHop: relations.nhiHop ? { h: relations.nhiHop, cach: calc(relations.nhiHop) } : null,
-      xung: relations.xung ? { h: relations.xung, cach: calc(relations.xung) } : null,
-    };
-  }, [house, relations]);
-
   const info = selected ? getStarInfo(selected) : undefined;
-  const palaceAdvanced = info?.byPalace?.[house.palaceName];
+  const palaceAdvanced = info?.byPalace?.[viewPalace];
 
-  // Đánh số mục động cho phần NÂNG CAO (ẩn mục nào thì số tự dồn, không nhảy số).
-  const advSteps = (() => {
-    let n = 0;
-    const intro = ++n;
-    const same = sameCach.length > 0 ? ++n : 0;
-    const rel = ++n;
-    const extra = (info?.combos || info?.advancedGeneral) ? ++n : 0;
-    return { intro, same, rel, extra };
-  })();
+  const openAiTab = () => {
+    setPalaceTab('ai');
+    if (aiStatus === 'idle') {
+      const key = fkey(result, `palace:${branchIndex}:ai`);
+      const cached = getAiResult(key);
+      if (cached) { setAiText(cached); setAiStatus('done'); }
+    }
+  };
 
   const runAI = async (force = false) => {
-    setAiOpen(true);
     const key = fkey(result, `palace:${branchIndex}:ai`);
     if (!force) {
       const cached = getAiResult(key);
@@ -268,7 +247,7 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
     const hasInfo = !!getStarInfo(s.name);
     return (
       <TouchableOpacity
-        onPress={() => { setSelected(s.name); setBasicOpen(true); setAdvOpen(true); }}
+        onPress={() => { setSelected(s.name); setViewPalace(house.palaceName); setBasicOpen(true); setAdvOpen(true); }}
         activeOpacity={0.7}
         style={[styles.starChip, isSel && styles.starChipSel, !hasInfo && { opacity: 0.55 }]}
       >
@@ -305,9 +284,16 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
               ? chinh.map((s, i) => <StarChip key={`c${i}`} s={s} big />)
               : <Text style={styles.voChinhDieu}>(Vô chính diệu)</Text>}
           </View>
-          {phu.length > 0 && (
-            <View style={styles.phuWrap}>
-              {phu.map((s, i) => <StarChip key={`p${i}`} s={s} />)}
+          {(cat.length > 0 || hung.length > 0) && (
+            <View style={styles.phuCols}>
+              {/* Bên trái: cát tinh */}
+              <View style={styles.phuColLeft}>
+                {cat.map((s, i) => <StarChip key={`pc${i}`} s={s} />)}
+              </View>
+              {/* Bên phải: sát tinh */}
+              <View style={styles.phuColRight}>
+                {hung.map((s, i) => <StarChip key={`ph${i}`} s={s} />)}
+              </View>
             </View>
           )}
           {luu.length > 0 && (
@@ -355,44 +341,127 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
           <Text style={styles.hint}>Chạm vào tên sao để xem ý nghĩa ↓</Text>
         </View>
 
-        {/* AI nút */}
-        {aiStatus === 'idle' && <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>}
-        <TouchableOpacity
-          style={[styles.aiBtn, aiStatus === 'loading' && { opacity: 0.6 }]}
-          onPress={() => runAI()}
-          disabled={aiStatus === 'loading'}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.aiBtnText}>
-            {aiStatus === 'loading'
-              ? '🤖 Đang phân tích…'
-              : `🤖 Phân tích AI cung ${house.palaceName}`}
+        {/* TRA CỨU SAO BẤT KỲ TẠI CUNG BẤT KỲ — học thêm sao không có tại cung này */}
+        <View style={styles.starLookupBox}>
+          <Text style={styles.starLookupLabel}>🔎 Tra cứu thêm sao khác</Text>
+          <Text style={styles.starLookupHint}>
+            Chọn bất kỳ sao nào trong Tử Vi (và chọn cung muốn xem) để hiểu ý nghĩa của sao đó tại cung đó.
           </Text>
-        </TouchableOpacity>
+          <View style={styles.lookupRow}>
+            <TouchableOpacity
+              style={[styles.starLookupBtn, { flex: 1 }]}
+              onPress={() => { setStarSearch(''); setStarPickerOpen(true); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.starLookupBtnText} numberOfLines={1}>
+                {selected ? `★ ${selected}` : 'Chọn sao…'}
+              </Text>
+              <Text style={styles.pickerArrow}>▾</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.starLookupBtn, { flex: 1 }]}
+              onPress={() => setPalacePickerOpen(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.starLookupBtnText} numberOfLines={1}>
+                Cung {viewPalace}
+              </Text>
+              <Text style={styles.pickerArrow}>▾</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        {/* Kết quả AI */}
-        {aiStatus !== 'idle' && (
-          <Collapsible
-            badge="PHÂN TÍCH AI CUNG NÀY"
-            badgeStyle={styles.badgeAI}
-            note={premiumBadgeNote()}
-            open={aiOpen}
-            onToggle={() => setAiOpen(o => !o)}
+        {/* NỬA DƯỚI — thông tin sao */}
+        {selected ? (
+          <View style={styles.infoBox}>
+            <Text style={[styles.infoStarName, { color: getStarColor(selected) }]}>{selected}</Text>
+
+            {info ? (
+              <>
+                {/* CƠ BẢN — MIỄN PHÍ: ý nghĩa tổng quát + ý nghĩa tại cung + sao lưu năm */}
+                <Collapsible
+                  badge="CƠ BẢN" badgeStyle={styles.badgeBasic} note="Miễn phí"
+                  open={basicOpen} onToggle={() => setBasicOpen(o => !o)}
+                >
+                  <Text style={styles.subHead}>1. Ý nghĩa tổng quát</Text>
+                  <Text style={styles.bodyText}>{info.basic}</Text>
+
+                  <Text style={styles.subHead}>2. Ý nghĩa tại cung {viewPalace}</Text>
+                  <Text style={styles.bodyText}>
+                    {palaceAdvanced ?? `Sao ${selected} tại cung ${viewPalace}: ý nghĩa tương tự phần tổng quát bên trên.`}
+                  </Text>
+
+                  {!!luuText && (
+                    <>
+                      <Text style={styles.subHead}>
+                        3. Sao lưu năm {chart.viewingYear ?? ''} ảnh hưởng tới cung này
+                      </Text>
+                      <SimpleMarkdown content={luuText} />
+                    </>
+                  )}
+                </Collapsible>
+              </>
+            ) : (
+              <Text style={styles.bodyText}>
+                Chưa có dữ liệu cho sao "{selected}". Dữ liệu đang được bổ sung dần.
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.infoBox}>
+            <Text style={styles.bodyText}>Chạm vào một sao ở trên để xem chi tiết.</Text>
+          </View>
+        )}
+
+        {/* TAB: Nâng cao / Phân tích AI */}
+        <View style={styles.tabsRow}>
+          <TouchableOpacity
+            style={[styles.tab, palaceTab === 'offline' && styles.tabActive]}
+            onPress={() => setPalaceTab('offline')}
           >
+            <Text style={[styles.tabTxt, palaceTab === 'offline' && styles.tabTxtActive]}>📘 Nâng cao</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, palaceTab === 'ai' && styles.tabActive]}
+            onPress={openAiTab}
+          >
+            <Text style={[styles.tabTxt, palaceTab === 'ai' && styles.tabTxtActive]}>🤖 Phân tích AI</Text>
+          </TouchableOpacity>
+        </View>
+
+        {palaceTab === 'offline' ? (
+          <View style={styles.tabContent}>
+            <PaidGate unlockKey={fkey(result, `palace:${branchIndex}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
+              preview={cutAtSection(advText, '2. Chính tinh & cách cục')}>
+              <SimpleMarkdown content={advText} />
+              <ExportPdfButton
+                title={`Phân tích nâng cao cung ${house.palaceName}`}
+                subtitle="Bản Nâng cao (offline)"
+                badge="NÂNG CAO"
+                headerLines={pdfHeader}
+                fileName={`${result.birthInfo.name || 'Lá số'} - Cung ${house.palaceName} - Nâng cao`}
+                getContent={() => advText}
+              />
+            </PaidGate>
+          </View>
+        ) : (
+          <View style={styles.tabContent}>
+            {aiStatus === 'idle' && (
+              <>
+                <Text style={styles.aiValueNote}>{AI_PREVIEW.palace}</Text>
+                <TouchableOpacity style={styles.runAiBtn} onPress={() => runAI()} activeOpacity={0.85}>
+                  <Text style={styles.runAiBtnText}>🤖 Phân tích AI đầy đủ cung {house.palaceName} ({costNote(PREMIUM.COST.ai)})</Text>
+                </TouchableOpacity>
+              </>
+            )}
             {aiStatus === 'loading' && (
               <AIProgressBar label={`AI đang luận giải cung ${house.palaceName}…`} />
             )}
             {aiStatus === 'locked' && (
-              <Text style={styles.bodyText}>
-                🔒 Mục "Phân tích AI" là tính năng trả phí. Hiện chưa mở khóa cho
-                tài khoản này.
-              </Text>
+              <Text style={styles.bodyText}>🔒 Mục "Phân tích AI" là tính năng trả phí. Hiện chưa mở khóa cho tài khoản này.</Text>
             )}
             {aiStatus === 'offline' && (
-              <Text style={styles.bodyText}>
-                ⚠ Cần kết nối mạng để hệ thống phân tích chuyên sâu. Vui lòng kiểm tra
-                Internet rồi nhấn lại nút "Phân tích AI cung {house.palaceName}".
-              </Text>
+              <Text style={styles.bodyText}>⚠ Cần kết nối mạng để hệ thống phân tích chuyên sâu. Vui lòng kiểm tra Internet rồi thử lại.</Text>
             )}
             {aiStatus === 'error' && (
               <Text style={styles.bodyText}>⚠ {aiErr}</Text>
@@ -403,9 +472,7 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
                 {aiShown.length < aiText.length && (
                   <Text style={styles.bodyTextDim}>▌ đang hiển thị… ({Math.round(aiShown.length / Math.max(1, aiText.length) * 100)}%)</Text>
                 )}
-                <Text style={styles.bodyTextDim}>
-                  * Nội dung do AI tạo, mang tính tham khảo; không thay thế luận giải chuyên gia.
-                </Text>
+                <Text style={styles.bodyTextDim}>* Nội dung do AI tạo, mang tính tham khảo; không thay thế luận giải chuyên gia.</Text>
                 {aiShown.length >= aiText.length && (
                   <ExportPdfButton
                     title={`Phân tích cung ${house.palaceName}`}
@@ -421,141 +488,6 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
                 </TouchableOpacity>
               </>
             )}
-          </Collapsible>
-        )}
-
-        {/* SAO LƯU CỦA NĂM (offline, nâng cao) — ảnh hưởng tới cung này trong năm xem */}
-        {!!luuText && (
-          <Collapsible
-            badge={`SAO LƯU NĂM ${chart.viewingYear ?? ''}`.trim()}
-            badgeStyle={styles.badgeBasic}
-            note="Miễn phí"
-            open={luuOpen}
-            onToggle={() => setLuuOpen(o => !o)}
-          >
-            <SimpleMarkdown content={luuText} />
-          </Collapsible>
-        )}
-
-        {/* NỬA DƯỚI — thông tin sao */}
-        {selected ? (
-          <View style={styles.infoBox}>
-            <Text style={[styles.infoStarName, { color: getStarColor(selected) }]}>{selected}</Text>
-
-            {info ? (
-              <>
-                {/* CƠ BẢN */}
-                <Collapsible
-                  badge="CƠ BẢN" badgeStyle={styles.badgeBasic}
-                  open={basicOpen} onToggle={() => setBasicOpen(o => !o)}
-                >
-                  <Text style={styles.bodyText}>{info.basic}</Text>
-                </Collapsible>
-
-                {/* NÂNG CAO */}
-                <Collapsible
-                  badge="NÂNG CAO" badgeStyle={styles.badgeAdv} note={premiumBadgeNote()}
-                  open={advOpen} onToggle={() => setAdvOpen(o => !o)}
-                >
-                 <PaidGate unlockKey={fkey(result, `palace:${branchIndex}:adv`)} kind="advanced">
-                  {/* 1. Tại cung */}
-                  <Text style={styles.subHead}>{advSteps.intro}. Ý nghĩa tại cung {house.palaceName}</Text>
-                  <Text style={styles.bodyText}>
-                    {palaceAdvanced ?? `Sao ${selected} tại cung ${house.palaceName}: ý nghĩa tương tự nội dung phần Cơ bản phân tích bên trên.`}
-                  </Text>
-
-                  {/* 2. Đồng cung — chỉ hiện nếu có cách */}
-                  {sameCach.length > 0 && (
-                    <>
-                      <Text style={styles.subHead}>{advSteps.same}. Cùng sao đồng cung</Text>
-                      <Text style={styles.bodyText}>
-                        Các sao tại cung {house.palaceName} hợp thành {sameCach.length > 1 ? 'các cách' : 'cách'}:
-                      </Text>
-                      {sameCach.map(c => (
-                        <View key={c.name} style={styles.cachItem}>
-                          <Text style={[styles.cachName, { color: c.good ? COLORS.green : COLORS.red }]}>
-                            {c.good ? '✦' : '⚠'} {c.name}
-                          </Text>
-                          <Text style={styles.bodyText}>{c.meaning}</Text>
-                        </View>
-                      ))}
-                    </>
-                  )}
-
-                  {/* 3. Tam hợp / Nhị hợp / Xung chiếu — diễn giải + lời khuyên */}
-                  <Text style={styles.subHead}>{advSteps.rel}. Tam hợp / Nhị hợp / Xung chiếu</Text>
-                  <Text style={styles.bodyText}>
-                    Cung {house.palaceName} không đứng riêng: các sao ở cung tam hợp cùng "hội" về làm
-                    mạnh thêm tính chất, cung nhị hợp hỗ trợ ngầm, còn cung xung chiếu tạo lực đối nghịch.
-                    Cần xét các sao sau đây để định cát/hung:
-                  </Text>
-
-                  {relCach.tamHop.map(({ h, cach }, i) => (
-                    <View key={`t${i}`}>
-                      <RelLine type="Tam hợp" h={h} note={`Cộng hưởng, làm đậm thêm sắc thái cung ${house.palaceName}.`} />
-                      {cach.map(c => (
-                        <View key={c.name} style={styles.cachItem}>
-                          <Text style={[styles.cachName, { color: c.good ? COLORS.green : COLORS.red }]}>
-                            {c.good ? '✦' : '⚠'} {c.name}
-                          </Text>
-                          <Text style={styles.bodyText}>{c.meaning}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-                  {relCach.nhiHop && (
-                    <View>
-                      <RelLine type="Nhị hợp" h={relCach.nhiHop.h} note="Hậu thuẫn ngầm, bổ trợ khi cần." />
-                      {relCach.nhiHop.cach.map(c => (
-                        <View key={c.name} style={styles.cachItem}>
-                          <Text style={[styles.cachName, { color: c.good ? COLORS.green : COLORS.red }]}>
-                            {c.good ? '✦' : '⚠'} {c.name}
-                          </Text>
-                          <Text style={styles.bodyText}>{c.meaning}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  {relCach.xung && (
-                    <View>
-                      <RelLine type="Xung chiếu" h={relCach.xung.h} note="Lực đối nghịch trực diện, cần dung hòa, tránh cực đoan." />
-                      {relCach.xung.cach.map(c => (
-                        <View key={c.name} style={styles.cachItem}>
-                          <Text style={[styles.cachName, { color: c.good ? COLORS.green : COLORS.red }]}>
-                            {c.good ? '✦' : '⚠'} {c.name}
-                          </Text>
-                          <Text style={styles.bodyText}>{c.meaning}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  <Text style={styles.adviceText}>
-                    💡 Lời khuyên: khi quyết định việc thuộc lĩnh vực cung {house.palaceName}, hãy TẬN DỤNG
-                    điểm cộng hưởng từ tam hợp/nhị hợp (sao tốt nâng đỡ) và ĐỀ PHÒNG áp lực từ cung xung chiếu;
-                    nếu xung chiếu có sát tinh thì cân nhắc kỹ, làm việc từ tốn để tránh trục trặc.
-                  </Text>
-
-                  {/* 4. Kiến thức bổ sung */}
-                  {(info.combos || info.advancedGeneral) && (
-                    <>
-                      <Text style={styles.subHead}>{advSteps.extra}. Kiến thức bổ sung</Text>
-                      {!!info.combos && <Text style={styles.bodyText}>{info.combos}</Text>}
-                      {!!info.advancedGeneral && <Text style={styles.bodyText}>{info.advancedGeneral}</Text>}
-                    </>
-                  )}
-                 </PaidGate>
-                </Collapsible>
-              </>
-            ) : (
-              <Text style={styles.bodyText}>
-                Chưa có dữ liệu cho sao "{selected}". Dữ liệu đang được bổ sung dần.
-              </Text>
-            )}
-          </View>
-        ) : (
-          <View style={styles.infoBox}>
-            <Text style={styles.bodyText}>Chạm vào một sao ở trên để xem chi tiết.</Text>
           </View>
         )}
 
@@ -563,6 +495,73 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
           <Text style={styles.bottomBackText}>← Về lá số</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* MODAL chọn sao để tra cứu — có ô tìm để khỏi kéo nhiều */}
+      <Modal visible={starPickerOpen} transparent animationType="fade" onRequestClose={() => setStarPickerOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn sao để tra cứu</Text>
+              <TouchableOpacity onPress={() => setStarPickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.modalSearch}
+              placeholder="Nhập tên sao… (vd: Tử Vi, Văn Xương)"
+              placeholderTextColor={COLORS.textMuted}
+              value={starSearch}
+              onChangeText={setStarSearch}
+              autoCorrect={false}
+            />
+            <FlatList
+              data={filteredStars}
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              style={styles.modalList}
+              initialNumToRender={20}
+              ListEmptyComponent={<Text style={styles.modalEmpty}>Không tìm thấy sao phù hợp.</Text>}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.modalItem} onPress={() => pickStar(item)} activeOpacity={0.7}>
+                  <Text style={[styles.modalItemText, { color: getStarColor(item) }]}>{item}</Text>
+                  {selected === item && <Text style={styles.modalItemCheck}>✓</Text>}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL chọn cung để xem ý nghĩa sao tại cung đó */}
+      <Modal visible={palacePickerOpen} transparent animationType="fade" onRequestClose={() => setPalacePickerOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn cung để xem</Text>
+              <TouchableOpacity onPress={() => setPalacePickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={palaceOptions}
+              keyExtractor={(item) => item}
+              style={styles.modalList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => { setViewPalace(item); setPalacePickerOpen(false); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalItemText}>
+                    Cung {item}{item === house.palaceName ? '  (đang xem)' : ''}
+                  </Text>
+                  {viewPalace === item && <Text style={styles.modalItemCheck}>✓</Text>}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -593,6 +592,10 @@ const styles = StyleSheet.create({
   chinhRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, justifyContent: 'center', paddingVertical: SPACING.xs },
   voChinhDieu: { color: '#c8d0e8', fontSize: FONTS.size.lg, fontStyle: 'italic' },
   phuWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  // Phụ tinh 2 cột: cát bên trái, sát bên phải (như ô lá số)
+  phuCols: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
+  phuColLeft: { flex: 1, alignItems: 'flex-start', gap: SPACING.xs },
+  phuColRight: { flex: 1, alignItems: 'flex-end', gap: SPACING.xs },
   luuWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, borderTopWidth: 0.5, borderTopColor: COLORS.border, paddingTop: SPACING.xs },
 
   starChip: {
@@ -626,13 +629,67 @@ const styles = StyleSheet.create({
   ttVerdict: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20, fontWeight: '600' },
   hint: { color: COLORS.goldLight, fontSize: FONTS.size.sm, textAlign: 'center', fontStyle: 'italic' },
 
-  aiBtn: {
-    backgroundColor: COLORS.purple, borderRadius: 10,
-    paddingVertical: SPACING.md, alignItems: 'center',
+  // Ô tra cứu sao bất kỳ.
+  starLookupBox: {
+    backgroundColor: COLORS.surface, borderRadius: 10,
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4, marginBottom: SPACING.sm,
   },
-  aiBtnText: { color: '#fff', fontSize: FONTS.size.md, fontWeight: '800' },
+  starLookupLabel: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  starLookupHint: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, lineHeight: 17 },
+  lookupRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: 4 },
+  starLookupBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: COLORS.card, borderRadius: 8, borderWidth: 1, borderColor: COLORS.gold,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+  },
+  starLookupBtnText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700', flex: 1 },
+  pickerArrow: { color: COLORS.goldLight, fontSize: FONTS.size.md, fontWeight: '800', marginLeft: 8 },
+
+  // Modal chọn sao.
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: SPACING.lg },
+  modalCard: {
+    backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.gold,
+    maxHeight: '80%', padding: SPACING.md, gap: SPACING.sm,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
+  modalClose: { color: COLORS.textSecondary, fontSize: FONTS.size.lg, fontWeight: '800' },
+  modalSearch: {
+    backgroundColor: COLORS.surface, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+    color: COLORS.textPrimary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontSize: FONTS.size.md,
+  },
+  modalList: { flexGrow: 0 },
+  modalItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm,
+    borderBottomWidth: 0.5, borderBottomColor: COLORS.border,
+  },
+  modalItemText: { fontSize: FONTS.size.md, fontWeight: '700' },
+  modalItemCheck: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  modalEmpty: { color: COLORS.textSecondary, textAlign: 'center', padding: SPACING.lg, fontStyle: 'italic' },
+
+  tabsRow: {
+    flexDirection: 'row', backgroundColor: COLORS.surface,
+    borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+    overflow: 'hidden', marginTop: SPACING.xs,
+  },
+  tab: {
+    flex: 1, paddingVertical: SPACING.sm, alignItems: 'center',
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  tabActive: { borderBottomColor: COLORS.gold, backgroundColor: COLORS.gold + '11' },
+  tabTxt: { color: COLORS.textSecondary, fontWeight: '700', fontSize: FONTS.size.sm },
+  tabTxtActive: { color: COLORS.gold },
+  tabContent: {
+    backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md,
+    gap: SPACING.xs, borderWidth: 1, borderColor: COLORS.border, marginTop: 2,
+  },
   aiValueNote: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 18 },
-  aiLoading: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  runAiBtn: {
+    backgroundColor: COLORS.purple, borderRadius: 8,
+    paddingVertical: SPACING.sm, alignItems: 'center', marginTop: SPACING.xs,
+  },
+  runAiBtnText: { color: '#fff', fontWeight: '800', fontSize: FONTS.size.sm, textAlign: 'center' },
   aiRetry: {
     alignSelf: 'flex-start', marginTop: SPACING.sm,
     borderWidth: 1, borderColor: COLORS.purple, borderRadius: 6,
@@ -654,18 +711,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   secBody: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.xs },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap', flex: 1 },
   chevron: { color: COLORS.goldLight, fontSize: FONTS.size.lg, fontWeight: '800' },
   badgeBasic: {
     color: '#1a0a00', backgroundColor: COLORS.green, fontWeight: '800',
-    fontSize: FONTS.size.xs, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-  },
-  badgeAdv: {
-    color: '#1a0a00', backgroundColor: COLORS.gold, fontWeight: '800',
-    fontSize: FONTS.size.xs, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-  },
-  badgeAI: {
-    color: '#fff', backgroundColor: COLORS.purple, fontWeight: '800',
     fontSize: FONTS.size.xs, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
   },
   freeTag: { color: COLORS.green, fontSize: FONTS.size.xs, fontWeight: '700' },

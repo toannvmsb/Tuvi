@@ -667,6 +667,15 @@ export function getLuuStarsForYear(
   const luuThaiTue = calculateVongThaiTue(yearBranch);
   const picks: Record<string, boolean> = { 'Thái Tuế': true, 'Tang Môn': true, 'Bạch Hổ': true };
   for (const { branch, starName } of luuThaiTue) if (picks[starName]) add(branch, starName);
+  // Lưu Tiểu Hao, Bệnh Phù từ vòng Lộc Tồn lưu — ĐỒNG BỘ với placeLuuStars
+  // (trước đây thiếu khối này khiến phân tích sao lưu tại cung bỏ sót Lưu Tiểu Hao/Bệnh Phù).
+  const ltBranch = LOC_TON_BY_STEM[yearStem];
+  if (ltBranch) {
+    const luuLocTon = calculateVongLocTon(ltBranch, yearStem, gender);
+    for (const { branch, starName } of luuLocTon) {
+      if (starName === 'Tiểu Hao' || starName === 'Bệnh Phù') add(branch, starName);
+    }
+  }
   return out;
 }
 

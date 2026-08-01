@@ -4,7 +4,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, FlatList,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,8 +12,9 @@ import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import MedDisclaimer from '../components/MedDisclaimer';
-import { DAY_PICK_GROUPS, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
+import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
 import { pickGoodDays, type DayPickOutput } from '../core/dayPicker';
+import { analyzeNumber, minDigitsFor, NUMBER_PURPOSES, type NumberAnalysis } from '../core/numberAnalysis';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DayPicker'>;
 
@@ -43,18 +44,32 @@ export default function DayPickerScreen({ route, navigation }: Props) {
   });
 
   // Modal state
-  type ModalType = null | 'group' | 'task' | 'fromD' | 'fromM' | 'fromY' | 'toD' | 'toM' | 'toY';
+  type ModalType = null | 'group' | 'task' | 'fromD' | 'fromM' | 'fromY' | 'toD' | 'toM' | 'toY' | 'purpose';
   const [modal, setModal] = useState<ModalType>(null);
 
   const [output, setOutput] = useState<DayPickOutput | null>(null);
 
+  // ── Chế độ "Xem số hợp mệnh" ──
+  const isNumberMode = group?.code === NUMBER_GROUP_CODE;
+  const [numberInput, setNumberInput] = useState('');
+  const [purpose, setPurpose] = useState<{ code: string; name: string }>(NUMBER_PURPOSES[0]);
+  const [numberOut, setNumberOut] = useState<NumberAnalysis | null>(null);
+
   const canRun = !!task;
+  const numDigitCount = numberInput.match(/\d/g)?.length ?? 0;
+  const minDigits = task ? minDigitsFor(task.code) : 0;
+  const canRunNumber = !!task && numDigitCount >= minDigits;
 
   const run = () => {
     if (!task) return;
     const fromD = new Date(from.y, from.m - 1, from.d);
     const toD = new Date(to.y, to.m - 1, to.d);
     setOutput(pickGoodDays(result, task.code, fromD, toD));
+  };
+
+  const runNumber = () => {
+    if (!task) return;
+    setNumberOut(analyzeNumber(result, numberInput, task.code, purpose.code));
   };
 
   const fromDays = useMemo(() => Array.from({ length: daysInMonth(from.m, from.y) }, (_, i) => i + 1), [from.m, from.y]);
@@ -67,10 +82,14 @@ export default function DayPickerScreen({ route, navigation }: Props) {
     let title = '', data: any[] = [], current: any = null, onPick: (v: any) => void = () => {};
     if (modal === 'group') {
       title = 'Chọn nhóm việc'; data = DAY_PICK_GROUPS; current = group?.code;
-      onPick = (g: DayPickGroup) => { setGroup(g); setTask(null); closeModal(); };
+      // Đổi nhóm → reset việc & mọi kết quả (giao diện cũ hiện lại khi chọn nhóm khác).
+      onPick = (g: DayPickGroup) => { setGroup(g); setTask(null); setOutput(null); setNumberOut(null); closeModal(); };
     } else if (modal === 'task' && group) {
       title = `Chọn việc — ${group.name}`; data = group.tasks; current = task?.code;
-      onPick = (t: DayPickTask) => { setTask(t); closeModal(); };
+      onPick = (t: DayPickTask) => { setTask(t); setNumberOut(null); closeModal(); };
+    } else if (modal === 'purpose') {
+      title = 'Chọn mục đích xem số'; data = NUMBER_PURPOSES; current = purpose.code;
+      onPick = (p: { code: string; name: string }) => { setPurpose(p); closeModal(); };
     } else if (modal === 'fromD') {
       title = 'Chọn ngày bắt đầu'; data = fromDays; current = from.d;
       onPick = (v: number) => { setFrom({ ...from, d: v }); closeModal(); };
@@ -167,6 +186,8 @@ export default function DayPickerScreen({ route, navigation }: Props) {
           </View>
         </View>
 
+        {!isNumberMode && (
+        <>
         {/* Hàng 2: ngày bắt đầu / kết thúc */}
         <View style={styles.card}>
           <Text style={styles.label}>Bước 2 — Chọn khoảng thời gian muốn xem</Text>
@@ -208,7 +229,7 @@ export default function DayPickerScreen({ route, navigation }: Props) {
           <Text style={styles.runBtnTxt}>🔍  Xem ngày phù hợp</Text>
         </TouchableOpacity>
 
-        {/* Output */}
+        {/* Output ngày */}
         {output && (
           <View style={styles.outputCard}>
             <Text style={styles.outputHead}>
@@ -221,30 +242,48 @@ export default function DayPickerScreen({ route, navigation }: Props) {
 
             {output.top.length > 0 && (
               <>
-                <Text style={styles.topLabel}>🏆 3 ngày phù hợp nhất (ưu tiên từ cao xuống thấp):</Text>
+                <Text style={styles.topLabel}>🏆 Tối đa 5 ngày phù hợp nhất (ưu tiên từ cao xuống thấp):</Text>
                 {output.top.map((d, i) => {
                   const medal = ['🥇', '🥈', '🥉'][i] || '✦';
                   return (
                     <View key={d.dateLabel} style={styles.dayItem}>
                       <Text style={styles.dayHead}>{medal}  {d.dateLabel}</Text>
-                      <Text style={styles.dayCanChi}>{d.canChiLabel}  ·  <Text style={{ color: COLORS.gold }}>{d.rating}</Text>  ·  điểm {d.score}</Text>
-                      <Text style={styles.dayReasonHead}>Vì sao:</Text>
+                      <Text style={styles.dayLunar}>{d.lunarLabel}</Text>
+                      <Text style={styles.dayCanChi}>{d.canChiLabel}  ·  <Text style={{ color: COLORS.gold }}>{d.rating}</Text>  ·  <Text style={{ color: COLORS.gold, fontWeight: '800' }}>{d.score100}/100</Text></Text>
+
+                      {/* Trực · Lục Diệu · Hoàng/Hắc Đạo · 28 Tú */}
+                      <View style={styles.chipRow}>
+                        <View style={styles.chipSmall}><Text style={styles.chipSmallTxt}>Trực {d.truc}</Text></View>
+                        <View style={styles.chipSmall}><Text style={styles.chipSmallTxt}>{d.lucDieu}</Text></View>
+                        <View style={[styles.chipSmall, d.hoangDao ? styles.chipGreen : styles.chipGray]}>
+                          <Text style={[styles.chipSmallTxt, d.hoangDao ? { color: '#86efac' } : {}]}>
+                            {d.hoangDao ? '☀ Hoàng Đạo' : '🌑 Hắc Đạo'}
+                          </Text>
+                        </View>
+                        <View style={styles.chipSmall}><Text style={styles.chipSmallTxt}>Tú {d.nhi28Tu}</Text></View>
+                      </View>
+
+                      {/* Cảnh báo */}
+                      {d.warnings.filter(w => !w.includes('Tam Tai') && !w.includes('Kim Lâu')).map((w, wi) => (
+                        <Text key={wi} style={styles.dayWarning}>{w}</Text>
+                      ))}
+
+                      <Text style={styles.dayReasonHead}>Phân tích:</Text>
                       {d.reasons.slice(0, 3).map((r, ri) => <Text key={ri} style={styles.dayReason}>• {r}</Text>)}
                       {d.bestHours.length > 0 && (
                         <Text style={styles.dayDetail}>
-                          🕒 <Text style={styles.bold}>Khung giờ tốt cho lá số:</Text>{' '}
+                          🕒 <Text style={styles.bold}>Giờ tốt cho lá số:</Text>{' '}
                           {d.bestHours.map(h => `${h.branch} (${h.range})`).join(' · ')}
                         </Text>
                       )}
                       {d.generalHours.length > 0 && (
                         <Text style={styles.dayDetail}>
-                          🕓 <Text style={styles.bold}>Khung giờ tốt nói chung:</Text>{' '}
+                          🕓 <Text style={styles.bold}>Giờ Hoàng Đạo:</Text>{' '}
                           {d.generalHours.map(h => `${h.branch} (${h.range})`).join(' · ')}
                         </Text>
                       )}
-                      {d.direction && <Text style={styles.dayDetail}>🧭 <Text style={styles.bold}>Hướng xuất hành:</Text> {d.direction}</Text>}
-                      {d.goodColor && <Text style={styles.dayDetail}>👕 <Text style={styles.bold}>Màu nên mặc:</Text> {d.goodColor}</Text>}
-                      {d.avoidColor && <Text style={styles.dayDetail}>🚫 <Text style={styles.bold}>Màu nên tránh:</Text> {d.avoidColor}</Text>}
+                      {d.direction && <Text style={styles.dayDetail}>🧭 <Text style={styles.bold}>Hướng:</Text> {d.direction}</Text>}
+                      {d.goodColor && <Text style={styles.dayDetail}>👕 <Text style={styles.bold}>Màu:</Text> {d.goodColor}{d.avoidColor ? ` · tránh ${d.avoidColor}` : ''}</Text>}
                     </View>
                   );
                 })}
@@ -252,13 +291,99 @@ export default function DayPickerScreen({ route, navigation }: Props) {
             )}
           </View>
         )}
+        </>
+        )}
 
+        {/* ── CHẾ ĐỘ XEM SỐ HỢP MỆNH ── */}
+        {isNumberMode && (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.label}>Bước 2 — Nhập số cần xem</Text>
+            <View style={styles.row2}>
+              <TextInput
+                style={[styles.numInput, { flex: 1 }]}
+                value={numberInput}
+                onChangeText={setNumberInput}
+                placeholder={task ? 'Nhập số…' : 'Chọn loại số trước'}
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="number-pad"
+                editable={!!task}
+              />
+              <TouchableOpacity
+                style={[styles.dropdown, { flex: 1, minHeight: 52 }]}
+                onPress={() => setModal('purpose')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.dropdownLabel}>Mục đích xem số</Text>
+                <Text style={styles.dropdownValue} numberOfLines={1}>{purpose.name} ▾</Text>
+              </TouchableOpacity>
+            </View>
+            {task && (
+              <Text style={styles.numHint}>
+                {task.name}: tối thiểu {minDigits} chữ số
+                {numDigitCount > 0 ? ` · đã nhập ${numDigitCount}` : ''}
+                {numDigitCount > 0 && numDigitCount < minDigits ? ' (chưa đủ)' : ''}
+              </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.runBtn, !canRunNumber && styles.runBtnDisabled]}
+            onPress={runNumber}
+            disabled={!canRunNumber}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.runBtnTxt}>🔮  Luận số theo mệnh</Text>
+          </TouchableOpacity>
+
+          {numberOut && (
+            <View style={styles.outputCard}>
+              <Text style={styles.outputHead}>
+                {numberOut.typeName} · <Text style={{ color: COLORS.gold, fontWeight: '800' }}>{numberOut.digits}</Text>
+              </Text>
+              <Text style={styles.scoreBig}>
+                {numberOut.total}<Text style={styles.scoreMax}>/100</Text>
+                {'   '}<Text style={{ color: COLORS.gold }}>{numberOut.rating}</Text>
+              </Text>
+              <Text style={styles.outputMeta}>
+                Mục đích: {numberOut.purposeName} · Hành chủ đạo: {numberOut.chuDao} · Đuôi số: {numberOut.duoiEl} ·
+                Âm/Dương: {numberOut.amCount}/{numberOut.duongCount} · Tổng nút: {numberOut.tongNut}
+              </Text>
+
+              <Text style={styles.numBreak}>
+                Hợp Bát Tự {numberOut.breakdown.batTu}/40 · Cân bằng {numberOut.breakdown.canBang}/20 ·
+                Ý nghĩa số {numberOut.breakdown.yNghia}/20 · Hợp mục đích {numberOut.breakdown.mucDich}/20
+              </Text>
+
+              <Text style={styles.numSectionHead}>Kết luận</Text>
+              <Text style={styles.dayReason}>{numberOut.ketLuan}</Text>
+
+              <Text style={styles.numSectionHead}>✦ Điểm mạnh</Text>
+              {numberOut.diemManh.map((s, i) => <Text key={`m${i}`} style={styles.dayReason}>• {s}</Text>)}
+
+              <Text style={[styles.numSectionHead, { color: '#e0a23a' }]}>⚠ Điểm cần lưu ý</Text>
+              {numberOut.diemLuuY.map((s, i) => <Text key={`l${i}`} style={styles.dayReason}>• {s}</Text>)}
+
+              <Text style={styles.numSectionHead}>💡 Gợi ý</Text>
+              <Text style={styles.dayReason}>{numberOut.goiY}</Text>
+            </View>
+          )}
+
+          <Text style={styles.note}>
+            _Luận theo 3 tầng: số tự thân có đẹp không · có hợp Bát Tự của bạn không · có hợp mục đích sử dụng không.
+            Quy đổi ngũ hành: 0,1→Thủy · 2,5,8→Thổ · 3,4→Mộc · 6,7→Kim · 9→Hỏa. Kết quả mang tính tham khảo._
+          </Text>
+        </>
+        )}
+
+        {!isNumberMode && (
         <Text style={styles.note}>
           _Logic dựa trên lá số của bạn (Dụng/Kỵ thần Bát Tự + hợp/xung tuổi) kết hợp tính chất từng việc.
           • "Khung giờ tốt cho lá số" hợp riêng với mệnh của bạn. • "Khung giờ tốt nói chung" là giờ
           hoàng đạo của ngày theo phong thủy (dùng khi giờ hợp lá số rơi vào lúc bất tiện).
           Kết quả mang tính tham khảo._
         </Text>
+        )}
 
         <MedDisclaimer compact style={{ marginTop: SPACING.xs }} />
       </ScrollView>
@@ -307,7 +432,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.gold,
   },
   outputHead: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700', marginBottom: 4 },
-  outputMeta: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, marginBottom: SPACING.sm },
+  outputMeta: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, marginBottom: SPACING.sm, textAlign: 'justify' },
   warning: { color: '#e0a23a', fontSize: FONTS.size.sm, marginBottom: SPACING.sm, fontStyle: 'italic' },
 
   topLabel: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800', marginTop: SPACING.sm, marginBottom: SPACING.xs },
@@ -316,13 +441,32 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm, borderLeftWidth: 3, borderLeftColor: COLORS.gold, gap: 4,
   },
   dayHead: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '800' },
+  dayLunar: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontStyle: 'italic' },
   dayCanChi: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
   dayReasonHead: { color: COLORS.textMuted, fontSize: FONTS.size.xs, marginTop: 4, fontWeight: '700' },
-  dayReason: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, marginLeft: 4 },
+  dayReason: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, marginLeft: 4, textAlign: 'justify' },
   dayDetail: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, marginTop: 2 },
   bold: { fontWeight: '700', color: COLORS.gold },
 
   note: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', marginTop: SPACING.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  chipSmall: { borderWidth: 1, borderColor: '#475569', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  chipSmallTxt: { color: '#94a3b8', fontSize: 10, fontWeight: '700' },
+  chipGreen: { borderColor: '#22c55e' },
+  chipGray: { borderColor: '#475569' },
+  dayWarning: { color: '#fca5a5', fontSize: FONTS.size.xs, fontWeight: '700', marginTop: 2 },
+
+  // Chế độ xem số
+  numInput: {
+    backgroundColor: COLORS.surface, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, color: COLORS.textPrimary,
+    fontSize: FONTS.size.lg, fontWeight: '800', letterSpacing: 2,
+  },
+  numHint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', marginTop: 2 },
+  scoreBig: { color: COLORS.textPrimary, fontSize: 30, fontWeight: '900', marginVertical: 2 },
+  scoreMax: { color: COLORS.textSecondary, fontSize: FONTS.size.md, fontWeight: '700' },
+  numBreak: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, marginBottom: SPACING.xs, marginTop: 2, textAlign: 'justify' },
+  numSectionHead: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800', marginTop: SPACING.sm, marginBottom: 2 },
 
   // Modal
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

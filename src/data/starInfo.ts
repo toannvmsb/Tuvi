@@ -1976,3 +1976,6 @@ export function getStarInfo(name: string): StarInfo | undefined {
   const mergedByPalace = { ...ext, ...(base.byPalace || {}) };
   return { ...base, byPalace: mergedByPalace };
 }
+
+/** Danh sách TẤT CẢ tên sao có dữ liệu (sắp xếp tiếng Việt) — cho ô tra cứu sao. */
+export const ALL_STAR_NAMES: string[] = Object.keys(STAR_INFO).sort((a, b) => a.localeCompare(b, 'vi'));

@@ -53,7 +53,7 @@ export default function StartupProgress({
   return (
     <View style={styles.screen}>
       <View style={styles.box}>
-        <Text style={styles.brand}>Tử Vi · Bát Tự</Text>
+        <Text style={styles.brand}>Trợ lý thông minh của bạn</Text>
         <Text style={styles.label}>Đang tải dữ liệu cho ứng dụng</Text>
         <View style={styles.track}>
           <Animated.View style={[styles.fill, { width: widthInterp }]} />

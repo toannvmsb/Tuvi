@@ -4,17 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList } from '../types';
 import ScreenHeader from '../components/ScreenHeader';
+import { navigationRef } from '../navigation/AppNavigator';
 import BatTuChartComponent from '../components/BatTuChart';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { analyzePhongThuyBatTu } from '../core/phongThuyBatTu';
+import { batTuThapThanMarkdown } from '../core/thapThan';
 import { batTuSections } from '../utils/aiAnalysis';
+import { cutAtSection } from '../core/offlineLuanGiai';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult } from '../lib/aiResults';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
@@ -26,6 +29,11 @@ export default function BatTuScreen({ route }: Props) {
   const { result } = route.params;
   const { batTuChart } = result;
   const phongThuy = useMemo(() => analyzePhongThuyBatTu(batTuChart), [batTuChart]);
+  // Nâng cao = phong thủy ngũ hành + Thập Thần/Cách cục/Biến động (chuyển Bát Tự thành tư vấn thực tế).
+  const offlineMd = useMemo(
+    () => `${phongThuy.markdown}\n\n${batTuThapThanMarkdown(batTuChart)}`,
+    [phongThuy.markdown, batTuChart],
+  );
   const [ptOpen, setPtOpen] = useState(true);
   const [mode, setMode] = useState<'offline' | 'ai'>('offline');
 
@@ -41,8 +49,8 @@ export default function BatTuScreen({ route }: Props) {
   const runAI = (force = false) => run(0, aiKey, batTuSections(result), force);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Bát Tự" />
+    <SafeAreaView style={styles.container} edges={[]}>
+      <ScreenHeader title="Bát Tự" onBack={() => navigationRef.navigate('Home')} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>{t('batTuTitle')}</Text>
         <Text style={styles.subtitle}>
@@ -85,22 +93,23 @@ export default function BatTuScreen({ route }: Props) {
               </View>
 
               {mode === 'offline' ? (
-                <PaidGate unlockKey={fkey(result, 'battu:adv')} kind="advanced">
-                  <SimpleMarkdown content={phongThuy.markdown} />
+                <PaidGate unlockKey={fkey(result, 'battu:adv')} kind="advanced"
+                  preview={cutAtSection(offlineMd, 'Cân bằng ngũ hành & ảnh hưởng tính cách')}>
+                  <SimpleMarkdown content={offlineMd} />
                   <ExportPdfButton
                     title="Bát Tự & Phong Thủy"
                     subtitle="Bản Nâng cao (offline)"
                     badge="NÂNG CAO"
                     headerLines={chartHeaderLines(result)}
                     fileName={`${result.birthInfo.name || 'Lá số'} - Bát Tự - Nâng cao`}
-                    getContent={() => phongThuy.markdown}
+                    getContent={() => offlineMd}
                   />
                 </PaidGate>
               ) : !ai || ai.status === 'idle' ? (
                 <View>
-                  <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>
+                  <Text style={styles.aiValueNote}>{AI_PREVIEW.batTu}</Text>
                   <TouchableOpacity style={styles.aiBtn} onPress={() => runAI()} activeOpacity={0.85}>
-                    <Text style={styles.aiBtnText}>🔍 Phân tích Bát Tự & Phong Thủy bằng AI ({PREMIUM.COST.ai} xu · {premiumBadgeNote()})</Text>
+                    <Text style={styles.aiBtnText}>🔍 Phân tích AI đầy đủ Bát Tự & Phong Thủy ({costNote(PREMIUM.COST.ai)})</Text>
                   </TouchableOpacity>
                 </View>
               ) : ai.status === 'loading' ? (

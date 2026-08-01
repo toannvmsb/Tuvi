@@ -23,6 +23,9 @@ export interface DayPickGroup {
   tasks: DayPickTask[];
 }
 
+/** Mã nhóm ĐẶC BIỆT "Xem số hợp mệnh" — màn hình đổi sang chế độ nhập số để luận. */
+export const NUMBER_GROUP_CODE = 'NUMBER';
+
 export const DAY_PICK_GROUPS: DayPickGroup[] = [
   {
     code: 'WORK', name: 'Công việc & Sự nghiệp', emoji: '💼',
@@ -136,6 +139,21 @@ export const DAY_PICK_GROUPS: DayPickGroup[] = [
       { code: 'VIP_MA', name: 'M&A', weight: 5 },
       { code: 'VIP_APPOINT', name: 'Bổ nhiệm nhân sự', weight: 5 },
       { code: 'VIP_LAUNCH', name: 'Ra mắt sản phẩm', weight: 5 },
+    ],
+  },
+  // ── Nhóm ĐẶC BIỆT: Xem số hợp mệnh (không chọn ngày — nhập dãy số để luận) ──
+  // Khi chọn nhóm này, màn hình ẩn phần chọn khoảng ngày & nút "Xem ngày phù hợp",
+  // thay bằng ô nhập số + mục đích + nút "Luận số theo mệnh". Xem DayPickerScreen.
+  {
+    code: NUMBER_GROUP_CODE, name: 'Xem số hợp mệnh', emoji: '🔢',
+    tasks: [
+      { code: 'PHONE', name: 'Xem số điện thoại', weight: 1 },
+      { code: 'PLATE', name: 'Xem biển số xe', weight: 1 },
+      { code: 'BANK', name: 'Xem số tài khoản ngân hàng', weight: 1 },
+      { code: 'HOUSE', name: 'Xem số nhà / căn hộ', weight: 1 },
+      { code: 'LUCKY', name: 'Xem số may mắn cá nhân', weight: 1 },
+      { code: 'COMPANY', name: 'Xem mã số doanh nghiệp', weight: 1 },
+      { code: 'ASSET', name: 'Xem số tài sản / hợp đồng', weight: 1 },
     ],
   },
 ];

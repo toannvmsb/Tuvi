@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "Tử Vi & Bát Tự",
+    "name": "Tuzi",
     "slug": "tuvi-app",
-    "version": "1.0.0",
+    "scheme": "tuzi",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -13,21 +14,40 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tuvi.app"
+      "bundleIdentifier": "com.tuzi.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần camera để đọc ảnh.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a1a"
       },
-      "package": "com.tuvi.app"
+      "package": "com.tuzi.app",
+      "versionCode": 3,
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-asset",
+      "react-native-iap"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2ed83b90-d1b2-4116-abd8-0f6de17a0b02"
+      }
+    }
   }
 }

@@ -13,20 +13,24 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { scoreAllNguyetVan, type NguyetVanScore } from '../core/nguyetVanScore';
+import { buildNguyetVanCharts, type NguyetVanChartData } from '../core/nguyetVanCharts';
+import RadarChart from '../components/RadarChart';
+import MonthDayHeatmapPanel from '../components/MonthDayHeatmapPanel';
 import { solarToLunar } from '../core/lunarCalendar';
-import { generateOfflineNguyetVan } from '../core/offlineLuanGiai';
+import { generateOfflineNguyetVan, cutAtSection } from '../core/offlineLuanGiai';
 import { analyzeNguyetVanWithAI } from '../utils/aiAnalysis';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
-import { premiumBadgeNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { useContentWidth } from '../lib/platform';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'NguyetVan'>;
@@ -38,6 +42,53 @@ const RATING_COLOR: Record<NguyetVanScore['rating'], string> = {
 const CHART_H = 130;
 const GREEN = '#5fdb8a';
 const GRAY = '#7c8aa5';
+const BLUE = '#60a5fa';
+const WEEK_CHART_H = 100;
+
+/** Biểu đồ 1: Cột 4 tuần — nhịp tháng (wealth/challenge/opportunity). */
+function WeekBarsChart({ weeks }: { weeks: NguyetVanChartData['weeks'] }) {
+  return (
+    <View style={vStyles.box}>
+      <View style={vStyles.headerRow}>
+        <Text style={vStyles.title}>Nhịp 4 tuần trong tháng</Text>
+        <View style={vStyles.legend}>
+          <View style={[vStyles.dot, { backgroundColor: GREEN }]} /><Text style={vStyles.legendTxt}>Tài lộc</Text>
+          <View style={[vStyles.dot, { backgroundColor: GRAY }]} /><Text style={vStyles.legendTxt}>Thách thức</Text>
+          <View style={[vStyles.dot, { backgroundColor: BLUE }]} /><Text style={vStyles.legendTxt}>Cơ hội</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: WEEK_CHART_H, paddingTop: 4 }}>
+        {weeks.map(w => (
+          <View key={w.index} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', height: WEEK_CHART_H, gap: 3 }}>
+            <View style={{ width: 8, height: (w.wealth / 100) * WEEK_CHART_H, backgroundColor: GREEN, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+            <View style={{ width: 8, height: (w.challenge / 100) * WEEK_CHART_H, backgroundColor: GRAY, borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: 0.9 }} />
+            <View style={{ width: 8, height: (w.opportunity / 100) * WEEK_CHART_H, backgroundColor: BLUE, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {weeks.map(w => (
+          <View key={w.index} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={vStyles.weekLabel}>Tuần {w.index}</Text>
+            <Text style={vStyles.weekDays}>{w.fromDay}–{w.toDay}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={vStyles.caption}>Mỗi tuần: Tài lộc · Thách thức · Cơ hội (0–100), suy ra từ điểm tháng + biến động ngày thực tế.</Text>
+    </View>
+  );
+}
+
+/** Biểu đồ 3: Radar tháng — 8 domain (8 chủ đề). */
+function MonthRadar({ radar }: { radar: NguyetVanChartData['radar'] }) {
+  const width = useContentWidth();
+  return (
+    <View style={[vStyles.box, { alignItems: 'center' }]}>
+      <Text style={vStyles.title}>Cấu trúc tháng — 8 lĩnh vực</Text>
+      <RadarChart data={radar} size={Math.min(width - 80, 320)} />
+    </View>
+  );
+}
 
 export default function NguyetVanScreen({ route }: Props) {
   const { result } = route.params;
@@ -124,8 +175,8 @@ export default function NguyetVanScreen({ route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Nguyệt Vận" />
+    <SafeAreaView style={styles.container} edges={[]}>
+      <ScreenHeader title="Nguyệt Vận" onBack={() => navigationRef.navigate('Home')} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hàng 1: chọn Đại vận */}
         <Text style={styles.rowLabel}>Chọn Đại vận</Text>
@@ -244,6 +295,19 @@ export default function NguyetVanScreen({ route }: Props) {
                   </View>
                   <Text style={styles.summary}>{d.summary}</Text>
 
+                  {/* 3 biểu đồ mục 5 (Logic Nguyệt Vận v2.0) — tính lazy, chỉ khi mở tháng này */}
+                  {(() => {
+                    const charts = buildNguyetVanCharts(result, age, d.month);
+                    if (!charts) return null;
+                    return (
+                      <>
+                        <WeekBarsChart weeks={charts.weeks} />
+                        <MonthDayHeatmapPanel days={charts.days} stats={charts.stats} todayLunarDay={isNow ? nowLunar.day : undefined} dayKind="lunar" />
+                        <MonthRadar radar={charts.radar} />
+                      </>
+                    );
+                  })()}
+
                   <View style={styles.tabsRow}>
                     <TouchableOpacity
                       style={[styles.tab, mode === 'offline' && styles.tabActive]}
@@ -259,25 +323,31 @@ export default function NguyetVanScreen({ route }: Props) {
 
                   {mode === 'offline' ? (
                     <View style={styles.aiResult}>
-                      <PaidGate unlockKey={fkey(result, `nv:${age}:${d.month}:adv`)} kind="advanced">
-                        <SimpleMarkdown content={generateOfflineNguyetVan(result, age, d.month)} />
-                        <ExportPdfButton
-                          title={`Nguyệt Vận tháng ${d.month}${year ? ` năm ${year}` : ''}`}
-                          subtitle="Bản Nâng cao (offline)"
-                          badge="NÂNG CAO"
-                          headerLines={chartHeaderLines(result)}
-                          fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận - T${d.month}-${year ?? ''}`}
-                          getContent={() => generateOfflineNguyetVan(result, age, d.month)}
-                        />
-                      </PaidGate>
+                      {(() => {
+                        const c = generateOfflineNguyetVan(result, age, d.month);
+                        return (
+                          <PaidGate unlockKey={fkey(result, `nv:${age}:${d.month}:adv`)} kind="advanced"
+                            preview={cutAtSection(c, 'Sắc thái của tháng')}>
+                            <SimpleMarkdown content={c} />
+                            <ExportPdfButton
+                              title={`Nguyệt Vận tháng ${d.month}${year ? ` năm ${year}` : ''}`}
+                              subtitle="Bản Nâng cao (offline)"
+                              badge="NÂNG CAO"
+                              headerLines={chartHeaderLines(result)}
+                              fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận tháng ${d.month}${year ? ` năm ${year}` : ''} - Nâng cao`}
+                              getContent={() => c}
+                            />
+                          </PaidGate>
+                        );
+                      })()}
                     </View>
                   ) : (
                     <>
                       {!a ? (
                         <View style={styles.aiResult}>
-                          <Text style={styles.aiValueNote}>✨ {AI_VALUE_NOTE}</Text>
+                          <Text style={styles.aiValueNote}>{AI_PREVIEW.nguyetVan}</Text>
                           <TouchableOpacity style={styles.aiBtn} onPress={() => runAI(d.month)} activeOpacity={0.85}>
-                            <Text style={styles.aiBtnText}>🔍 Phân tích AI ({PREMIUM.COST.ai} xu · {premiumBadgeNote()})</Text>
+                            <Text style={styles.aiBtnText}>🔍 Phân tích AI đầy đủ ({costNote(PREMIUM.COST.ai)})</Text>
                           </TouchableOpacity>
                         </View>
                       ) : a.status === 'loading' ? (
@@ -291,7 +361,7 @@ export default function NguyetVanScreen({ route }: Props) {
                             subtitle="Bản Phân tích AI"
                             badge="PHÂN TÍCH AI"
                             headerLines={chartHeaderLines(result)}
-                            fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận - T${d.month}-${year ?? ''}`}
+                            fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận tháng ${d.month}${year ? ` năm ${year}` : ''} - AI`}
                             getContent={() => a.text}
                           />
                           <TouchableOpacity onPress={() => runAI(d.month, true)}><Text style={styles.retry}>↻ Phân tích lại (−{PREMIUM.COST.ai} xu)</Text></TouchableOpacity>
@@ -367,4 +437,19 @@ const styles = StyleSheet.create({
   aiResult: { backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md, gap: SPACING.xs, borderWidth: 1, borderColor: COLORS.border },
   dim: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontStyle: 'italic' },
   retry: { color: COLORS.purple, fontSize: FONTS.size.sm, fontWeight: '700', marginTop: 4 },
+});
+
+const vStyles = StyleSheet.create({
+  box: {
+    backgroundColor: COLORS.surface, borderRadius: 10, padding: SPACING.sm,
+    borderWidth: 1, borderColor: COLORS.border, gap: 6,
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+  title: { color: COLORS.goldLight, fontSize: 11, fontWeight: '700' },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 8, height: 8, borderRadius: 2 },
+  legendTxt: { color: COLORS.textSecondary, fontSize: 9, marginRight: 4 },
+  weekLabel: { color: COLORS.gold, fontSize: 10, fontWeight: '700' },
+  weekDays: { color: COLORS.textSecondary, fontSize: 8 },
+  caption: { color: COLORS.textSecondary, fontSize: 9, fontStyle: 'italic', lineHeight: 13 },
 });

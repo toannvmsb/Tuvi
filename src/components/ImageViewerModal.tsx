@@ -1,209 +1,139 @@
 /**
- * Trình xem ảnh trong ứng dụng — phóng to bằng cử chỉ (pinch), kéo di chuyển,
- * chạm 2 lần để reset.
- * Mobile: dùng react-native-gesture-handler + Animated.
- * Web: hiển thị ảnh đơn giản trong scrollable container (không cần gesture native).
+ * Trình xem ảnh — pinch-to-zoom.
+ * iOS: ScrollView.maximumZoomScale (native, smooth).
+ * Android: Animated + PanResponder (không cần thư viện ngoài).
+ * Web: scroll view đơn giản.
  */
 
 import React, { useRef } from 'react';
 import {
-  Modal, View, StyleSheet, TouchableOpacity, Text, Animated, Dimensions, Platform, ScrollView, Image,
+  Modal, View, StyleSheet, TouchableOpacity, Text, Dimensions, Platform,
+  ScrollView, Image, Animated,
 } from 'react-native';
+import { PinchGestureHandler, PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-
-// Lazy-import gesture handlers chỉ trên native để tránh lỗi trên web.
-let PinchGestureHandler: any = View;
-let PanGestureHandler: any = View;
-let TapGestureHandler: any = View;
-let State: any = {};
-if (Platform.OS !== 'web') {
-  try {
-    const gh = require('react-native-gesture-handler');
-    PinchGestureHandler = gh.PinchGestureHandler;
-    PanGestureHandler = gh.PanGestureHandler;
-    TapGestureHandler = gh.TapGestureHandler;
-    State = gh.State;
-  } catch {}
-}
 
 interface Props {
   visible: boolean;
   uri: string | null;
   onClose: () => void;
   onShare?: () => void;
-  /** Bấm "Lưu ảnh" — chủ động lưu vào thư viện */
   onSave?: () => void;
 }
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const MAX_SCALE = 5;
-const MIN_SCALE = 1;
 
-export default function ImageViewerModal({ visible, uri, onClose, onShare, onSave }: Props) {
-  const pinchRef = useRef(null);
-  const panRef = useRef(null);
-  const doubleTapRef = useRef(null);
+/** Pinch-to-zoom + pan cho Android dùng react-native-gesture-handler. */
+function AndroidZoomImage({ uri }: { uri: string }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const savedScale = useRef(1);
+  const savedTx = useRef(0);
+  const savedTy = useRef(0);
 
-  const baseScale = useRef(new Animated.Value(1)).current;
-  const pinchScale = useRef(new Animated.Value(1)).current;
-  const scale = Animated.multiply(baseScale, pinchScale);
-  const curScale = useRef(1);
+  const pinchRef = useRef<PinchGestureHandler>(null);
+  const panRef = useRef<PanGestureHandler>(null);
 
-  const transX = useRef(new Animated.Value(0)).current;
-  const transY = useRef(new Animated.Value(0)).current;
-  const offset = useRef({ x: 0, y: 0 });
-
-  const reset = () => {
-    curScale.current = 1;
-    offset.current = { x: 0, y: 0 };
-    Animated.parallel([
-      Animated.spring(baseScale, { toValue: 1, useNativeDriver: true }),
-      Animated.spring(pinchScale, { toValue: 1, useNativeDriver: true }),
-      Animated.spring(transX, { toValue: 0, useNativeDriver: true }),
-      Animated.spring(transY, { toValue: 0, useNativeDriver: true }),
-    ]).start(() => {
-      transX.setOffset(0); transX.setValue(0);
-      transY.setOffset(0); transY.setValue(0);
-    });
+  const onPinchEvent = (e: any) => {
+    const next = Math.max(1, Math.min(5, savedScale.current * e.nativeEvent.scale));
+    scale.setValue(next);
+    if (next <= 1) {
+      translateX.setValue(0); translateY.setValue(0);
+      savedTx.current = 0; savedTy.current = 0;
+    }
   };
-
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
-
-  const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale: pinchScale } }],
-    { useNativeDriver: true },
-  );
 
   const onPinchStateChange = (e: any) => {
     if (e.nativeEvent.oldState === State.ACTIVE) {
-      let next = curScale.current * e.nativeEvent.scale;
-      if (next < MIN_SCALE) next = MIN_SCALE;
-      if (next > MAX_SCALE) next = MAX_SCALE;
-      curScale.current = next;
-      baseScale.setValue(next);
-      pinchScale.setValue(1);
-      if (next === MIN_SCALE) {
-        offset.current = { x: 0, y: 0 };
-        transX.setOffset(0); transX.setValue(0);
-        transY.setOffset(0); transY.setValue(0);
+      savedScale.current = Math.max(1, Math.min(5, savedScale.current * e.nativeEvent.scale));
+      if (savedScale.current <= 1) {
+        savedScale.current = 1;
+        translateX.setValue(0); translateY.setValue(0);
+        savedTx.current = 0; savedTy.current = 0;
       }
     }
   };
 
-  const onPanEvent = Animated.event(
-    [{ nativeEvent: { translationX: transX, translationY: transY } }],
-    { useNativeDriver: true },
-  );
+  const onPanEvent = (e: any) => {
+    if (savedScale.current <= 1) return;
+    const maxX = (SCREEN_W * (savedScale.current - 1)) / 2;
+    const maxY = (SCREEN_H * 0.72 * (savedScale.current - 1)) / 2;
+    const nx = Math.max(-maxX, Math.min(maxX, savedTx.current + e.nativeEvent.translationX));
+    const ny = Math.max(-maxY, Math.min(maxY, savedTy.current + e.nativeEvent.translationY));
+    translateX.setValue(nx);
+    translateY.setValue(ny);
+  };
 
   const onPanStateChange = (e: any) => {
     if (e.nativeEvent.oldState === State.ACTIVE) {
-      offset.current.x += e.nativeEvent.translationX;
-      offset.current.y += e.nativeEvent.translationY;
-      transX.setOffset(offset.current.x); transX.setValue(0);
-      transY.setOffset(offset.current.y); transY.setValue(0);
+      const maxX = (SCREEN_W * (savedScale.current - 1)) / 2;
+      const maxY = (SCREEN_H * 0.72 * (savedScale.current - 1)) / 2;
+      savedTx.current = Math.max(-maxX, Math.min(maxX, savedTx.current + e.nativeEvent.translationX));
+      savedTy.current = Math.max(-maxY, Math.min(maxY, savedTy.current + e.nativeEvent.translationY));
     }
   };
-
-  const onDoubleTap = (e: any) => {
-    if (e.nativeEvent.state === State.ACTIVE) {
-      if (curScale.current > 1) {
-        reset();
-      } else {
-        curScale.current = 2.5;
-        Animated.spring(baseScale, { toValue: 2.5, useNativeDriver: true }).start();
-      }
-    }
-  };
-
-  // Web: modal đơn giản, scroll để xem ảnh to
-  if (Platform.OS === 'web') {
-    return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-        <View style={styles.backdrop}>
-          <View style={styles.topBar}>
-            <Text style={styles.hint}>Cuộn để xem ảnh · nhấn Đóng khi xong</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={styles.webScroll}>
-            {uri ? <Image source={{ uri }} resizeMode="contain" style={styles.webImage} /> : null}
-          </ScrollView>
-          <View style={styles.bottomBar}>
-            {onSave ? (
-              <TouchableOpacity style={[styles.actionBtn, styles.actionSave]} onPress={onSave}>
-                <Text style={styles.actionText}>💾 Lưu ảnh</Text>
-              </TouchableOpacity>
-            ) : null}
-            {onShare ? (
-              <TouchableOpacity style={styles.actionBtn} onPress={onShare}>
-                <Text style={styles.actionText}>📤 Chia sẻ</Text>
-              </TouchableOpacity>
-            ) : null}
-            <TouchableOpacity style={[styles.actionBtn, styles.actionPrimary]} onPress={handleClose}>
-              <Text style={[styles.actionText, { color: '#1a0a00' }]}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+    <PanGestureHandler ref={panRef} onGestureEvent={onPanEvent} onHandlerStateChange={onPanStateChange} simultaneousHandlers={pinchRef} minPointers={1} maxPointers={1}>
+      <Animated.View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <PinchGestureHandler ref={pinchRef} onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange} simultaneousHandlers={panRef}>
+          <Animated.View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.Image
+              source={{ uri }}
+              resizeMode="contain"
+              style={[styles.image, { transform: [{ scale }, { translateX }, { translateY }] }]}
+            />
+          </Animated.View>
+        </PinchGestureHandler>
+      </Animated.View>
+    </PanGestureHandler>
+  );
+}
+
+export default function ImageViewerModal({ visible, uri, onClose, onShare, onSave }: Props) {
+  const insets = useSafeAreaInsets();
+  const hint = Platform.OS === 'web'
+    ? 'Cuộn để xem ảnh · nhấn Đóng khi xong'
+    : 'Chụm 2 ngón để phóng to · bung ra để thu nhỏ';
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.backdrop}>
-        {/* Top bar */}
         <View style={styles.topBar}>
-          <Text style={styles.hint}>Chụm 2 ngón để phóng to · chạm 2 lần để reset</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.hint}>{hint}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Zoomable image */}
-        {uri ? (
-          <PanGestureHandler
-            ref={panRef}
-            minPointers={1}
-            maxPointers={2}
-            avgTouches
-            onGestureEvent={onPanEvent}
-            onHandlerStateChange={onPanStateChange}
-            simultaneousHandlers={[pinchRef]}
+        {/* iOS: ScrollView native zoom. Android: Animated pinch. Web: đơn giản. */}
+        {Platform.OS === 'ios' ? (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.scrollContent}
+            maximumZoomScale={5}
+            minimumZoomScale={1}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            centerContent
+            bouncesZoom
           >
-            <Animated.View style={styles.center}>
-              <PinchGestureHandler
-                ref={pinchRef}
-                onGestureEvent={onPinchEvent}
-                onHandlerStateChange={onPinchStateChange}
-                simultaneousHandlers={[panRef]}
-              >
-                <Animated.View>
-                  <TapGestureHandler
-                    ref={doubleTapRef}
-                    numberOfTaps={2}
-                    onHandlerStateChange={onDoubleTap}
-                  >
-                    <Animated.Image
-                      source={{ uri }}
-                      resizeMode="contain"
-                      style={[
-                        styles.image,
-                        { transform: [{ translateX: transX }, { translateY: transY }, { scale }] },
-                      ]}
-                    />
-                  </TapGestureHandler>
-                </Animated.View>
-              </PinchGestureHandler>
-            </Animated.View>
-          </PanGestureHandler>
-        ) : null}
+            {uri ? <Image source={{ uri }} resizeMode="contain" style={styles.image} /> : null}
+          </ScrollView>
+        ) : Platform.OS === 'android' ? (
+          <View style={styles.androidContainer}>
+            {uri ? <AndroidZoomImage uri={uri} /> : null}
+          </View>
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
+            {uri ? <Image source={{ uri }} resizeMode="contain" style={styles.image} /> : null}
+          </ScrollView>
+        )}
 
-        {/* Bottom actions */}
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: SPACING.lg + insets.bottom }]}>
           {onSave ? (
             <TouchableOpacity style={[styles.actionBtn, styles.actionSave]} onPress={onSave}>
               <Text style={styles.actionText}>💾 Lưu ảnh</Text>
@@ -214,11 +144,12 @@ export default function ImageViewerModal({ visible, uri, onClose, onShare, onSav
               <Text style={styles.actionText}>📤 Chia sẻ</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={[styles.actionBtn, styles.actionPrimary]} onPress={handleClose}>
+          <TouchableOpacity style={[styles.actionBtn, styles.actionPrimary]} onPress={onClose}>
             <Text style={[styles.actionText, { color: '#1a0a00' }]}>Đóng</Text>
           </TouchableOpacity>
         </View>
       </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -235,7 +166,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   closeText: { color: '#fff', fontSize: 20, fontWeight: '700', lineHeight: 22 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  androidContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   image: { width: SCREEN_W, height: SCREEN_H * 0.72 },
   bottomBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -248,6 +180,4 @@ const styles = StyleSheet.create({
   actionSave: { backgroundColor: 'rgba(34,197,94,0.6)' },
   actionPrimary: { backgroundColor: COLORS.gold },
   actionText: { color: '#fff', fontSize: FONTS.size.md, fontWeight: '700' },
-  webScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.md },
-  webImage: { width: '100%' as any, height: 500 },
 });
