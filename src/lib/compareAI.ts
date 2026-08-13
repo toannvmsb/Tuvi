@@ -5,9 +5,9 @@
  * Key ưu tiên: server (Supabase) → OpenAI → Claude → free.
  */
 import type { AstrologyResult } from '../types';
+import { supabase } from './supabase';
 import { getAiResult, setAiResult } from './aiResults';
 import { confirmAndUnlock, confirmReanalyze } from './confirmCharge';
-import { getServerAiKeys } from './aiKeys';
 import { serializeForAI, type CompareResult, type AnalysisLayer } from '../core/compareCharts';
 import { PREMIUM } from '../constants/premium';
 
@@ -170,19 +170,31 @@ async function callFree(prompt: string, signal: AbortSignal): Promise<string> {
   return (j?.choices?.[0]?.message?.content ?? '').trim();
 }
 
+/**
+ * SỬA LỖI BẢO MẬT: gọi key DÙNG CHUNG của app qua Edge Function `ai-proxy` (promptKind='compare')
+ * thay vì đọc thẳng OpenAI/Anthropic key về client — xem cùng cơ chế ở utils/aiAnalysis.ts.
+ */
+async function callAiProxy(prompt: string, provider: 'openai' | 'claude', signal: AbortSignal): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-proxy', {
+    body: { prompt, provider, promptKind: 'compare' },
+    signal,
+  });
+  if (error) {
+    const ctx = (error as any)?.context;
+    let code = '';
+    try { const b = typeof ctx?.json === 'function' ? await ctx.json() : null; code = b?.error || ''; } catch { /* ignore */ }
+    throw new Error(code || `${provider.toUpperCase()}_${ctx?.status || 'ERR'}`);
+  }
+  const text = (data as any)?.text as string | undefined;
+  if (!text) throw new Error(`${provider.toUpperCase()}_EMPTY`);
+  return text.trim();
+}
+
 // ─── KEY RESOLUTION ────────────────────────────────────────────────────────────
-// Cùng pattern với aiAnalysis.ts:aiKeysOf — server keys ưu tiên, fallback về birthInfo.
-// KHÔNG dùng SecureStore (không hoạt động trên web).
+// Chỉ còn ý nghĩa cho BYOK (key riêng người dùng tự nhập) — dùng làm phương án dự phòng khi
+// proxy (key dùng chung của app) lỗi. KHÔNG dùng SecureStore (không hoạt động trên web).
 
 function resolveKeys(a: AstrologyResult): { openai: string; claude: string; provider: string } {
-  const server = getServerAiKeys();
-  if (server?.openaiApiKey || server?.anthropicApiKey) {
-    return {
-      openai: server.openaiApiKey ?? '',
-      claude: server.anthropicApiKey ?? '',
-      provider: server.aiProvider ?? 'openai',
-    };
-  }
   const bi = a.birthInfo as any;
   return {
     openai: (bi?.openaiApiKey ?? '').trim(),
@@ -198,8 +210,13 @@ async function runOneLayer(prompt: string, a: AstrologyResult): Promise<string> 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    // Thứ tự giống aiAnalysis.ts: 'openai' ưu tiên OpenAI, 'claude' ưu tiên Claude, 'auto' → OpenAI trước
+    // Thứ tự ưu tiên nhà cung cấp (áp dụng cho cả proxy lẫn BYOK dự phòng).
+    const order: ('openai' | 'claude')[] = provider === 'claude' ? ['claude', 'openai'] : ['openai', 'claude'];
+
     const sources: Array<() => Promise<string>> = [];
+    // 1) PROXY trước — đường CHÍNH, không cần BYOK key.
+    for (const src of order) sources.push(() => callAiProxy(prompt, src, controller.signal));
+    // 2) BYOK dự phòng — chỉ khi user có tự nhập key riêng.
     if (provider === 'claude') {
       if (claude) sources.push(() => callClaude(prompt, claude, controller.signal));
       if (openai) sources.push(() => callOpenAI(prompt, openai, controller.signal));
@@ -207,6 +224,7 @@ async function runOneLayer(prompt: string, a: AstrologyResult): Promise<string> 
       if (openai) sources.push(() => callOpenAI(prompt, openai, controller.signal));
       if (claude) sources.push(() => callClaude(prompt, claude, controller.signal));
     }
+    // 3) Free — phương án cuối cùng.
     sources.push(() => callFree(prompt, controller.signal));
 
     for (const src of sources) {

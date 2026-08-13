@@ -8,6 +8,7 @@
  */
 
 import type { AstrologyResult, TuViHouse } from '../types';
+import { supabase } from '../lib/supabase';
 import { getStarInfo } from '../data/starInfo';
 import { detectCachCucInPalace } from '../data/cachCuc';
 import { scoreDaiVan } from '../core/daiVanScore';
@@ -18,7 +19,6 @@ import { summarizeBatTuAdvanced, computeThapThan, hyThanOf } from '../core/thapT
 import { analyzePhongThuyBatTu } from '../core/phongThuyBatTu';
 import { scoreNhatVan, generateNhatVanOffline } from '../core/nhatVan';
 import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE } from '../data/dayPickTasks';
-import { getServerAiKeys } from '../lib/aiKeys';
 import { luuStarsTamPhuong, luuSummary, yearVsTuoi } from '../core/luuStars';
 import { KHAI_QUAT_12_CUNG, CHINH_TINH_CORE } from '../data/lasoLuanGiaiGuide';
 import { computePhiHoa, summarizeAllPhiHoa, summarizeYearHoa, luuTuHoaPositions, monthStem } from '../core/phiHoa';
@@ -43,6 +43,8 @@ function palaceMapBlock(result: AstrologyResult): string {
 }
 import { analyzeFinancialDNA, FINANCIAL_DIM_LABEL } from '../core/wealthAnalysis';
 import { extractChartFacts, validateAINarrative, type ChartFacts } from '../core/aiResponseValidator';
+import { personalizeEvent } from '../core/eventPersonalization';
+import type { ResolvedEvent } from '../core/lifeEventEngine';
 import { analyzePalace } from '../core/palaceAnalysisService';
 import { natalFactsBlock } from '../core/natalAnalysisService';
 import { computeSixDomainScores } from '../core/offlineLuanGiai';
@@ -88,12 +90,13 @@ function capWords(s: string, maxWords: number): string {
 
 const BR = (h: TuViHouse) => `${h.can} ${h.branch}`;
 
-/** Đọc cụm AI keys + provider.
- *  ƯU TIÊN key dùng chung từ Supabase (của chủ app, OpenAI→Claude); nếu chưa có
- *  (chưa cấu hình / chế độ offline) thì dùng key nhập tay trong birthInfo. */
+/**
+ * Đọc cụm AI keys + provider — CHỈ còn ý nghĩa cho BYOK (key riêng người dùng tự nhập trong Cài
+ * đặt), dùng làm phương án dự phòng khi proxy (key dùng chung của app) lỗi. Key dùng chung KHÔNG
+ * còn đọc ở client nữa (xem callAiProxy + supabase/functions/ai-proxy — SỬA LỖI BẢO MẬT: trước
+ * đây đọc thẳng từ bảng app_secrets, lộ key cho mọi user đăng nhập).
+ */
 function aiKeysOf(bi: any): AIKeys {
-  const server = getServerAiKeys();
-  if (server) return server;
   return {
     anthropicApiKey: bi?.anthropicApiKey,
     openaiApiKey: bi?.openaiApiKey,
@@ -660,6 +663,35 @@ export interface AIKeys {
   aiProvider?: 'auto' | 'claude' | 'openai';
 }
 
+/**
+ * SỬA LỖI BẢO MẬT: gọi key DÙNG CHUNG của app qua Edge Function `ai-proxy` thay vì đọc thẳng
+ * OpenAI/Anthropic key về client rồi tự gọi (cách cũ để lộ key cho bất kỳ user đăng nhập nào —
+ * xem supabase_security_fixes.sql FIX 1 + supabase/functions/ai-proxy/index.ts). Server tự đọc
+ * key bằng service role, KHÔNG BAO GIỜ trả key về client — chỉ trả về đúng đoạn văn bản kết quả.
+ */
+async function callAiProxy(prompt: string, provider: 'openai' | 'claude', signal: AbortSignal): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-proxy', {
+    body: { prompt, provider, promptKind: 'natal' },
+    signal,
+  });
+  if (error) {
+    const ctx = (error as any)?.context;
+    let code = '';
+    try { const b = typeof ctx?.json === 'function' ? await ctx.json() : null; code = b?.error || ''; } catch { /* ignore */ }
+    if (!code) code = `${provider.toUpperCase()}_${ctx?.status || 'ERR'}`;
+    if (/_(401|403)$/.test(code)) {
+      throw new Error(`API key ${provider === 'openai' ? 'OpenAI' : 'Claude'} không hợp lệ hoặc chưa được cấp quyền. Kiểm tra lại key.`);
+    }
+    if (/_429$/.test(code)) {
+      throw new Error(`Tài khoản ${provider === 'openai' ? 'OpenAI' : 'Claude'} hết định mức / quá tải. Kiểm tra số dư hoặc rate limit.`);
+    }
+    throw new Error(code);
+  }
+  const text = (data as any)?.text as string | undefined;
+  if (!text) throw new Error(`${provider.toUpperCase()}_EMPTY`);
+  return clean(text);
+}
+
 /** Lõi gọi AI dùng chung cho phân tích 1 cung & toàn lá số. */
 async function requestAI(prompt: string, keysOrLegacy?: string | AIKeys): Promise<string> {
   // Backward-compat: cho phép truyền thẳng anthropicApiKey (string).
@@ -730,15 +762,32 @@ async function requestAIWithOrder(
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     // Cờ bị-lỗi cho mỗi nguồn, để các lượt sau bỏ qua nguồn đã hỏng.
+    const proxyFailed: Record<string, boolean> = { claude: false, openai: false };
     const failed: Record<string, boolean> = { claude: false, openai: false };
     const lastErrors: string[] = [];
+    // Luôn thử qua PROXY trước (key CHUNG của app, phía server — xem callAiProxy) dù client có
+    // hay không có BYOK key riêng, vì proxy không phụ thuộc key ở phía client. `order` rỗng
+    // (chưa cấu hình BYOK) vẫn cần 1 thứ tự để thử proxy → mặc định ưu tiên OpenAI trước.
+    const proxyOrder: ('claude' | 'openai')[] = order.length ? order : ['openai', 'claude'];
 
     const fetchOnce = async (p: string): Promise<string> => {
+      // 1) PROXY — đường CHÍNH cho hầu hết người dùng (không cần BYOK key).
+      for (const src of proxyOrder) {
+        if (proxyFailed[src]) continue;
+        try {
+          return await callAiProxy(p, src, controller.signal);
+        } catch (e: any) {
+          if (e?.name === 'AbortError') throw e;
+          proxyFailed[src] = true;
+          lastErrors.push(`PROXY_${src.toUpperCase()}: ${String(e?.message || 'err').slice(0, 140)}`);
+        }
+      }
+      // 2) BYOK — key riêng người dùng tự nhập trong Cài đặt, chỉ dùng khi proxy lỗi hẳn.
       for (const src of order) {
         if (failed[src]) continue;
         try {
-          if (src === 'claude') return await tryAnthropic(p, claudeKey, controller.signal);
-          if (src === 'openai') return await tryOpenAI(p, openaiKey, controller.signal);
+          if (src === 'claude' && claudeKey) return await tryAnthropic(p, claudeKey, controller.signal);
+          if (src === 'openai' && openaiKey) return await tryOpenAI(p, openaiKey, controller.signal);
         } catch (e: any) {
           if (e?.name === 'AbortError') throw e;
           failed[src] = true;
@@ -750,26 +799,31 @@ async function requestAIWithOrder(
     };
 
     // Vòng lặp lấy nội dung hợp lệ:
-    //   • Lượt 1: gọi nguồn ưu tiên (Claude/OpenAI nếu có key, ngược lại free).
+    //   • Lượt 1: gọi nguồn ưu tiên (proxy trước, BYOK sau, ngược lại free).
     //   • Lượt 2: chỉ retry nếu lượt 1 thực sự rỗng/ngắn quá; KHÔNG retry khi
     //     output từ paid model bị flag degenerate (paid model RẤT hiếm khi rác,
     //     flag thường là false-positive và retry sẽ tốn thời gian dẫn đến timeout).
     //   • Lượt 3: dành cho trường hợp paid hỏng → đã fall sang free model.
-    const hasPaidKey = order.length > 0;
     let content = '';
     let degenerateCount = 0;
     for (let attempt = 0; attempt < 3; attempt++) {
       const got = (await fetchOnce(prompt)).trim();
       if (!got || got.length < 40) {
-        // Output rỗng / quá ngắn → nguồn hỏng → đánh fail rồi thử nguồn kế.
-        for (const src of order) {
-          if (!failed[src]) { failed[src] = true; break; }
+        // Output rỗng / quá ngắn → nguồn hỏng → đánh fail rồi thử nguồn kế (proxy trước, BYOK sau).
+        let marked = false;
+        for (const src of proxyOrder) {
+          if (!proxyFailed[src]) { proxyFailed[src] = true; marked = true; break; }
+        }
+        if (!marked) {
+          for (const src of order) {
+            if (!failed[src]) { failed[src] = true; break; }
+          }
         }
         continue;
       }
-      // Degenerate check: bỏ qua khi đang dùng paid model còn sống (Claude/OpenAI).
+      // Degenerate check: bỏ qua khi đang dùng paid model còn sống (proxy hoặc BYOK).
       // Chỉ áp cho free model — vì pollinations đôi khi thật sự ra rác.
-      const stillUsingPaid = hasPaidKey && order.some(s => !failed[s]);
+      const stillUsingPaid = proxyOrder.some(s => !proxyFailed[s]) || order.some(s => !failed[s]);
       if (!stillUsingPaid && looksDegenerate(got)) {
         degenerateCount++;
         continue;
@@ -787,9 +841,11 @@ async function requestAIWithOrder(
 
     // Nếu bị cắt → VIẾT TIẾP — nhưng CHỈ khi nội dung hiện tại lành mạnh.
     let guard = 0;
-    // Continuation loop chỉ chạy khi output thật sự ngắn (< 2000 từ).
-    // Output dài (> 2000) thường đã hoàn chỉnh; tiếp tục dễ gây timeout.
-    while (isLikelyTruncated(content) && guard < 2 && content.length < 2000) {
+    // Ngưỡng tính theo SỐ KÝ TỰ (không phải số từ). Các phần dài nhất của Bát Tự/
+    // Toàn lá số nhắm ~1900 từ (~11.000-12.000 ký tự tiếng Việt) — ngưỡng cũ 2000
+    // ký tự quá nhỏ nên hầu như không bao giờ bắt được các phần dài bị cắt giữa
+    // chừng (vd Bát Tự bị cắt ngay đầu mục "Chiến lược hành động").
+    while (isLikelyTruncated(content) && guard < 2 && content.length < 13000) {
       guard++;
       const tail = content.slice(-320);
       const contPrompt =
@@ -818,17 +874,11 @@ async function requestAIWithOrder(
       );
     }
     if (e?.name === 'AbortError') {
-      // Có key trả phí mà vẫn timeout 120s → có thể prompt quá dài hoặc model phản hồi chậm.
-      // Báo rõ thay vì chỉ "OFFLINE" để người dùng biết.
-      if (claudeKey || openaiKey) {
-        throw new Error(
-          'AI mất hơn 2 phút chưa phản hồi xong. Có thể do prompt yêu cầu output dài ' +
-          'hoặc dịch vụ AI đang chậm. Vui lòng thử lại sau ít phút.',
-        );
-      }
+      // Timeout — proxy (key dùng chung) luôn được thử trước cho MỌI người dùng nên luôn coi
+      // như "có nguồn trả phí" khi báo lỗi timeout (khác trước đây khi còn phụ thuộc BYOK key).
       throw new Error(
-        'Dịch vụ AI miễn phí phản hồi quá lâu (quá tải). Hãy thử lại sau, hoặc ' +
-        'nhập API key (Claude / OpenAI) trong Cài đặt để dùng ổn định.',
+        'AI mất hơn 2 phút chưa phản hồi xong. Có thể do prompt yêu cầu output dài ' +
+        'hoặc dịch vụ AI đang chậm. Vui lòng thử lại sau ít phút.',
       );
     }
     if (e instanceof TypeError || /network|fetch|Failed/i.test(msg)) {
@@ -2133,6 +2183,65 @@ export async function analyzeNhatVanWithAI(result: AstrologyResult, dateMs: numb
     '5. TRANG PHỤC – MÀU – HƯỚNG – SỐ: màu NÊN mặc (dụng thần) và TRÁNH (kỵ thần) kèm lý do; phụ kiện/đá hợp; HƯỚNG tốt xuất hành – khởi sự; con số may mắn của ngày.',
     '6. TÌNH CẢM – GIAO TIẾP: thuận/không thuận cho việc gì trong đời sống tình cảm; nên gặp / hợp tác với người mang HÀNH nào và vì sao; chủ đề nên nói – nên tránh; khung giờ thuận cho cuộc trò chuyện quan trọng.',
     'Tư vấn như đang dặn dò trực tiếp, dễ áp dụng. Chỉ dùng dữ liệu đã cho, không bịa thêm.',
+  ].filter(Boolean).join('\n');
+  return capWords(await requestAI(prompt, aiKeysOf(birthInfo)), 5000);
+}
+
+/**
+ * Phân tích AI cá nhân hóa cho 1 "Sự kiện sắp tới" (lễ Tết/tiết khí/sự kiện cá nhân) — cùng khung
+ * giá "AI nhỏ" và độ dài với `analyzeNhatVanWithAI`. Nhúng nguyên DỮ KIỆN của sự kiện + kết quả
+ * cá nhân hóa offline đã có (`personalizeEvent`) làm DỮ KIỆN CỐ ĐỊNH — AI chỉ diễn giải/mở rộng,
+ * không tự bịa thêm. Theo đúng khung Nam Phái (KHÔNG Mệnh chủ/Thân chủ) + 4 lớp
+ * DỮ KIỆN→PHÂN TÍCH→KẾT LUẬN→KHUYẾN NGHỊ (CLAUDE.md mục 2.4).
+ */
+export async function analyzeEventWithAI(result: AstrologyResult, event: ResolvedEvent): Promise<string> {
+  const { birthInfo, batTuChart: b } = result;
+  const advice = personalizeEvent(result, event.element, event.occursOn);
+  const fav = (b.favorableElements || []).join(', ');
+  const unfav = (b.unfavorableElements || []).join(', ');
+  const doItems = (event.doText ?? '').split('\n').map(s => s.trim()).filter(Boolean);
+  const avoidItems = (event.avoidText ?? '').split('\n').map(s => s.trim()).filter(Boolean);
+
+  const prompt = [
+    'Bạn là một thầy tư vấn Mệnh lý (Tử Vi Nam Phái) giàu kinh nghiệm. Tư vấn cho thân chủ về MỘT ' +
+    'SỰ KIỆN/NGÀY cụ thể sắp diễn ra, dựa trên lá số của họ, bằng tiếng Việt ấm áp, CỤ THỂ và thực tế. ' +
+    'TUYỆT ĐỐI KHÔNG dùng khái niệm "Mệnh chủ"/"Thân chủ" (phái Nam Phái không dùng). KHÔNG bảng/markdown. ' +
+    'KHÔNG phán đoán tuyệt đối (không nói "chắc chắn tốt/xấu") — chỉ nói xu hướng, mức độ thuận lợi/rủi ro, và hành động cụ thể.',
+    '',
+    `Người xem: ${birthInfo.gender === 'nam' ? 'Nam' : 'Nữ'}, tuổi (chi năm) ${result.tuViChart.lunarDate.yearBranch}. ` +
+    `Nhật Chủ ${b.dayMaster} (${b.dayMasterElement}). Dụng thần: ${fav || 'không rõ'}; Kỵ thần: ${unfav || 'không rõ'}.`,
+    '',
+    `Sự kiện: ${event.displayName} (hành ${event.element}) — ngày ${event.occursOn.getDate()}/${event.occursOn.getMonth() + 1}/${event.occursOn.getFullYear()}, ` +
+    `${event.daysUntil === 0 ? 'diễn ra HÔM NAY' : event.daysUntil > 0 ? `còn ${event.daysUntil} ngày nữa` : `đã qua ${-event.daysUntil} ngày`}.`,
+    '',
+    '===== DỮ KIỆN CỐ ĐỊNH (bắt buộc dùng nguyên, không được bịa thêm hay đổi khác) =====',
+    `Ý nghĩa sự kiện: ${event.meaning}`,
+    doItems.length ? `Nên làm (theo phong tục): ${doItems.join('; ')}.` : '',
+    avoidItems.length ? `Nên tránh (theo phong tục): ${avoidItems.join('; ')}.` : '',
+    advice ? `Chất lượng ngày này với riêng thân chủ: ${advice.dayScore.rating} (${advice.dayScore.score100}/100).` : '',
+    advice && advice.dayScore.reasons.length ? `Căn cứ: ${advice.dayScore.reasons.join('; ')}.` : '',
+    advice && advice.dayScore.warnings.length ? `Cảnh báo cứng: ${advice.dayScore.warnings.join(' ')}` : '',
+    advice ? `Quan hệ ngũ hành sự kiện với dụng thần: ${advice.elementNote}` : '',
+    advice ? `Màu hợp: ${advice.luckyColor}. Hướng hợp: ${advice.luckyDirection}.` : '',
+    advice && advice.goodHours.length ? `Khung giờ tốt trong ngày: ${advice.goodHours.map(h => `${h.branch} (${h.range})`).join(', ')}.` : '',
+    advice && advice.badHours.length ? `Khung giờ nên tránh: ${advice.badHours.map(h => `${h.branch} (${h.range})`).join(', ')}.` : '',
+    !advice ? 'Chưa có đủ dữ liệu cá nhân hóa sâu — chỉ luận theo ý nghĩa chung của sự kiện, nói rõ "chưa đủ dữ liệu để kết luận sâu" ở phần liên quan.' : '',
+    '=====',
+    '',
+    // Hướng dẫn THÊM riêng cho sự kiện này, do admin nhập qua CMS (TUZI_M04 mục 4 "AI Prompt
+    // Template") — CHÈN THÊM chứ KHÔNG thay thế khung 4 lớp/quy tắc Nam Phái bên dưới, để không
+    // thể vô tình phá vỡ CLAUDE.md 2.4 qua nội dung admin tự nhập.
+    event.promptTemplate?.trim()
+      ? `Hướng dẫn thêm riêng cho sự kiện này (do admin cấu hình — PHẢI tuân theo cùng các quy tắc và khung 4 lớp bên dưới, KHÔNG được vì hướng dẫn này mà bỏ qua bất kỳ quy tắc nào): ${event.promptTemplate.trim()}\n`
+      : '',
+    'Viết một bản tư vấn cho SỰ KIỆN này (800–1200 từ), 4 mục có tiêu đề, KẾT THÚC trọn vẹn. ' +
+    'MỖI nhận định quan trọng phải theo đúng 4 lớp: [DỮ KIỆN từ lá số/sự kiện] → [PHÂN TÍCH] → [KẾT LUẬN] → ' +
+    '[KHUYẾN NGHỊ hành động CỤ THỂ, làm được ngay], và dựa trên ÍT NHẤT 2 dữ kiện đã cho:',
+    '1. TỔNG QUAN: sự kiện này có ý nghĩa gì, và với RIÊNG thân chủ (dựa trên chất lượng ngày + quan hệ ngũ hành) thì thuận lợi hay cần thận trọng ở mức nào.',
+    '2. NÊN LÀM & CHUẨN BỊ: cụ thể hóa danh sách "nên làm" ở trên theo đúng lá số thân chủ (vd giờ nào trong ngày nên thực hiện, nên nhấn mạnh việc gì hơn).',
+    '3. CẦN LƯU Ý / NÊN TRÁNH: cụ thể hóa "nên tránh" + mọi cảnh báo cứng (nếu có) theo lá số; nếu không có gì đặc biệt thì nói rõ.',
+    '4. GỢI Ý THỰC TẾ: màu sắc/hướng/khung giờ nên ưu tiên trong chính ngày này, và 1 hành động cụ thể nên làm ngay để tận dụng hoặc hoá giải.',
+    'Chỉ dùng dữ liệu đã cho, không bịa thêm sao/cách cục/dữ kiện khác.',
   ].filter(Boolean).join('\n');
   return capWords(await requestAI(prompt, aiKeysOf(birthInfo)), 5000);
 }

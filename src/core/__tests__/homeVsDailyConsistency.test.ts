@@ -7,12 +7,16 @@ import { allSampleResults } from './fixtures';
 /**
  * Regression cho bug thực tế: Home ("Nhịp tháng này", dùng buildNguyetVanCharts
  * theo tháng ÂM) từng lệch hẳn 1 NĂM so với màn Xem theo ngày (buildMonthHeatmap,
- * theo tháng DƯƠNG trực tiếp) cho CÙNG một ngày thật — do lunarToSolar() trong
- * repo nhận tham số năm theo quy ước LỆCH 1 năm cho tháng 1–10 (đã sửa ở
- * lunarMonthRange). Test này ép buộc 2 pipeline phải ra CÙNG NGÀY DƯƠNG, CÙNG
- * ĐIỂM, CÙNG MÀU cho "hôm nay" — không chỉ tự nhất quán nội bộ như
- * nguyetVanChartsLunarAccuracy.test.ts (test đó không phát hiện được bug lệch
- * năm vì không đối chiếu với ngày dương thật).
+ * theo tháng DƯƠNG trực tiếp) cho CÙNG một ngày thật — do bug GỐC trong
+ * `lunarToSolar()` (lunarCalendar.ts): luôn lấy mốc "tháng 11" theo
+ * `lunarYear`/`lunarYear+1` bất kể tháng đang chuyển, đúng ra phải dùng
+ * `lunarYear-1`/`lunarYear` cho các tháng 1–10. Từng được PATCH TẠM ở
+ * `lunarMonthRange` (bù trừ năm truyền vào) thay vì sửa tận gốc; nay bug gốc đã
+ * được sửa thẳng trong `lunarToSolar()` nên patch tạm đó đã được gỡ bỏ. Test
+ * này ép buộc 2 pipeline phải ra CÙNG NGÀY DƯƠNG, CÙNG ĐIỂM, CÙNG MÀU cho "hôm
+ * nay" — không chỉ tự nhất quán nội bộ như nguyetVanChartsLunarAccuracy.test.ts
+ * (test đó không phát hiện được bug lệch năm vì không đối chiếu với ngày dương
+ * thật).
  */
 describe('Home (Nguyệt Vận theo tuổi thật) khớp Xem theo ngày (theo dương lịch) cho hôm nay', () => {
   it('cùng ngày → cùng date/score/tone cho cả 3 lá số mẫu', () => {

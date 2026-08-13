@@ -33,6 +33,8 @@ import { costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'DaiVan'>;
 
@@ -102,6 +104,7 @@ export default function DaiVanScreen({ route }: Props) {
   const [tabMode, setTabMode] = useState<Record<number, 'offline' | 'ai'>>({});
 
   const { ai, run, retryMissing, showCached } = useStreamingAI();
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   // Chụp lá số (ẩn) để nhúng vào PDF.
   const chartRef = useRef<View>(null);
@@ -178,7 +181,7 @@ export default function DaiVanScreen({ route }: Props) {
         )}
       </View>
       <ScreenHeader title="Đại Vận" onBack={() => navigationRef.navigate('Home')} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>Đại Vận của {result.birthInfo.name || 'bạn'}</Text>
         <Text style={styles.subtitle}>Biểu đồ xu hướng các đại vận (từ {scores[0]?.label ?? '?'} đến {scores[scores.length - 1]?.label ?? '?'} tuổi)</Text>
 
@@ -327,6 +330,7 @@ export default function DaiVanScreen({ route }: Props) {
         })}
         <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }

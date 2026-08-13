@@ -150,11 +150,11 @@ export async function loadProfileIntoWallet(user: AuthUser): Promise<void> {
   if (unlocksRes.data?.length) seedUnlocked(unlocksRes.data.map((r: any) => r.unlock_key));
 
   // ── DỮ LIỆU PHỤ (tải nền, KHÔNG chặn vào app) ──
-  // Kết quả AI đã lưu + API key dùng chung sẽ tải song song ở chế độ nền;
-  // các màn AI chỉ thực sự cần khi người dùng bấm xem nên không cần chặn.
+  // Kết quả AI đã lưu tải nền; các màn AI chỉ thực sự cần khi người dùng bấm xem nên không
+  // cần chặn. (Đã BỎ tải "API key dùng chung" về client — SỬA LỖI BẢO MẬT, xem
+  // supabase/functions/ai-proxy: key giờ chỉ được đọc phía server, không bao giờ về client.)
   void Promise.allSettled([
     import('./aiResults').then(m => m.loadAllAiResults()),
-    import('./aiKeys').then(m => m.loadAiKeys()),
   ]);
 
   // 3) Đăng ký đẩy thay đổi lên server (fire-and-forget)

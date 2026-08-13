@@ -6,7 +6,7 @@
  * Tách ra đây để KHÔNG duplicate nội dung. Cập nhật thông tin liên hệ tại CONTACT.
  */
 
-export const LEGAL_UPDATED = '29/05/2026';
+export const LEGAL_UPDATED = '08/08/2026';
 
 export const CONTACT = {
   appName: 'Tuzi — Trợ lý thông minh của bạn',
@@ -50,6 +50,8 @@ Chúng tôi tôn trọng quyền riêng tư của mỗi cá nhân, do đó, cam 
 - **Lịch sử sử dụng trong Ứng dụng** — danh sách lá số đã lưu, lịch sử nạp xu, lịch sử mở khóa nội dung — để Người dùng tra cứu lại và để Ứng dụng tính số dư xu chính xác.
 - **Nội dung "Việc & Mục tiêu"** — tiêu đề, ghi chú, ngày bắt đầu/kết thúc, trạng thái và thứ tự ưu tiên do Người dùng tự nhập — để hiển thị, nhắc hạn và gợi ý thời điểm phù hợp.
 - **Nội dung "Ghi chú nhanh"** — nội dung ghi chú tự do và ngày ghi chú do Người dùng tự nhập — để lưu lại và hiển thị theo ngày, không được Hệ thống phân tích hay đối chiếu với lá số.
+- **Nội dung "Sự kiện sắp tới"** — các sự kiện cá nhân do Người dùng tự thêm (tiêu đề, ngày, loại sự kiện, người liên quan nếu có), tùy chọn bật/tắt thông báo và số ngày nhắc trước cho từng sự kiện, trạng thái đã ẩn/nhắc lại sau — để hiển thị đúng lịch cá nhân và nhắc đúng lúc. "Gợi ý tài chính" ở Trang chủ KHÔNG thu thập thêm dữ liệu nào — chỉ đọc lại dữ liệu Bát Tự đã có của Người dùng để tạo gợi ý, xử lý hoàn toàn trên hệ thống của Ứng dụng, không gửi cho bên thứ ba.
+- **Token thông báo đẩy (push token)** — mã định danh thiết bị do Expo cấp, dùng để gửi thông báo nhắc việc/sự kiện và thông báo khuyến mại từ Ứng dụng; Người dùng có thể tắt trong phần cài đặt thông báo của thiết bị bất kỳ lúc nào.
 - **Lượt sử dụng "Hỏi Tuzi" (Chat AI)** — Hệ thống chỉ đếm SỐ LƯỢT hỏi theo ngày để tính hạn mức miễn phí; **KHÔNG lưu trữ nội dung câu hỏi và câu trả lời** sau khi phiên trò chuyện kết thúc. Nếu Người dùng có lá số đang gắn, một khối tóm tắt facts NGẮN GỌN từ lá số đó (Mệnh/Thân, Bát Tự, vận hiện tại — không kèm thông tin định danh khác) có thể được gửi kèm câu hỏi tới nhà cung cấp AI để trả lời đúng ngữ cảnh khi câu hỏi liên quan tới lá số; khối này KHÔNG được lưu trữ lại sau khi trả lời xong.
 - **Cookies và dữ liệu phân tích** (nếu sử dụng website) — phân tích, thống kê, tối ưu hóa trải nghiệm Người dùng.
 
@@ -141,9 +143,11 @@ Hệ thống bao gồm các nhóm tính năng chính:
 - **Hỏi Tuzi (Chat AI)** — biểu tượng trợ lý AI hiện trên mọi màn hình của Ứng dụng, cho phép Người dùng đặt câu hỏi ngắn (tối đa 500 từ) về công việc, cảm xúc, các mối quan hệ, mục tiêu cá nhân… và nhận câu trả lời ngắn gọn từ AI. Có hạn mức miễn phí theo ngày; sử dụng vượt hạn mức sẽ trừ xu theo mức phí niêm yết trong Ứng dụng.
 - **Việc & Mục tiêu** — công cụ quản lý công việc ngắn hạn và mục tiêu dài hạn của Người dùng, cho phép đặt ngày bắt đầu/ngày kết thúc (tham khảo lịch "ngày tốt/xấu" do Hệ thống tính toán để hỗ trợ chọn thời điểm), sắp xếp thứ tự ưu tiên, và nhận thông báo nhắc hạn.
 - **Ghi chú nhanh** — sổ ghi chú tự do theo ngày để Người dùng lưu lại điều chợt nhớ ra hoặc một sự kiện đã diễn ra; độc lập với "Việc & Mục tiêu", không có ngày hạn hay trạng thái hoàn thành.
-- **Tử Vi Đẩu Số & Tứ Trụ Bát Tự** — công cụ lập và phân tích lá số dựa trên giờ, ngày, tháng, năm sinh: cách cục Mệnh – Thân – Phúc Đức, đại vận, tiểu vận, nguyệt vận, nhật vận, tài vận, công danh sự nghiệp, tình duyên, gia đạo, sức khỏe, xem ngày tốt/xấu và nhiều khía cạnh khác. Hệ thống tích hợp phân tích chuyên sâu bằng trí tuệ nhân tạo (AI) cho lá số tổng thể, từng cung, đại vận, tiểu vận, nguyệt vận và nhật vận.
+- **Sự kiện sắp tới** — nhắc và cá nhân hóa các dịp lễ Tết truyền thống, tiết khí, cùng sự kiện cá nhân do Người dùng tự thêm (sinh nhật, cưới hỏi, khai trương, thi cử, giỗ, hợp đồng, tốt nghiệp…): ý nghĩa, nên làm/nên tránh, hướng xuất hành, gợi ý mâm cúng – bài cúng tham khảo, checklist chuẩn bị và tùy chọn phân tích AI cá nhân hóa theo lá số.
+- **Gợi ý tài chính** — gợi ý định hướng tài chính – đầu tư mang tính tham khảo văn hóa – mệnh lý cho hôm nay và tháng này, dựa trên dữ liệu Bát Tự đã có của Người dùng; **KHÔNG phải lời khuyên đầu tư tài chính thực sự** (xem thêm Điều 9).
+- **Tử Vi Đẩu Số & Tứ Trụ Bát Tự** — công cụ lập và phân tích lá số dựa trên giờ, ngày, tháng, năm sinh: cách cục Mệnh – Thân – Phúc Đức, đại vận, tiểu vận, nguyệt vận, nhật vận, tài vận, công danh sự nghiệp, tình duyên, gia đạo, sức khỏe, xem ngày tốt/xấu và nhiều khía cạnh khác; có thể so sánh mức độ tương hợp giữa hai lá số. Hệ thống tích hợp phân tích chuyên sâu bằng trí tuệ nhân tạo (AI) cho lá số tổng thể, từng cung, đại vận, tiểu vận, nguyệt vận, nhật vận và so sánh lá số.
 
-Người dùng có thể sử dụng "Hỏi Tuzi", "Việc & Mục tiêu" và "Ghi chú nhanh" độc lập, không bắt buộc phải lập lá số Tử Vi/Bát Tự trước.
+Người dùng có thể sử dụng "Hỏi Tuzi", "Việc & Mục tiêu", "Ghi chú nhanh", "Sự kiện sắp tới" và "Gợi ý tài chính" độc lập, không bắt buộc phải lập lá số Tử Vi/Bát Tự trước.
 
 # 2. Dữ liệu cá nhân
 
@@ -198,7 +202,7 @@ Trong phạm vi tối đa được pháp luật cho phép, Chúng tôi không đ
 
 Người dùng hiểu và thừa nhận rằng đôi khi các tính năng có thể không khả dụng (lỗi mạng, lỗi nhà cung cấp AI, bảo trì hệ thống…) và Chúng tôi sẽ không chịu trách nhiệm về việc Người dùng không thể sử dụng Hệ thống vì bất kỳ lý do gì.
 
-**Đặc biệt lưu ý — tính chất tham khảo:** Toàn bộ nội dung luận giải Tử Vi, Bát Tự, phong thủy, đại vận, tiểu vận, nguyệt vận, xem ngày tốt/xấu, phân tích AI… mang **tính tham khảo về văn hóa – tín ngưỡng dân gian phương Đông**, **KHÔNG phải lời khuyên y tế, tài chính, đầu tư, pháp lý hay quyết định trọng đại trong đời sống**. Người dùng có toàn quyền tự quyết định và tự chịu trách nhiệm về các hành động của mình. Chúng tôi không bảo đảm hay tuyên bố rằng Hệ thống sẽ luôn có sẵn để sử dụng ở mọi nơi; Người dùng chịu trách nhiệm tuân thủ luật pháp tại địa điểm sử dụng.
+**Đặc biệt lưu ý — tính chất tham khảo:** Toàn bộ nội dung luận giải Tử Vi, Bát Tự, phong thủy, đại vận, tiểu vận, nguyệt vận, xem ngày tốt/xấu, phân tích AI, **"Gợi ý tài chính"**, nội dung ý nghĩa/nên làm/nên tránh/mâm cúng/bài cúng tại **"Sự kiện sắp tới"**… mang **tính tham khảo về văn hóa – tín ngưỡng dân gian phương Đông**, **KHÔNG phải lời khuyên y tế, tài chính, đầu tư, pháp lý hay quyết định trọng đại trong đời sống**. Riêng "Gợi ý tài chính" chỉ gợi ý HÌNH THỨC/NHÓM tài sản chung chung (vàng, tiết kiệm, chứng khoán, bất động sản…) dựa trên dữ liệu Bát Tự, tuyệt đối KHÔNG khuyến nghị mã cổ phiếu, tài sản hay khoản đầu tư cụ thể nào. Người dùng có toàn quyền tự quyết định và tự chịu trách nhiệm về các hành động của mình. Chúng tôi không bảo đảm hay tuyên bố rằng Hệ thống sẽ luôn có sẵn để sử dụng ở mọi nơi; Người dùng chịu trách nhiệm tuân thủ luật pháp tại địa điểm sử dụng.
 
 # 10. Giới hạn trách nhiệm
 
@@ -219,7 +223,7 @@ Mức giá của các Gói dịch vụ được niêm yết trên Ứng dụng h
 
 Mỗi Gói dịch vụ và số dư xu chỉ áp dụng cho một tài khoản của Người dùng. Khi Người dùng đăng nhập bằng tài khoản khác, Gói dịch vụ và số dư xu đã mua sẽ KHÔNG có hiệu lực. Trường hợp Người dùng nạp nhiều lần cho cùng một tài khoản, xu sẽ được tích lũy lũy kế.
 
-Chúng tôi cung cấp miễn phí: tạo lá số Tử Vi, lập Bát Tự, luận giải Tổng quan, Tổng thể nâng cao (offline), Xem theo ngày (cơ bản), Đại vận / Tiểu vận / Nguyệt vận (cơ bản), quản lý **Việc & Mục tiêu**, và **Ghi chú nhanh**. Các nội dung mất phí — bao gồm phân tích chi tiết cung, phân tích AI cho toàn bộ lá số / cung / đại vận / tiểu vận / nguyệt vận / nhật vận — sẽ luôn hiển thị giá xu rõ ràng trước khi Người dùng quyết định mở khóa.
+Chúng tôi cung cấp miễn phí: tạo lá số Tử Vi, lập Bát Tự, luận giải Tổng quan, Tổng thể nâng cao (offline), Xem theo ngày (cơ bản), Đại vận / Tiểu vận / Nguyệt vận (cơ bản), quản lý **Việc & Mục tiêu**, **Ghi chú nhanh**, nội dung cơ bản của **Sự kiện sắp tới** (ý nghĩa, nên làm/nên tránh, mâm cúng, hướng xuất hành, checklist, quản lý thông báo) và **Gợi ý tài chính**. Các nội dung mất phí — bao gồm phân tích chi tiết cung, phân tích AI cho toàn bộ lá số / cung / đại vận / tiểu vận / nguyệt vận / nhật vận / so sánh lá số / sự kiện — sẽ luôn hiển thị giá xu rõ ràng trước khi Người dùng quyết định mở khóa.
 
 **Hỏi Tuzi (Chat AI)** có hạn mức miễn phí giới hạn số lượt hỏi mỗi ngày (hiển thị cụ thể trong Ứng dụng); khi dùng hết hạn mức miễn phí trong ngày, Người dùng có thể chọn trả thêm một mức xu nhỏ mỗi lượt hỏi tiếp theo để tiếp tục sử dụng, có xác nhận trước khi trừ xu.
 

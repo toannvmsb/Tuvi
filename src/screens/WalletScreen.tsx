@@ -8,10 +8,11 @@
  * BẢN TEST: còn nút Admin để nạp/giả lập thanh toán phục vụ kiểm thử.
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Linking, Platform, TextInput, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Linking, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { wallet, deposit, seedWallet, PREMIUM } from '../constants/premium';
 import { BANK, XU_PACKS, makeTopupCode, vietQrImageUrl, WEB_TOPUP_URL, type XuPack } from '../constants/payment';
 import { createTopupOrder, checkTopupStatus, fetchServerBalance, listTopupOrders, deleteTopupOrder, type TopupRow } from '../lib/topup';
@@ -253,8 +254,7 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Kho Xu của tôi" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Số dư */}
         <View style={styles.balCard}>
           <Text style={styles.balLabel}>Số dư hiện tại</Text>
@@ -537,15 +537,17 @@ export default function WalletScreen() {
             ? 'Việc cộng xu tự động sẽ hoạt động sau khi kết nối dịch vụ đối soát ngân hàng (SePay/Casso). Hiện anh có thể dùng nút thử nghiệm ở trên.'
             : 'Đang ở chế độ khách. Đăng nhập để nạp & đồng bộ số dư.'}
         </Text>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  scroll: {
+    padding: SPACING.lg, gap: SPACING.md,
+    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
+  },
   balCard: {
     backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.lg,
     borderWidth: 1, borderColor: COLORS.gold, alignItems: 'center', gap: 4,

@@ -7,12 +7,12 @@
  *
  * Loại tin: topup (nạp xu) · day (ngày đẹp/xấu) · month (tháng mới) ·
  *           birthday (sinh nhật lá số) · life_task (Việc/Mục tiêu sắp/đến hạn) ·
- *           system (khác — mở rộng về sau).
+ *           life_event (Sự kiện sắp tới — mốc T-5/T-1/T-0) · system (khác — mở rộng về sau).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifyLocal } from './notifications';
 
-export type NotifType = 'topup' | 'day' | 'month' | 'birthday' | 'life_task' | 'promo' | 'feature' | 'system';
+export type NotifType = 'topup' | 'day' | 'month' | 'birthday' | 'life_task' | 'life_event' | 'promo' | 'feature' | 'system';
 
 export interface AppNotification {
   id: string;          // khóa chống trùng (vd "day:2026-6-13")

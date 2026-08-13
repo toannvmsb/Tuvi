@@ -22,6 +22,13 @@ import { getAiResult } from '../lib/aiResults';
 import { exportAnalysisToPdf } from '../utils/pdfExport';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { PREMIUM, costNote } from '../constants/premium';
+import { runWithConcurrency } from '../lib/concurrency';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
+
+// So sánh có 12 tầng — bắn hết cùng lúc từng làm chạm rate limit key AI dùng chung
+// phía server. Giới hạn 3 lượt cùng lúc.
+const AI_SECTION_CONCURRENCY = 3;
 
 // ─── SCORE HELPERS ────────────────────────────────────────────────────────────
 
@@ -318,6 +325,7 @@ export default function CompareChartsScreen() {
   const [aiDone, setAiDone] = useState(false);
   const aiLayersRef = useRef<(string | null)[]>(EMPTY_AI_LAYERS);
   const [viewMode, setViewMode] = useState<'pro' | 'ai'>('pro');
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   const [exportingPdf, setExportingPdf] = useState(false);
 
@@ -362,12 +370,15 @@ export default function CompareChartsScreen() {
     setAiRunning(true);
     setViewMode('ai');
 
-    // Fire all 12 in parallel; update state as each resolves
-    const inflight = sections.map((s, i) =>
-      s.run().then(
-        (text) => ({ ok: true as const, i, text }),
-        (e)    => ({ ok: false as const, i, text: '' }),
-      )
+    // Giới hạn số tầng chạy song song (tránh chạm rate limit key AI dùng chung); cập nhật state khi từng tầng về.
+    const inflight = runWithConcurrency(
+      sections.map((s, i) => () =>
+        s.run().then(
+          (text) => ({ ok: true as const, i, text }),
+          (e)    => ({ ok: false as const, i, text: '' }),
+        )
+      ),
+      AI_SECTION_CONCURRENCY,
     );
 
     let completed = 0;
@@ -462,7 +473,13 @@ export default function CompareChartsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="So sánh lá số" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
 
         {/* ── Person cards ── */}
         <View style={styles.personsRow}>
@@ -617,6 +634,7 @@ export default function CompareChartsScreen() {
           </>
         )}
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
 
       <ChartPicker
         visible={pickerTarget !== null}

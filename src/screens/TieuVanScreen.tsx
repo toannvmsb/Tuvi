@@ -33,6 +33,8 @@ import MissingPartsNotice from '../components/MissingPartsNotice';
 import ScreenHeader from '../components/ScreenHeader';
 import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TieuVan'>;
 
@@ -164,11 +166,12 @@ export default function TieuVanScreen({ route }: Props) {
 
   const runAI = (age: number, force = false) =>
     run(age, fkey(result, `tv:${age}:ai`), tieuVanSections(result, age), force, PREMIUM.COST.aiLarge);
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScreenHeader title="Tiểu Vận" onBack={() => navigationRef.navigate('Home')} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>Tiểu Vận của {result.birthInfo.name || 'bạn'}</Text>
         <Text style={styles.subtitle}>Chọn một đại vận để xem chi tiết vận từng năm</Text>
 
@@ -335,6 +338,7 @@ export default function TieuVanScreen({ route }: Props) {
         })}
         <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }

@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Pressable, Alert, TextInput, Platform, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -24,10 +24,16 @@ import { solarToLunar } from '../core/lunarCalendar';
 import { syncEventNotifications, planScheduledReminders } from '../lib/notificationEvents';
 import { syncBroadcasts } from '../lib/broadcasts';
 import { openAiChat } from '../lib/aiChatBus';
+import { scrollInputAboveKeyboard } from '../lib/scrollToInput';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { listLifeTasks, compareLifeTasks, type LifeTask } from '../lib/lifeTasks';
 import { listLifeNotes, createLifeNote, type LifeNote } from '../lib/lifeNotes';
 import { buildFinancialAdvice, type FinancialAdviceItem } from '../core/financialAdvisor';
 import { getSelectedAvatarId } from '../lib/avatarPrefs';
+import { fetchEventPackages, listMyUserEvents } from '../lib/lifeEvents';
+import { pickUpcomingEvent, resolveAllUpcomingEvents, type ResolvedEvent, type EventPackage, type UserEvent } from '../core/lifeEventEngine';
+import { hideEventOccurrence, snoozeEvent, buildIsDismissed } from '../lib/eventDismiss';
+import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 
 function todayISO(): string {
   const d = new Date();
@@ -71,9 +77,22 @@ export default function HomeScreen({ navigation }: Props) {
   const [monthCharts, setMonthCharts] = useState<NguyetVanChartData | null>(null);
   const [taskPreview, setTaskPreview] = useState<LifeTask[]>([]);
   const [notesPreview, setNotesPreview] = useState<LifeNote[]>([]);
+  const [upcomingEvent, setUpcomingEvent] = useState<ResolvedEvent | null>(null);
+  // Giữ RAW packages/userEvents đã tải để "Ẩn"/"Nhắc lại sau" (eventDismiss.ts) có thể tính lại
+  // ngay ứng viên tiếp theo mà KHÔNG cần gọi lại Supabase.
+  const eventPackagesRef = useRef<EventPackage[]>([]);
+  const eventUserEventsRef = useRef<UserEvent[]>([]);
+  // Duyệt qua lại sự kiện bằng mũi tên ‹ › — CHỈ là xem TẠM THỜI tại lúc đó, không lưu lại đâu cả.
+  // Khi màn Home tải lại (mở lại app, hoặc quay lại từ màn khác) sẽ tự quay về đúng sự kiện thật
+  // theo pickUpcomingEvent (xem chỗ reset trong loadSummary bên dưới).
+  const [browsedEvent, setBrowsedEvent] = useState<ResolvedEvent | null>(null);
+  const displayedEvent = browsedEvent ?? upcomingEvent;
+  const [showFinanceModal, setShowFinanceModal] = useState(false);
   const [noteInput, setNoteInput] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [avatarId, setAvatarId] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const noteInputRef = useRef<TextInput>(null);
 
   const now = new Date();
   const nowLunar = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
@@ -132,10 +151,30 @@ export default function HomeScreen({ navigation }: Props) {
       setNotesPreview([]);
     }
 
-    // Sinh thông báo sự kiện (hiện ngay khi đang mở) + lên lịch nhắc cả khi app đóng
-    // — kèm nhắc hạn Việc & Mục tiêu (bắt đầu/hết hạn hôm nay hoặc ngày mai).
-    void syncEventNotifications(result, charts, allOpenTasks);
-    void planScheduledReminders(result, charts, allOpenTasks);
+    // Sự kiện sắp tới — lễ Tết/tiết khí (nội dung công khai) + sự kiện cá nhân (cần đăng nhập).
+    // Rule Engine chạy client-side, chọn đúng 1 sự kiện ưu tiên cao nhất cho box Home, bỏ qua sự
+    // kiện người dùng đã bấm "Ẩn"/"Nhắc lại sau" (isDismissed, xem lib/eventDismiss.ts).
+    try {
+      const [packages, userEvents] = await Promise.all([
+        fetchEventPackages(),
+        online ? listMyUserEvents().catch(() => []) : Promise.resolve([]),
+      ]);
+      eventPackagesRef.current = packages;
+      eventUserEventsRef.current = userEvents;
+      const isDismissed = await buildIsDismissed();
+      setUpcomingEvent(pickUpcomingEvent(packages, userEvents, new Date(), isDismissed));
+      setBrowsedEvent(null); // mỗi lần Home tải lại → bỏ trạng thái duyệt tạm, quay về sự kiện thật
+    } catch { setUpcomingEvent(null); setBrowsedEvent(null); }
+
+    // Sinh thông báo sự kiện (hiện ngay khi đang mở) + lên lịch nhắc cả khi app đóng — kèm nhắc
+    // hạn Việc & Mục tiêu (bắt đầu/hết hạn hôm nay hoặc ngày mai) và mốc nhắc của "Sự kiện sắp
+    // tới" (dùng eventPackagesRef/eventUserEventsRef vừa nạp ở trên + tùy chỉnh riêng từng sự
+    // kiện từ mục "Quản lý thông báo", xem lib/eventNotifyPrefs.ts).
+    (async () => {
+      const notifyPrefs = await buildNotifyPrefLookup();
+      void syncEventNotifications(result, charts, allOpenTasks, eventPackagesRef.current, eventUserEventsRef.current, notifyPrefs);
+      void planScheduledReminders(result, charts, allOpenTasks, eventPackagesRef.current, eventUserEventsRef.current, notifyPrefs);
+    })();
     // Thông báo từ admin (khuyến mại/giảm giá chỉ trên web · cập nhật chức năng mọi nền tảng).
     void syncBroadcasts();
   }, [online]);
@@ -189,8 +228,67 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
+  /** Nhấn nút "Nguyệt Vận" trong modal gợi ý tài chính → mở tab Nguyệt Vận. */
+  const goNguyetVan = () => {
+    if (myResult) {
+      (navigation as any).navigate('MainTabs', { result: myResult, screen: 'NguyetVan', params: { result: myResult } });
+    } else {
+      promptNoChart();
+    }
+  };
+
+  /**
+   * Nhấn box "Gợi ý tài chính" → hiện modal đọc TOÀN BỘ nội dung tư vấn tháng này (box chỉ hiện
+   * được vài dòng, dài hơn diện tích box), kèm 2 nút để người dùng CHỦ ĐỘNG chọn xem thêm ở Tài
+   * Lộc hay Nguyệt Vận — thay vì điều hướng thẳng và mất nội dung tư vấn đang xem.
+   */
+  const openFinanceModal = () => {
+    if (myResult) setShowFinanceModal(true);
+    else promptNoChart();
+  };
+
   /** Nhấn "Ghi chú nhanh" → mở NotesScreen; KHÔNG cần lá số (ghi chú tự do, không gắn Tử Vi). */
   const goNotes = () => navigation.navigate('Notes');
+
+  /** Nhấn "Sự kiện sắp tới" → mở màn chi tiết; KHÔNG bắt buộc có lá số (cá nhân hóa chỉ là phần thêm). */
+  const goEventDetail = () => {
+    if (!displayedEvent) return;
+    navigation.navigate('EventDetail', { event: displayedEvent, result: myResult ?? undefined });
+  };
+
+  /** Tính lại ứng viên tiếp theo từ dữ liệu ĐÃ TẢI (không gọi lại Supabase) sau khi Ẩn/Nhắc lại sau. */
+  const refreshUpcomingEvent = useCallback(async () => {
+    const isDismissed = await buildIsDismissed();
+    setUpcomingEvent(pickUpcomingEvent(eventPackagesRef.current, eventUserEventsRef.current, new Date(), isDismissed));
+    setBrowsedEvent(null); // Ẩn/Nhắc lại sau áp dụng ngay — quay về chế độ tự chọn theo thời gian thật
+  }, []);
+
+  /** "Ẩn" — bỏ qua đúng lần xảy ra này, sẽ hiện lại bình thường vào lần xảy ra kế tiếp. */
+  const onHideEvent = async () => {
+    if (!displayedEvent) return;
+    await hideEventOccurrence(displayedEvent.key, displayedEvent.occursOn);
+    await refreshUpcomingEvent();
+  };
+
+  /** "Nhắc lại sau" — tạm ẩn ~20 tiếng rồi tự hiện lại. */
+  const onSnoozeEvent = async () => {
+    if (!displayedEvent) return;
+    await snoozeEvent(displayedEvent.key);
+    await refreshUpcomingEvent();
+  };
+
+  /** ‹ › — duyệt qua lại DANH SÁCH ĐẦY ĐỦ theo thời gian (không lọc "Ẩn"/"Nhắc lại sau", không
+   * lọc theo show_before/after — xem hết được mọi sự kiện, giống công cụ TEST ở màn chi tiết).
+   * Chỉ đổi `browsedEvent` (state tạm) — KHÔNG lưu lại, mất khi rời/tải lại Home. */
+  const browseEvent = (direction: -1 | 1) => {
+    const list = resolveAllUpcomingEvents(eventPackagesRef.current, eventUserEventsRef.current);
+    if (list.length < 2 || !displayedEvent) return;
+    const idx = list.findIndex(e => e.key === displayedEvent.key);
+    const nextIdx = idx === -1 ? 0 : (idx + direction + list.length) % list.length;
+    setBrowsedEvent(list[nextIdx]);
+  };
+  const goPrevEvent = () => browseEvent(-1);
+  const goNextEvent = () => browseEvent(1);
 
   const quickSaveNote = async () => {
     if (!noteInput.trim() || savingNote) return;
@@ -224,12 +322,12 @@ export default function HomeScreen({ navigation }: Props) {
           <HeaderMenuButton />
         </View>
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        <KeyboardAwareScreen
+          ref={scrollRef}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Header — nhân vật đại diện (chọn ở Tài khoản) bên trái, lời chào + câu chúc ngày mới bên phải. */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.navigate('Account')} activeOpacity={0.8}>
@@ -276,6 +374,92 @@ export default function HomeScreen({ navigation }: Props) {
             </Pressable>
           )}
 
+          {/*
+            Sự kiện sắp tới (trái) + Gợi ý tài chính (phải) — 2 box nửa-nửa cùng hàng, đặt TRƯỚC
+            "Việc & Mục tiêu" (theo yêu cầu anh Toàn). "Sự kiện sắp tới": lễ Tết/tiết khí/sự kiện
+            cá nhân, do lifeEventEngine chọn 1 sự kiện ưu tiên cao nhất. "Gợi ý tài chính": chỉ còn
+            phần THÁNG (bỏ phần "Hôm nay" cũ) — phần Hôm nay đã có box "Ngày hôm nay" riêng ở trên
+            rồi, tránh trùng lặp.
+          */}
+          <View style={styles.eventsFinanceRow}>
+            <TouchableOpacity
+              style={[styles.previewBox, styles.previewBoxHalf, styles.eventBoxHighlight]}
+              onPress={goEventDetail}
+              activeOpacity={0.85}
+              disabled={!displayedEvent}
+            >
+              <View style={styles.previewHead}>
+                <Text style={styles.previewTitle}>🗓️ Sự kiện sắp tới</Text>
+              </View>
+              {!displayedEvent ? (
+                <Text style={styles.previewEmpty}>Chưa có sự kiện nào sắp tới.</Text>
+              ) : (
+                <>
+                  {/* ‹ › duyệt sự kiện trước/sau — CHỈ xem tạm, không lưu (xem browseEvent()).
+                      Đặt ngay lề trái/phải của ô, lồng trong TouchableOpacity ngoài nên bấm vào
+                      đây KHÔNG kích hoạt điều hướng xem chi tiết. */}
+                  <TouchableOpacity
+                    style={[styles.eventNavArrow, styles.eventNavArrowLeft]}
+                    onPress={goPrevEvent}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.eventNavArrowText}>‹</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.eventNavArrow, styles.eventNavArrowRight]}
+                    onPress={goNextEvent}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.eventNavArrowText}>›</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.eventBoxBody}>
+                    <View style={styles.eventNameRow}>
+                      <Text style={styles.eventAvatarIcon}>{displayedEvent.icon}</Text>
+                      <Text style={styles.eventName} numberOfLines={2}>{displayedEvent.displayName}</Text>
+                    </View>
+                    <Text style={styles.eventDaysLeft}>
+                      {displayedEvent.daysUntil === 0 ? 'Hôm nay!'
+                        : displayedEvent.daysUntil < 0 ? `${-displayedEvent.daysUntil} ngày trước`
+                        : `Còn ${displayedEvent.daysUntil} ngày`}
+                    </Text>
+                    {/* "Ẩn"/"Nhắc lại sau" (TUZI_M04 mục 8 — Home Card) — nút lồng bên trong
+                        TouchableOpacity ngoài nên bấm vào đây KHÔNG kích hoạt điều hướng xem chi tiết. */}
+                    <View style={styles.eventDismissRow}>
+                      <TouchableOpacity onPress={onHideEvent} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Text style={styles.eventDismissBtnText}>🙈 Ẩn</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={onSnoozeEvent} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Text style={styles.eventDismissBtnText}>⏰ Nhắc sau</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.previewBox, styles.previewBoxHalf]}
+              onPress={openFinanceModal}
+              activeOpacity={0.85}
+            >
+              <View style={styles.previewHead}>
+                <Text style={styles.previewTitle}>💰 Gợi ý tài chính</Text>
+              </View>
+              {!financeAdvice?.month ? (
+                <Text style={styles.previewEmpty}>Gắn lá số để nhận gợi ý tài chính theo tháng, theo Tài Bạch của bạn.</Text>
+              ) : (
+                <>
+                  <View style={styles.financeHead}>
+                    <Text style={styles.financeLabel}>{financeAdvice.month.label}</Text>
+                    <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.month.tier] }]}>{financeAdvice.month.tierLabel}</Text>
+                  </View>
+                  <Text style={styles.previewLine} numberOfLines={3}>{financeAdvice.month.text}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* Việc & Mục tiêu — 3 mục gần nhất. */}
           <TouchableOpacity style={styles.previewBox} onPress={goTasks} activeOpacity={0.85}>
             <View style={styles.previewHead}>
@@ -314,41 +498,6 @@ export default function HomeScreen({ navigation }: Props) {
             )}
           </TouchableOpacity>
 
-          {/* Gợi ý Tài chính - Đầu tư — 2 cột: Hôm nay (trái) / Tháng này (phải), mỗi cột 1 gợi ý, tự đổi khi sang kỳ mới. */}
-          <TouchableOpacity style={styles.previewBox} onPress={goWealth} activeOpacity={0.85}>
-            <View style={styles.previewHead}>
-              <Text style={styles.previewTitle}>💰 Gợi ý Tài chính - Đầu tư</Text>
-              <Text style={styles.previewMore}>Tư vấn chi tiết ›</Text>
-            </View>
-            {!financeAdvice ? (
-              <Text style={styles.previewEmpty}>Gắn lá số để nhận gợi ý tài chính - đầu tư mỗi ngày, theo Tài Bạch của bạn.</Text>
-            ) : (
-              <View style={styles.financeCols}>
-                <View style={styles.financeCol}>
-                  <View style={styles.financeHead}>
-                    <Text style={styles.financeLabel}>{financeAdvice.day.label}</Text>
-                    <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.day.tier] }]}>{financeAdvice.day.tierLabel}</Text>
-                  </View>
-                  <Text style={styles.previewLine}>{financeAdvice.day.text}</Text>
-                </View>
-                <View style={styles.financeDivider} />
-                <View style={styles.financeCol}>
-                  {financeAdvice.month ? (
-                    <>
-                      <View style={styles.financeHead}>
-                        <Text style={styles.financeLabel}>{financeAdvice.month.label}</Text>
-                        <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.month.tier] }]}>{financeAdvice.month.tierLabel}</Text>
-                      </View>
-                      <Text style={styles.previewLine}>{financeAdvice.month.text}</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.previewEmpty}>Chưa có dữ liệu tháng này.</Text>
-                  )}
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
-
           {/*
             Ghi chú nhanh — sổ ghi chú TỰ DO theo ngày (không gắn Việc/Mục tiêu, không cần lá số).
             Box này KHÔNG bọc TouchableOpacity ở ngoài cùng (khác các box khác) vì có ô nhập liệu
@@ -361,12 +510,14 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
             <View style={styles.noteAddRow}>
               <TextInput
+                ref={noteInputRef}
                 style={styles.noteInput}
                 placeholder="Chợt nhớ ra điều gì đó? Ghi lại ở đây…"
                 placeholderTextColor={COLORS.textMuted}
                 value={noteInput}
                 onChangeText={setNoteInput}
                 onSubmitEditing={quickSaveNote}
+                onFocus={Platform.OS === 'web' ? () => scrollInputAboveKeyboard(scrollRef, noteInputRef) : undefined}
                 returnKeyType="done"
               />
               <TouchableOpacity
@@ -382,7 +533,7 @@ export default function HomeScreen({ navigation }: Props) {
             ) : (
               notesPreview.map(n => (
                 <TouchableOpacity key={n.id} onPress={goNotes} activeOpacity={0.7} style={styles.noteRow}>
-                  <Text style={styles.previewLine} numberOfLines={1}>📝 {n.content}</Text>
+                  <Text style={[styles.previewLine, styles.noteContent]} numberOfLines={1}>📝 {n.content}</Text>
                   <Text style={styles.noteTime}>{noteTimeLabel(n.created_at)}</Text>
                 </TouchableOpacity>
               ))
@@ -453,9 +604,57 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.version}>Phiên bản {APP_VERSION}</Text>
             <Text style={styles.copyright}>{COPYRIGHT}</Text>
           </View>
-        </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScreen>
       </LinearGradient>
+
+      <Modal
+        visible={showFinanceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFinanceModal(false)}
+      >
+        <View style={styles.financeModalBackdrop}>
+          <TouchableOpacity style={styles.financeModalBackdropTap} activeOpacity={1} onPress={() => setShowFinanceModal(false)} />
+          <View style={styles.financeModalSheet}>
+            <View style={styles.financeModalHeader}>
+              <Text style={styles.financeModalTitle}>💰 Gợi ý tài chính</Text>
+              <TouchableOpacity onPress={() => setShowFinanceModal(false)}>
+                <Text style={styles.financeModalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 260 }}>
+              {financeAdvice?.month ? (
+                <>
+                  <View style={styles.financeHead}>
+                    <Text style={styles.financeLabel}>{financeAdvice.month.label}</Text>
+                    <Text style={[styles.financeTier, { color: TIER_COLOR[financeAdvice.month.tier] }]}>{financeAdvice.month.tierLabel}</Text>
+                  </View>
+                  <Text style={styles.financeModalBody}>{financeAdvice.month.text}</Text>
+                </>
+              ) : (
+                <Text style={styles.previewEmpty}>Chưa có dữ liệu tháng này.</Text>
+              )}
+            </ScrollView>
+            <View style={styles.financeModalBtnRow}>
+              <TouchableOpacity
+                style={styles.financeModalBtn}
+                onPress={() => { setShowFinanceModal(false); goWealth(); }}
+              >
+                <Text style={styles.financeModalBtnText}>📊 Xem Tài Lộc</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.financeModalBtn}
+                onPress={() => { setShowFinanceModal(false); goNguyetVan(); }}
+              >
+                <Text style={styles.financeModalBtnText}>🌙 Xem Nguyệt Vận</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.financeModalCloseBtn} onPress={() => setShowFinanceModal(false)}>
+              <Text style={styles.financeModalCloseBtnText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -463,7 +662,14 @@ export default function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   gradient: { flex: 1 },
-  scroll: { padding: SPACING.xl, paddingTop: SPACING.xxl, alignItems: 'center', paddingBottom: SPACING.xl },
+  // WEB: paddingBottom lớn cố định (không dùng SPACING — khoảng đệm riêng cho bàn phím,
+  // không phải spacing bố cục) để đủ chỗ cuộn ô "Ghi chú nhanh" lên trên — đã chạy ổn định,
+  // giữ nguyên. NATIVE: KeyboardAwareScreen tự thêm/bớt khoảng đệm theo bàn phím, không cần
+  // (và không nên) cộng cứng thêm — nếu không, khoảng trống sẽ CÒN LẠI cả khi đóng bàn phím.
+  scroll: {
+    padding: SPACING.xl, paddingTop: SPACING.xxl, alignItems: 'center',
+    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xl,
+  },
   topBar: { position: 'absolute', top: SPACING.sm, right: SPACING.md, zIndex: 50, flexDirection: 'row', alignItems: 'center' },
   topBarGap: { width: 5 },  // chuông nằm sát trái Menu, cách ~5px
   header: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.md },
@@ -505,19 +711,59 @@ const styles = StyleSheet.create({
     width: '100%', backgroundColor: COLORS.card, borderRadius: 12,
     borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4, marginTop: SPACING.md,
   },
+  // Box nửa-nửa cùng hàng (Sự kiện sắp tới / Gợi ý tài chính) — ghi đè width/marginTop của
+  // previewBox vì marginTop đã chuyển ra ngoài `eventsFinanceRow`. THIẾU width:'100%' ở đây
+  // (khác mọi box khác trong màn — askBar/todayCard/previewBox đều có) khiến hàng này tự co
+  // theo nội dung thay vì lấp đầy chiều rộng khả dụng — không thấy rõ trên điện thoại (màn hẹp)
+  // nhưng rất rõ trên trình duyệt máy tính màn rộng.
+  eventsFinanceRow: { width: '100%', flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
+  previewBoxHalf: { width: 'auto', flex: 1, marginTop: 0 },
+  // Viền sáng hơn để box "Sự kiện sắp tới" nổi bật hơn previewBox thường (border xám mờ).
+  eventBoxHighlight: { borderColor: COLORS.gold, borderWidth: 1.5 },
+  financeModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  financeModalBackdropTap: { flex: 1 },
+  financeModalSheet: {
+    backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: SPACING.lg, borderTopWidth: 1, borderColor: COLORS.gold, gap: SPACING.sm,
+  },
+  financeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  financeModalTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  financeModalClose: { color: COLORS.textSecondary, fontSize: FONTS.size.lg, fontWeight: '700', padding: 4 },
+  financeModalBody: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20, marginTop: 4 },
+  financeModalBtnRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
+  financeModalBtn: {
+    flex: 1, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.gold,
+    borderRadius: 8, paddingVertical: SPACING.sm, alignItems: 'center',
+  },
+  financeModalBtnText: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.sm },
+  financeModalCloseBtn: { alignItems: 'center', paddingVertical: SPACING.xs },
+  financeModalCloseBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: FONTS.size.sm },
   previewHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   previewTitle: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800' },
   previewMore: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
   previewEmpty: { color: COLORS.textMuted, fontSize: FONTS.size.sm, fontStyle: 'italic' },
   previewLine: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 18 },
+  // Box "Sự kiện sắp tới" rút gọn: icon + tên nổi bật chung 1 dòng, còn bao nhiêu ngày ở dòng
+  // dưới — tất cả căn giữa NGANG, và căn giữa DỌC trong phần còn lại của ô (dưới tiêu đề) — giống
+  // cách dateBig căn giữa dọc trong box "Ngày hôm nay" khi box bị kéo cao hơn do box cạnh bên.
+  eventBoxBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: SPACING.xs },
+  eventNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  eventAvatarIcon: { fontSize: FONTS.size.xxl },
+  eventName: { color: COLORS.textPrimary, fontSize: FONTS.size.xl, fontWeight: '800', textAlign: 'center' },
+  eventDaysLeft: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '700', textAlign: 'center' },
+  eventDismissRow: { flexDirection: 'row', gap: SPACING.md, marginTop: 4 },
+  eventDismissBtnText: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontWeight: '700' },
+  // ‹ › duyệt sự kiện trước/sau — nằm sát lề trái/phải, cao hết chiều cao ô, đè lên nội dung
+  // (nội dung đã căn giữa nên không bị che, xem browseEvent() để biết logic chọn sự kiện kế tiếp).
+  eventNavArrow: { position: 'absolute', top: 0, bottom: 0, width: 26, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  eventNavArrowLeft: { left: 2 },
+  eventNavArrowRight: { right: 2 },
+  eventNavArrowText: { color: COLORS.gold, fontSize: 22, fontWeight: '900' },
   taskRow: { flexDirection: 'row', alignItems: 'center' },
   taskRowTitleCol: { flex: 2 },
   taskRowDates: { flex: 1, flexDirection: 'row' },
   taskDateHead: { flex: 1, color: COLORS.textMuted, fontSize: FONTS.size.xs, fontWeight: '700', textAlign: 'center' },
   taskDateText: { flex: 1, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
-  financeCols: { flexDirection: 'row', alignItems: 'stretch' },
-  financeCol: { flex: 1, gap: 2 },
-  financeDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: SPACING.sm },
   financeHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   financeLabel: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '800' },
   financeTier: { fontSize: FONTS.size.sm, fontWeight: '800' },
@@ -530,6 +776,10 @@ const styles = StyleSheet.create({
   noteSaveBtnDisabled: { opacity: 0.4 },
   noteSaveBtnText: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.sm },
   noteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.xs },
+  // flexShrink cần đặt tường minh: mặc định Yoga (native) là 0, khác CSS flexbox trên web
+  // (mặc định 1) — thiếu dòng này thì trên iOS/Android nội dung ghi chú dài giữ nguyên độ
+  // rộng gốc, đẩy giờ (noteTime) tràn ra ngoài box; web không lỗi vì flexbox web tự co giãn.
+  noteContent: { flex: 1, flexShrink: 1 },
   noteTime: { color: COLORS.textMuted, fontSize: FONTS.size.sm, flexShrink: 0 },
 
   gridDivider: {

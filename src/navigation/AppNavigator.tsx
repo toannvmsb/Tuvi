@@ -27,6 +27,7 @@ import CompareChartsScreen from '../screens/CompareChartsScreen';
 import AboutScreen from '../screens/AboutScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PromotionsScreen from '../screens/PromotionsScreen';
+import EventDetailScreen from '../screens/EventDetailScreen';
 import DaiVanScreen from '../screens/DaiVanScreen';
 import TieuVanScreen from '../screens/TieuVanScreen';
 import WealthChartScreen from '../screens/WealthChartScreen';
@@ -122,6 +123,7 @@ const ROUTE_TITLES: Record<string, string> = {
   DayPicker: 'Xem ngày tốt',
   Tasks: 'Việc & Mục tiêu',
   Notes: 'Ghi chú nhanh',
+  EventDetail: 'Sự kiện sắp tới',
   MyCharts: 'Lá số đã lưu',
   CompareCharts: 'So sánh lá số',
   Wallet: 'Nạp xu',
@@ -172,6 +174,7 @@ export default function AppNavigator() {
         <Stack.Screen name="DayPicker" component={DayPickerScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Tasks" component={TasksScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Notes" component={NotesScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyCharts" component={MyChartsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CompareCharts" component={CompareChartsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />

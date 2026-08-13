@@ -14,6 +14,8 @@ import { exportChartAsImage, shareImageFile, saveImageToGallery } from '../utils
 import { buildResult } from '../core/buildResult';
 import { navigationRef } from '../navigation/AppNavigator';
 import { isWeb, useContentWidth } from '../lib/platform';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TuViChart'>;
 
@@ -27,6 +29,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const [webExporting, setWebExporting] = useState(false);
   const chartRef = useRef<View>(null);
   const webChartContainerRef = useRef<View>(null);
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   // ── ZOOM lá số ────────────────────────────────────────────────────────
   // Hiện nút kính lúp trên WEB và iPad (tablet native); KHÔNG hiện trên iPhone.
@@ -178,7 +181,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         title="Lá Số"
         onBack={() => navigationRef.navigate('Home')}
       />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         {/* 3 TAB chức năng — trên cùng màn lá số */}
         <View style={styles.tabRow}>
           <TouchableOpacity
@@ -308,6 +311,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
 
       <ImageViewerModal
         visible={viewerUri !== null}

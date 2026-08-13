@@ -12,6 +12,11 @@ import { useRef, useState, useEffect } from 'react';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import { PREMIUM } from '../constants/premium';
+import { runWithConcurrency } from '../lib/concurrency';
+
+// Bắn quá nhiều phần AI cùng lúc (vd Bát Tự 9 phần) làm chạm rate limit của key
+// dùng chung phía server → hàng loạt phần lỗi/bị cắt ngắn. Giới hạn 3 lượt cùng lúc.
+const AI_SECTION_CONCURRENCY = 3;
 
 export type AiEntry = {
   status: 'idle' | 'loading' | 'done' | 'error';
@@ -112,8 +117,8 @@ export function useStreamingAI() {
     if (revealRefs.current[id]) { clearInterval(revealRefs.current[id]!); revealRefs.current[id] = null; }
     setAi(s => ({ ...s, [id]: { status: 'loading', text: '', shown: '', fetchingMore: true, missing: 0 } }));
 
-    // Gọi TẤT CẢ song song, ghép theo thứ tự khi từng phần về.
-    const inflight = sections.map(s => settle(runSectionResilient(s)));
+    // Gọi song song có GIỚI HẠN (tránh chạm rate limit key dùng chung), ghép theo thứ tự khi từng phần về.
+    const inflight = runWithConcurrency(sections.map(s => () => settle(runSectionResilient(s))), AI_SECTION_CONCURRENCY);
     for (let i = 0; i < inflight.length; i++) {
       const res = await inflight[i];
       let chunk: string;
@@ -150,8 +155,10 @@ export function useStreamingAI() {
 
     setAi(s => ({ ...s, [id]: { ...(s[id] || { status: 'done', text: '' }), retrying: true } }));
 
-    // Gọi lại CHỈ các phần thiếu (song song).
-    const results = await Promise.all(missingIdx.map(i => settle(runSectionResilient(sections[i]))));
+    // Gọi lại CHỈ các phần thiếu (song song có giới hạn).
+    const results = await Promise.all(
+      runWithConcurrency(missingIdx.map(i => () => settle(runSectionResilient(sections[i]))), AI_SECTION_CONCURRENCY),
+    );
     results.forEach((res, k) => {
       if (res.ok) partsRef.current[id][missingIdx[k]] = res.v;
     });

@@ -39,34 +39,123 @@ function jdToDate(jd: number): SolarDate {
   return { year, month, day };
 }
 
+/**
+ * Thời điểm Sóc (New Moon) — dùng bảng số hạng hiệu chỉnh ĐẦY ĐỦ theo Jean Meeus,
+ * "Astronomical Algorithms" bản 2, chương 49 (~40 số hạng), THAY cho bản rút gọn cũ
+ * (~14 số hạng, bản 1 chương 47 — vốn là công thức gốc của Hồ Ngọc Đức 2004).
+ *
+ * Lý do đổi: phát hiện thực tế bản rút gọn có thể lệch tới ~40 PHÚT so với thời điểm
+ * Sóc thật ở một số kỳ trăng cụ thể (kiểm chứng bằng Sóc nhật thực 12/8/2026, 17:37
+ * UTC — bản rút gọn cho 16:55 UTC, lệch 42 phút). Sai số này đủ lớn để LẬT NGÀY khi
+ * thời điểm Sóc rơi sát nửa đêm giờ Việt Nam, gây tính sai mùng 1 tháng âm (bug thực
+ * tế: mùng 1 tháng 7 âm 2026 tính ra rơi vào 12/8 (Thứ 4) trong khi đúng phải là 13/8
+ * (Thứ 5) — kiểm chứng chéo với nhiều lịch vạn niên độc lập).
+ *
+ * `k` vẫn giữ NGUYÊN hệ quy chiếu cũ (mốc 1900, dùng xuyên suốt các hàm khác trong
+ * file này — getLunarMonth11, getLeapMonthOffset, solarToLunar, lunarToSolar — KHÔNG
+ * đổi gì ở các hàm đó) — chỉ quy đổi sang hệ k của Meeus bản 2 (mốc 2000) NGAY TRONG
+ * hàm này bằng độ lệch cố định 1237 tuần trăng (kiểm chứng bằng số học: khoảng cách
+ * 2 mốc epoch đúng bằng 1236.99999725 tuần trăng — làm tròn 1237 sai số ~7ms, không
+ * đáng kể).
+ */
 function getNewMoonDay(k: number, timeZone: number): number {
+  const dr = Math.PI / 180;
+
+  // delta-T (chênh lệch giờ động lực TT so với UT) — vẫn dùng công thức cũ (khớp T
+  // theo mốc 1900 mà công thức này được Meeus khớp số liệu), sai số ~30 giây so với
+  // delta-T thực tế năm 2026 — không đáng kể so với việc thêm đủ số hạng hiệu chỉnh
+  // Sóc bên dưới (vốn là nguồn sai số ~40 phút cần khắc phục).
   const T = k / 1236.85;
   const T2 = T * T;
   const T3 = T2 * T;
-  const dr = Math.PI / 180;
-  let Jd1 = 2415020.75933 + 29.53058868 * k + 0.0001178 * T2 - 0.000000155 * T3;
-  Jd1 += 0.00033 * Math.sin((166.56 + 132.87 * T - 0.009173 * T2) * dr);
-  const M = 359.2242 + 29.10535608 * k - 0.0000333 * T2 - 0.00000347 * T3;
-  const Mpr = 306.0253 + 385.81691806 * k + 0.0107306 * T2 + 0.00001236 * T3;
-  const F = 21.2964 + 390.67050646 * k - 0.0016528 * T2 - 0.00000239 * T3;
-  let C1 = (0.1734 - 0.000393 * T) * Math.sin(M * dr) + 0.0021 * Math.sin(2 * dr * M);
-  C1 -= 0.4068 * Math.sin(Mpr * dr) + 0.0161 * Math.sin(dr * 2 * Mpr);
-  C1 -= 0.0004 * Math.sin(dr * 3 * Mpr);
-  C1 += 0.0104 * Math.sin(dr * 2 * F) - 0.0051 * Math.sin(dr * (M + Mpr));
-  C1 -= 0.0074 * Math.sin(dr * (M - Mpr)) + 0.0004 * Math.sin(dr * (2 * F + M));
-  C1 -= 0.0004 * Math.sin(dr * (2 * F - M)) - 0.0006 * Math.sin(dr * (2 * F + Mpr));
-  C1 += 0.001 * Math.sin(dr * (2 * F - Mpr)) + 0.0005 * Math.sin(dr * (M + 2 * Mpr));
   let delT: number;
   if (T < -11) {
     delT = 0.001 + 0.000839 * T + 0.0002261 * T2 - 0.00000845 * T3 - 0.000000081 * T * T3;
   } else {
     delT = -0.000278 + 0.000265 * T + 0.000262 * T2;
   }
-  const JdNew = Jd1 + C1 - delT;
+
+  const km = k - 1237; // quy đổi sang hệ k mốc 2000 của Meeus bản 2
+  const Tm = km / 1236.85;
+  const Tm2 = Tm * Tm;
+  const Tm3 = Tm2 * Tm;
+  const Tm4 = Tm3 * Tm;
+
+  const JDE = 2451550.09766 + 29.530588861 * km + 0.00015437 * Tm2 - 0.000000150 * Tm3 + 0.00000000073 * Tm4;
+  const E = 1 - 0.002516 * Tm - 0.0000074 * Tm2;
+  const Ms = 2.5534 + 29.10535670 * km - 0.0000014 * Tm2 - 0.00000011 * Tm3; // Sun mean anomaly
+  const Mp = 201.5643 + 385.81693528 * km + 0.0107582 * Tm2 + 0.00001238 * Tm3 - 0.000000058 * Tm4; // Moon mean anomaly
+  const F = 160.7108 + 390.67050284 * km - 0.0016118 * Tm2 - 0.00000227 * Tm3 + 0.000000011 * Tm4; // Moon arg. of latitude
+  const Om = 124.7746 - 1.56375588 * km + 0.0020672 * Tm2 + 0.00000215 * Tm3; // longitude of ascending node
+
+  const A1 = 299.77 + 0.107408 * km - 0.009173 * Tm2;
+  const A2 = 251.88 + 0.016321 * km;
+  const A3 = 251.83 + 26.651886 * km;
+  const A4 = 349.42 + 36.412478 * km;
+  const A5 = 84.66 + 18.206239 * km;
+  const A6 = 141.74 + 53.303771 * km;
+  const A7 = 207.14 + 2.453732 * km;
+  const A8 = 154.84 + 7.306860 * km;
+  const A9 = 34.52 + 27.261239 * km;
+  const A10 = 207.19 + 0.121824 * km;
+  const A11 = 291.34 + 1.844379 * km;
+  const A12 = 161.72 + 24.198154 * km;
+  const A13 = 239.56 + 25.513099 * km;
+  const A14 = 331.55 + 3.592518 * km;
+
+  const sin = (deg: number) => Math.sin(deg * dr);
+
+  let corr = -0.40720 * sin(Mp);
+  corr += 0.17241 * E * sin(Ms);
+  corr += 0.01608 * sin(2 * Mp);
+  corr += 0.01039 * sin(2 * F);
+  corr += 0.00739 * E * sin(Mp - Ms);
+  corr -= 0.00514 * E * sin(Mp + Ms);
+  corr += 0.00208 * E * E * sin(2 * Ms);
+  corr -= 0.00111 * sin(Mp - 2 * F);
+  corr -= 0.00057 * sin(Mp + 2 * F);
+  corr += 0.00056 * E * sin(2 * Mp + Ms);
+  corr -= 0.00042 * sin(3 * Mp);
+  corr += 0.00042 * E * sin(Ms + 2 * F);
+  corr += 0.00038 * E * sin(Ms - 2 * F);
+  corr -= 0.00024 * E * sin(2 * Mp - Ms);
+  corr -= 0.00017 * sin(Om);
+  corr -= 0.00007 * sin(Mp + 2 * Ms);
+  corr += 0.00004 * sin(2 * Mp - 2 * F);
+  corr += 0.00004 * sin(3 * Ms);
+  corr += 0.00003 * sin(Mp + Ms - 2 * F);
+  corr += 0.00003 * sin(2 * Mp + 2 * F);
+  corr -= 0.00003 * sin(Mp + Ms + 2 * F);
+  corr += 0.00003 * sin(Mp - Ms + 2 * F);
+  corr -= 0.00002 * sin(Mp - Ms - 2 * F);
+  corr -= 0.00002 * sin(3 * Mp + Ms);
+  corr += 0.00002 * sin(4 * Mp);
+
+  let addl = 0.000325 * sin(A1);
+  addl += 0.000165 * sin(A2);
+  addl += 0.000164 * sin(A3);
+  addl += 0.000126 * sin(A4);
+  addl += 0.000110 * sin(A5);
+  addl += 0.000062 * sin(A6);
+  addl += 0.000060 * sin(A7);
+  addl += 0.000056 * sin(A8);
+  addl += 0.000047 * sin(A9);
+  addl += 0.000042 * sin(A10);
+  addl += 0.000040 * sin(A11);
+  addl += 0.000037 * sin(A12);
+  addl += 0.000035 * sin(A13);
+  addl += 0.000023 * sin(A14);
+
+  const JdNew = JDE + corr + addl - delT;
   return Math.floor(JdNew + 0.5 + timeZone / 24);
 }
 
-function getSunLongitude(jdn: number, timeZone: number): number {
+/**
+ * Kinh độ mặt trời trên hoàng đạo (độ, 0-360) tại thời điểm jdn — công thức Hồ Ngọc Đức.
+ * Export riêng (khác `getSunLongitude` bucket 0-11 bên dưới) để `core/solarTerms.ts` dùng
+ * tính CHÍNH XÁC ngày 24 tiết khí (mỗi tiết = mốc kinh độ cố định, cách nhau 15°).
+ */
+export function getSunLongitudeDeg(jdn: number, timeZone: number): number {
   // Theo thuật toán Hồ Ngọc Đức — bản gốc Java
   const T = (jdn - 2451545.5 - timeZone / 24) / 36525;
   const T2 = T * T;
@@ -80,6 +169,12 @@ function getSunLongitude(jdn: number, timeZone: number): number {
   let L = L0 + DL;
   L = L * dr;
   L = L - Math.PI * 2 * Math.floor(L / (Math.PI * 2));
+  return L / dr; // radian → độ
+}
+
+function getSunLongitude(jdn: number, timeZone: number): number {
+  const dr = Math.PI / 180;
+  const L = getSunLongitudeDeg(jdn, timeZone) * dr;
   return Math.floor(L / Math.PI * 6);
 }
 
@@ -149,14 +244,28 @@ export function solarToLunar(dd: number, mm: number, yy: number): LunarDate {
 }
 
 export function lunarToSolar(lunarDay: number, lunarMonth: number, lunarYear: number, isLeapMonth: boolean): SolarDate {
-  const a11 = getLunarMonth11(lunarYear, TIME_ZONE);
-  const b11 = getLunarMonth11(lunarYear + 1, TIME_ZONE);
+  // BUG ĐÃ SỬA: `getLunarMonth11(yy)` trả về tháng 11 âm lịch rơi vào cuối năm DƯƠNG
+  // lịch `yy` — tháng đó là "tháng 11" của năm ÂM LỊCH `yy` (nếu lunarMonth đang xét
+  // là 11 hoặc 12) nhưng lại là "tháng 11" của năm âm lịch `yy - 1` (nếu lunarMonth
+  // đang xét là 1-10, vì tháng Giêng...tháng 10 âm của năm `yy` nằm SAU tháng 11 âm
+  // của năm dương `yy - 1`, chưa tới tháng 11 âm của năm dương `yy`). Code cũ LUÔN
+  // lấy mốc theo `lunarYear`/`lunarYear+1`, đúng cho tháng 11-12 nhưng SAI cho tháng
+  // 1-10 (đa số các tháng) — khiến kết quả lệch nguyên 1 năm dương lịch. Đây chính
+  // là công thức gốc chuẩn của Hồ Ngọc Đức (có rẽ nhánh theo lunarMonth < 11).
+  const [a11, b11] = lunarMonth < 11
+    ? [getLunarMonth11(lunarYear - 1, TIME_ZONE), getLunarMonth11(lunarYear, TIME_ZONE)]
+    : [getLunarMonth11(lunarYear, TIME_ZONE), getLunarMonth11(lunarYear + 1, TIME_ZONE)];
   const k = Math.floor(0.5 + (a11 - 2415021.076998695) / 29.530588853);
   let off = lunarMonth - 11;
   if (off < 0) off += 12;
   if (b11 - a11 > 365) {
     const leapOff = getLeapMonthOffset(a11, TIME_ZONE);
-    const leapMonth = (leapOff + 11 > 12) ? leapOff - 1 : leapOff + 11;
+    // BUG ĐÃ SỬA: công thức đúng (khớp với cách solarToLunar gán nhãn tháng nhuận
+    // qua `lunarMonth = diff + 10` khi `diff === leapMonthDiff`) là `leapOff - 2`
+    // (mod 12) — code cũ dùng `leapOff + 11`/`leapOff - 1`, lệch đúng 1 tháng, khiến
+    // lunarToSolar nhận nhầm tháng nhuận là tháng kế tiếp/trước đó.
+    let leapMonth = leapOff - 2;
+    if (leapMonth <= 0) leapMonth += 12;
     if (isLeapMonth && lunarMonth !== leapMonth) {
       // error: not a leap month
     } else if (isLeapMonth || off >= leapOff) {

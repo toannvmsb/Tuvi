@@ -3,6 +3,12 @@
  *  1. Ngày đẹp / rất đẹp / xấu hôm nay (kèm vắn tắt nên / không nên).
  *  2. Bước sang tháng mới (gợi mở xem Nguyệt Vận).
  *  3. Sinh nhật (dương lịch) của các lá số đang lưu.
+ *  4. Việc & Mục tiêu — bắt đầu/hết hạn hôm nay hoặc ngày mai.
+ *  5. "Sự kiện sắp tới" (lễ Tết/tiết khí/cá nhân) — mặc định nhắc trước 5 ngày, 1 ngày, và đúng
+ *     ngày diễn ra (xem `lifeEventEngine.ts#upcomingEventNotifyTargets`), tôn trọng
+ *     `show_before_days` riêng từng sự kiện (tiết khí show_before_days=3 sẽ không có mốc T-5).
+ *     Có thể TẮT hẳn hoặc tùy chỉnh mốc riêng từng sự kiện qua mục "Quản lý thông báo" ở màn chi
+ *     tiết sự kiện (xem `lib/eventNotifyPrefs.ts`, truyền vào qua tham số `notifyPrefs`).
  * (Nạp xu được thêm ngay tại màn Nạp xu; push khi app đóng do webhook đảm nhiệm.)
  *
  * Mỗi tin có `id` cố định theo ngày/tháng/năm nên CHỈ tạo 1 lần (chống trùng).
@@ -14,6 +20,7 @@ import { addNotification } from './notificationCenter';
 import { cancelAppReminders, scheduleReminderAt } from './notifications';
 import type { SavedChartRow } from './charts';
 import type { LifeTask } from './lifeTasks';
+import { upcomingEventNotifyTargets, type EventPackage, type UserEvent, type EventNotifyTarget, type NotifyPrefLookup } from '../core/lifeEventEngine';
 
 const GOOD = new Set(['Rất tốt', 'Tốt']);
 // Chỉ nhắc khi ngày THỰC SỰ xấu — bỏ "Cần thận trọng" để đỡ làm phiền.
@@ -50,10 +57,41 @@ function taskDueCopy(task: LifeTask, dateType: 'start' | 'end', dateStr: string,
     : { title: `⏰ ${kindLabel} sắp hết hạn`, body: `"${task.title}" sẽ hết hạn vào ngày mai (${dateLabel}).` };
 }
 
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** Tiêu đề + nội dung nhắc cho 1 mốc "Sự kiện sắp tới" — dùng chung cho bell và lên lịch.
+ * `milestone` giờ là số NGÀY BẤT KỲ (mặc định 5/1/0, có thể tùy chỉnh riêng từng sự kiện qua mục
+ * "Quản lý thông báo" — xem `lib/eventNotifyPrefs.ts`), nên chỉ đặc-cách câu chữ cho 0 và 1. */
+function eventNotifyCopy(t: EventNotifyTarget): { title: string; body: string } {
+  const { ev, milestone } = t;
+  const dateLabel = `${ev.occursOn.getDate()}/${ev.occursOn.getMonth() + 1}`;
+  if (milestone === 0) {
+    return {
+      title: `🎉 Hôm nay: ${ev.icon} ${ev.displayName}`,
+      body: `Hôm nay (${dateLabel}) là "${ev.displayName}". Mở app để xem hướng dẫn, giờ tốt và mâm cúng (nếu có).`,
+    };
+  }
+  if (milestone === 1) {
+    return {
+      title: `⏰ Còn 1 ngày: ${ev.icon} ${ev.displayName}`,
+      body: `Ngày mai (${dateLabel}) là "${ev.displayName}" — đừng quên chuẩn bị nhé!`,
+    };
+  }
+  return {
+    title: `🗓️ Còn ${milestone} ngày: ${ev.icon} ${ev.displayName}`,
+    body: `"${ev.displayName}" sẽ diễn ra vào ${dateLabel} — mở app để xem trước và chuẩn bị sớm.`,
+  };
+}
+
 export async function syncEventNotifications(
   result: AstrologyResult | null,
   charts: SavedChartRow[],
   tasks: LifeTask[] = [],
+  eventPackages: EventPackage[] = [],
+  userLifeEvents: UserEvent[] = [],
+  notifyPrefs?: NotifyPrefLookup,
 ): Promise<void> {
   const now = new Date();
   const y = now.getFullYear(), mo = now.getMonth() + 1, d = now.getDate();
@@ -116,6 +154,17 @@ export async function syncEventNotifications(
       });
     }
   }
+
+  // 5) Sự kiện sắp tới — theo mốc đã cấu hình (mặc định T-5/T-1/T-0), chỉ báo khi HÔM NAY trùng đúng mốc đó.
+  for (const target of upcomingEventNotifyTargets(eventPackages, userLifeEvents, now, notifyPrefs)) {
+    if (!sameCalendarDay(target.notifyAt, now)) continue;
+    const { title, body } = eventNotifyCopy(target);
+    await addNotification({
+      id: `life_event:${target.ev.key}:${target.milestone}:${isoOf(target.ev.occursOn)}`,
+      type: 'life_event',
+      title, body,
+    });
+  }
 }
 
 const PLANNED_KEY = 'reminders_planned_on';
@@ -126,12 +175,16 @@ const PLANNED_KEY = 'reminders_planned_on';
  *  - Ngày 1 tháng sau: chào tháng mới (8h sáng).
  *  - Sinh nhật kế tiếp của mỗi lá số (8h sáng).
  *  - Việc/Mục tiêu: ngày TRƯỚC hạn 1 ngày và ĐÚNG ngày hạn (bắt đầu/kết thúc) — nhắc lúc 7h30 sáng.
+ *  - Sự kiện sắp tới: đúng 3 mốc T-5/T-1/T-0 (xem `upcomingEventNotifyTargets`) — nhắc lúc 7h30 sáng.
  * Chạy TỐI ĐA 1 lần/ngày (chống lên lịch lặp mỗi lần mở app).
  */
 export async function planScheduledReminders(
   result: AstrologyResult | null,
   charts: SavedChartRow[],
   tasks: LifeTask[] = [],
+  eventPackages: EventPackage[] = [],
+  userLifeEvents: UserEvent[] = [],
+  notifyPrefs?: NotifyPrefLookup,
 ): Promise<void> {
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
@@ -195,6 +248,12 @@ export async function planScheduledReminders(
       await scheduleReminderAt(at(dayBefore, 7, 30), beforeCopy.title, beforeCopy.body);
       await scheduleReminderAt(at(dueDate, 7, 30), dueCopy.title, dueCopy.body);
     }
+  }
+
+  // (e) Sự kiện sắp tới — theo mốc đã cấu hình, nhắc lúc 7h30 sáng vào từng ngày mốc đó.
+  for (const target of upcomingEventNotifyTargets(eventPackages, userLifeEvents, now, notifyPrefs)) {
+    const { title, body } = eventNotifyCopy(target);
+    await scheduleReminderAt(at(target.notifyAt, 7, 30), title, body);
   }
 
   try { await AsyncStorage.setItem(PLANNED_KEY, todayKey); } catch { /* bỏ qua */ }

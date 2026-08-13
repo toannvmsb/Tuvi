@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scroll: { padding: SPACING.lg, gap: SPACING.sm, paddingBottom: SPACING.xxl },
   tabsRow: {
-    flexDirection: 'row', marginHorizontal: SPACING.lg, backgroundColor: COLORS.surface,
+    flexDirection: 'row', marginHorizontal: SPACING.lg, marginTop: SPACING.md, backgroundColor: COLORS.surface,
     borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   tab: { flex: 1, paddingVertical: SPACING.sm, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },

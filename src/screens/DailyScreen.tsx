@@ -27,6 +27,8 @@ import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import { costNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyView'>;
 
@@ -108,11 +110,12 @@ export default function DailyScreen({ route, navigation }: Props) {
       setAi({ status: 'error', text: msg });
     }
   };
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Xem theo ngày" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>Xem ngày cho {result.birthInfo.name || 'bạn'}</Text>
 
         {/* Lịch âm dương chọn ngày — đã hợp nhất bản đồ nhiệt + thống kê tháng
@@ -215,6 +218,7 @@ export default function DailyScreen({ route, navigation }: Props) {
 
         <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }

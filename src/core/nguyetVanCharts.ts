@@ -31,21 +31,14 @@ export function lunarYearForAge(result: AstrologyResult, age: number): number {
 /**
  * Ngày dương lịch bắt đầu (mùng 1) + tổng số ngày của 1 tháng âm lịch.
  *
- * `lunarYear` ở tham số hàm này LUÔN theo quy ước TỰ NHIÊN — tức khớp với
- * `solarToLunar(...).year` và `tuViChart.lunarDate.year` (năm âm = năm dương
- * chứa phần lớn tháng đó). NHƯNG `lunarToSolar(1, month, Y, false)` của thư
- * viện lịch trong repo lại nhận `Y` theo quy ước LỆCH: với `month` 1–10, `Y`
- * thực chất là "năm tự nhiên Y+1" (đã kiểm chứng thực nghiệm: lunarToSolar
- * (1,6,2026,false) trả về ngày dương 2027-07-04, tức mùng 1 tháng 6 ÂM của
- * năm TỰ NHIÊN 2027, không phải 2026!). Chỉ với `month` 11–12, `Y` mới khớp
- * quy ước tự nhiên. Đây LÀ NGUYÊN NHÂN THẬT của bug "Home lệch màu so với
- * Xem theo ngày ở cùng 1 ngày" — code cũ chỉ patch quy ước lệch này cho bước
- * tính "tháng kế" (10→11) mà QUÊN áp dụng ngay cho chính `start` của tháng
- * đang tính, khiến toàn bộ tháng 1–10 bị tính lùi/tiến sai hẳn 1 NĂM.
+ * `lunarYear` theo quy ước TỰ NHIÊN — khớp với `solarToLunar(...).year` và
+ * `tuViChart.lunarDate.year`. `lunarToSolar` đã sửa lỗi gốc (từng LUÔN lấy mốc
+ * "tháng 11" theo `lunarYear`/`lunarYear+1` bất kể `month`, đúng ra phải dùng
+ * `lunarYear-1`/`lunarYear` cho các tháng 1–10 — xem chú thích trong
+ * `lunarCalendar.ts`), nên gọi thẳng với `lunarYear` không cần patch bù trừ nữa.
  */
 export function lunarMonthRange(lunarYear: number, month: number): { start: Date; days: number } {
-  const paramYear = month <= 10 ? lunarYear - 1 : lunarYear;
-  const startS = lunarToSolar(1, month, paramYear, false);
+  const startS = lunarToSolar(1, month, lunarYear, false);
   const start = new Date(startS.year, startS.month - 1, startS.day);
 
   // KHÔNG suy độ dài tháng bằng cách trừ "ngày bắt đầu tháng kế" — nếu giữa

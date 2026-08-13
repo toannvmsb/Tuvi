@@ -22,6 +22,8 @@ import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BatTu'>;
 
@@ -47,11 +49,12 @@ export default function BatTuScreen({ route }: Props) {
   };
 
   const runAI = (force = false) => run(0, aiKey, batTuSections(result), force);
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScreenHeader title="Bát Tự" onBack={() => navigationRef.navigate('Home')} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>{t('batTuTitle')}</Text>
         <Text style={styles.subtitle}>
           {result.birthInfo.name} • {result.birthInfo.gender === 'nam' ? '♂ Nam' : '♀ Nữ'}
@@ -146,6 +149,7 @@ export default function BatTuScreen({ route }: Props) {
           )}
         </View>
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }

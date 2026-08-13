@@ -5,7 +5,9 @@
  *
  * Giới hạn 500 từ/câu hỏi + 500 từ/câu trả lời (server ép ở Edge Function
  * ai-chat, client cũng chặn sớm để phản hồi tức thì). Lịch sử chat CHỈ tồn tại
- * trong bộ nhớ phiên (mất khi đóng app) — không lưu lên server.
+ * trong bộ nhớ phiên (mất khi đóng app) — không lưu lên server, nhưng VẪN được
+ * gửi kèm (`turns`) trong mỗi lượt hỏi để AI hiểu mạch hội thoại đang mở, thay
+ * vì xử lý từng câu hỏi độc lập như trước.
  *
  * Quota: 5 lượt/ngày miễn phí. Vượt quota → hỏi trừ 1 xu/lượt, trừ khi người
  * dùng đã tích "Không hỏi lại lần sau" (aiChatPrefs.ts) thì tự động trừ luôn.
@@ -13,14 +15,20 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder,
-  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Dimensions,
-  ActivityIndicator, Keyboard,
+  TextInput, ScrollView, Platform, Dimensions,
+  ActivityIndicator, Keyboard, BackHandler,
 } from 'react-native';
-// LƯU Ý: chỉ dùng DUY NHẤT 1 <Modal> gốc — 2 <Modal> lồng/nối tiếp nhau
-// (sheet chat + hộp xác nhận trừ xu) từng gây kẹt màn hình trên Android sau
-// khi đóng (native window của Modal thứ 2 không giải phóng đúng lúc, chặn
-// hết thao tác bên dưới trừ icon nổi vốn nằm ngoài Modal). Hộp xác nhận giờ
-// là 1 overlay THƯỜNG render bên trong cùng Modal, không phải Modal riêng.
+// LƯU Ý: KHÔNG dùng <Modal> của RN cho sheet chat này nữa. Trên Android,
+// <Modal> tạo 1 cửa sổ (Dialog) RIÊNG khỏi cửa sổ chính của Activity — hành vi
+// tự đẩy/tự co khi bàn phím mở của cửa sổ đó KHÔNG nhất quán (đã thử qua nhiều
+// lần: khi thì không đẩy gì khiến bàn phím che hết, khi thì đẩy gấp đôi mức
+// cần) trong khi mọi màn hình KHÁC của app (không dùng Modal, chỉ là View
+// thường trong cây view chính) đều ăn theo đúng `windowSoftInputMode="pan"`
+// khai báo ở app.json — đã test ổn định. Sheet chat giờ cũng là 1 View overlay
+// thường (giống bong bóng nổi bên dưới), để hưởng chính cơ chế "pan" đó thay vì
+// tự đoán/tự tính chiều cao bàn phím bằng tay (không đáng tin cậy qua nhiều lần
+// thử). Nút back vật lý Android được xử lý thủ công qua BackHandler bên dưới
+// (trước đây Modal tự làm việc này qua onRequestClose).
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { sendChatMessage, chargeAndSend, countWords, AI_CHAT_MAX_WORDS } from '../lib/aiChat';
 import { getSkipChargeConfirm, setSkipChargeConfirm, consumeDailyBannerFlag } from '../lib/aiChatPrefs';
@@ -35,6 +43,11 @@ import type { AstrologyResult } from '../types';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const BUBBLE_SIZE = 56;
 const EDGE_MARGIN = 10;
+const BASE_SHEET_H = SCREEN_H * 0.6;
+// Luôn chừa khoảng trống tối thiểu phía trên cùng màn hình khi bàn phím mở, để
+// tiêu đề "✨ Hỏi Tuzi" + nút đóng không bị đẩy khuất khỏi màn hình (dễ xảy ra
+// trên iPad — bàn phím rất cao so với sheet cao 60% màn hình).
+const SHEET_TOP_GAP = 40;
 
 interface Turn { question: string; answer: string; }
 
@@ -54,6 +67,7 @@ export default function AiChatBubble() {
   const [pendingCharge, setPendingCharge] = useState<{ question: string; cost: number; freeLimit: number } | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
   const [dailyBanner, setDailyBanner] = useState(false);
+  const [keyboardOverlap, setKeyboardOverlap] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollToEnd = () => scrollRef.current?.scrollToEnd({ animated: true });
 
@@ -89,12 +103,44 @@ export default function AiChatBubble() {
     return () => clearTimeout(t);
   }, [turns, loading, errorMsg]);
 
+  // Đóng chat khi bấm nút back vật lý Android — trước đây do <Modal> tự lo qua
+  // onRequestClose, giờ sheet là View thường nên phải tự đăng ký.
   useEffect(() => {
-    const sub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
-      setTimeout(scrollToEnd, 50);
+    if (Platform.OS !== 'android' || !open) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      Keyboard.dismiss();
+      setOpen(false);
+      return true;
     });
     return () => sub.remove();
+  }, [open]);
+
+  // Tự đo chiều cao bàn phím THẬT qua sự kiện hệ điều hành — CHỈ dùng để tự đẩy
+  // tay trên iOS (iOS không có cơ chế tự "pan" toàn màn hình như Android). Trên
+  // Android, sheet giờ là 1 View thường (không còn trong <Modal>) nên tự ăn
+  // theo `windowSoftInputMode="pan"` ở cấp Activity — CHÍNH cơ chế đã chứng
+  // minh chạy ổn định cho mọi màn hình khác của app — không cần tự tính nữa.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const onShow = (e: any) => {
+      setKeyboardOverlap(e?.endCoordinates?.height ?? 0);
+      setTimeout(scrollToEnd, 50);
+    };
+    const onHide = () => setKeyboardOverlap(0);
+    const s1 = Keyboard.addListener('keyboardWillShow', onShow);
+    const s2 = Keyboard.addListener('keyboardWillHide', onHide);
+    return () => { s1.remove(); s2.remove(); };
   }, []);
+
+  // Sheet cao 60% màn hình mặc định; trên iOS khi bàn phím mở, bị bóp lại vừa
+  // đủ để luôn còn khoảng trống SHEET_TOP_GAP phía trên (không để tiêu đề bị
+  // đẩy khuất khỏi màn hình trên các máy bàn phím rất cao như iPad). Trên
+  // Android, `keyboardOverlap` luôn = 0 (effect ở trên chỉ chạy trên iOS) nên
+  // sheetHeight giữ nguyên BASE_SHEET_H — việc đẩy lên khi bàn phím mở đã do
+  // chính Android xử lý (pan toàn màn hình), không phải bóp chiều cao sheet.
+  const sheetHeight = keyboardOverlap > 0
+    ? Math.min(BASE_SHEET_H, SCREEN_H - keyboardOverlap - SHEET_TOP_GAP)
+    : BASE_SHEET_H;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -136,7 +182,7 @@ export default function AiChatBubble() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const r = await sendChatMessage(question, chartFacts);
+      const r = await sendChatMessage(question, turns, chartFacts);
       if (r.status === 'ok') {
         setTurns(t => [...t, { question, answer: r.reply }]);
         setInput('');
@@ -148,7 +194,7 @@ export default function AiChatBubble() {
       }
       // status === 'quota' — hết lượt miễn phí hôm nay.
       if (await getSkipChargeConfirm()) {
-        const r2 = await chargeAndSend(question, chartFacts);
+        const r2 = await chargeAndSend(question, turns, chartFacts);
         if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); setInput(''); }
         else if (r2.status === 'error') setErrorMsg(r2.message);
         return;
@@ -174,7 +220,7 @@ export default function AiChatBubble() {
     setDontAskAgain(false);
     setLoading(true);
     try {
-      const r2 = await chargeAndSend(question, chartFacts);
+      const r2 = await chargeAndSend(question, turns, chartFacts);
       if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); setInput(''); }
       else if (r2.status === 'error') setErrorMsg(r2.message);
     } catch (e: any) {
@@ -203,13 +249,14 @@ export default function AiChatBubble() {
         <Text style={styles.bubbleIcon}>✨</Text>
       </Animated.View>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={closeChat}>
-        <View style={styles.backdrop}>
+      {open && (
+        // View overlay THƯỜNG thay cho <Modal> (xem giải thích ở đầu file) — phủ
+        // kín màn hình bằng position:absolute, zIndex cao hơn bong bóng nổi.
+        // paddingBottom chỉ khác 0 trên iOS (effect đo bàn phím ở trên); trên
+        // Android, việc đẩy lên khi bàn phím mở do chính OS xử lý (windowSoftInputMode="pan").
+        <View style={[styles.modalRoot, { paddingBottom: keyboardOverlap }]}>
           <TouchableOpacity style={styles.backdropTap} activeOpacity={1} onPress={closeChat} />
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.sheet}
-          >
+          <View style={[styles.sheet, { height: sheetHeight }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>✨ Hỏi Tuzi</Text>
               <TouchableOpacity onPress={closeChat}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
@@ -293,9 +340,9 @@ export default function AiChatBubble() {
                 </View>
               </View>
             )}
-          </KeyboardAvoidingView>
+          </View>
         </View>
-      </Modal>
+      )}
     </>
   );
 }
@@ -309,10 +356,17 @@ const styles = StyleSheet.create({
     zIndex: 999, elevation: 12, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 },
   },
   bubbleIcon: { fontSize: 26 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  // Thay cho <Modal>: View overlay thường, phủ kín màn hình bằng absolute +
+  // zIndex cao hơn bong bóng nổi (999) để luôn nằm trên cùng.
+  modalRoot: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+    zIndex: 1000, elevation: 20,
+  },
   backdropTap: { flex: 1 },
+  // height cố định KHÔNG đặt ở đây nữa — tính động (sheetHeight) theo bàn phím, xem trên.
   sheet: {
-    height: SCREEN_H * 0.6, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: SPACING.lg, borderTopWidth: 1, borderColor: COLORS.gold,
   },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

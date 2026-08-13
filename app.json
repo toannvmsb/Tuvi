@@ -3,7 +3,7 @@
     "name": "Tuzi",
     "slug": "tuvi-app",
     "scheme": "tuzi",
-    "version": "1.0.1",
+    "version": "2.5.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,9 +15,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tuzi.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
-        "NSCameraUsageDescription": "Ứng dụng cần camera để đọc ảnh.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -27,7 +26,8 @@
         "backgroundColor": "#0a0a1a"
       },
       "package": "com.tuzi.app",
-      "versionCode": 3,
+      "versionCode": 4,
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.INTERNET",

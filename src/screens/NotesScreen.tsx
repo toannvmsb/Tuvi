@@ -6,7 +6,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Modal,
-  KeyboardAvoidingView, Platform,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +15,7 @@ import type { RootStackParamList, AstrologyResult } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import ScreenHeader from '../components/ScreenHeader';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import LunarCalendarPicker from '../components/LunarCalendarPicker';
 import { listLifeNotes, createLifeNote, deleteLifeNote, type LifeNote } from '../lib/lifeNotes';
 import { getMyChartId } from '../lib/myChart';
@@ -120,12 +121,7 @@ export default function NotesScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScreenHeader title="Ghi chú nhanh" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.addBox}>
           <TextInput
             style={styles.input}
@@ -165,8 +161,7 @@ export default function NotesScreen({ navigation }: Props) {
             </View>
           ))
         )}
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
 
       <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
         <View style={styles.pickerBackdrop}>
@@ -193,7 +188,10 @@ export default function NotesScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, gap: SPACING.sm, paddingBottom: SPACING.xxl },
+  scroll: {
+    padding: SPACING.lg, gap: SPACING.sm,
+    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
+  },
   addBox: {
     backgroundColor: COLORS.surface, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
     padding: SPACING.md, gap: SPACING.sm,

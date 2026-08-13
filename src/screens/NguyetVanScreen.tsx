@@ -26,6 +26,8 @@ import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
 import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 import PaidGate from '../components/PaidGate';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -173,11 +175,12 @@ export default function NguyetVanScreen({ route }: Props) {
       setAi(s => ({ ...s, [m]: { status: 'error', text: msg } }));
     }
   };
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScreenHeader title="Nguyệt Vận" onBack={() => navigationRef.navigate('Home')} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         {/* Hàng 1: chọn Đại vận */}
         <Text style={styles.rowLabel}>Chọn Đại vận</Text>
         {Platform.OS === 'web' ? (
@@ -381,6 +384,7 @@ export default function NguyetVanScreen({ route }: Props) {
         })}
         <MedDisclaimer compact style={{ marginTop: SPACING.md }} />
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }

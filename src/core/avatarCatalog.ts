@@ -16,7 +16,6 @@ export interface AvatarOption {
 
 export const AVATAR_OPTIONS: AvatarOption[] = [
   { id: 'sao-mai', label: 'Sao Mai', colors: ['#e8b34d', '#f6d992'], image: require('../../assets/avatars/sao-mai.png') },
-  { id: 'ho-phach', label: 'Hổ Phách', colors: ['#e8935a', '#f5c48c'], image: require('../../assets/avatars/ho-phach.png') },
   { id: 'nguyet-quang', label: 'Nguyệt Quang', colors: ['#9b8cff', '#c3b8ff'], image: require('../../assets/avatars/nguyet-quang.png') },
   { id: 'phuong-hoang', label: 'Phượng Hoàng', colors: ['#ef7b8e', '#f6a8b6'], image: require('../../assets/avatars/phuong-hoang.png') },
   { id: 'thanh-long', label: 'Thanh Long', colors: ['#4fd694', '#8bd88a'], image: require('../../assets/avatars/thanh-long.png') },

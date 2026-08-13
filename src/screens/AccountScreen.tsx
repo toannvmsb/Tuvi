@@ -5,12 +5,13 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import AnimatedAvatar from '../components/AnimatedAvatar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
@@ -76,8 +77,7 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Thông tin tài khoản" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Hồ sơ */}
         <View style={styles.card}>
           <Text style={styles.greeting}>Xin chào{user?.displayName ? ` - ${user.displayName}` : (wallet.userName ? ` - ${wallet.userName}` : '')} 👋</Text>
@@ -170,15 +170,17 @@ export default function AccountScreen() {
           <Text style={styles.version}>Phiên bản {APP_VERSION}</Text>
           <Text style={styles.copyright}>{COPYRIGHT}</Text>
         </View>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  scroll: {
+    padding: SPACING.lg, gap: SPACING.md,
+    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
+  },
   card: {
     backgroundColor: COLORS.card, borderRadius: 12,
     padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm,

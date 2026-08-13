@@ -12,12 +12,13 @@ export interface LifeNote {
   created_at: string;
 }
 
-export async function listLifeNotes(limit?: number): Promise<LifeNote[]> {
+export async function listLifeNotes(limit?: number, filterDate?: string): Promise<LifeNote[]> {
   let q = supabase
     .from('life_notes')
     .select('*')
     .order('note_date', { ascending: false })
     .order('created_at', { ascending: false });
+  if (filterDate) q = q.eq('note_date', filterDate);
   if (limit) q = q.limit(limit);
   const { data, error } = await q;
   if (error) throw new Error(error.message);

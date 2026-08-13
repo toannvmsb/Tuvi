@@ -7,13 +7,15 @@
  *
  * Triển khai:
  *   supabase functions deploy iap-verify
- *   # Secrets cho xác thực store (điền khi hoàn thiện):
- *   supabase secrets set APPLE_SHARED_SECRET=...        # iOS (App Store)
- *   supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON=...  # Android (Play)
+ *   # Secrets cho xác thực store (BẮT BUỘC điền trước khi bật IAP cho bản phát hành —
+ *   # thiếu secret nào thì xác thực nền tảng đó LUÔN TỪ CHỐI, không bao giờ tự chấp nhận):
+ *   supabase secrets set APPLE_SHARED_SECRET=...          # iOS (App Store Connect → shared secret)
+ *   supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON=...  # Android (Play Console → service account JSON, dán nguyên văn)
  *   supabase secrets set ANDROID_PACKAGE_NAME=com.yourapp
  *
- * ⚠ Phần verifyApple / verifyGoogle hiện là SKELETON — TRƯỚC KHI PHÁT HÀNH
- *   phải hoàn thiện gọi API store thật để chống gian lận.
+ * SỬA LỖI BẢO MẬT: verifyApple/verifyGoogle trước đây là SKELETON luôn trả `{ok:true}` — bất kỳ
+ * user đăng nhập nào cũng có thể tự bịa receipt để cộng xu miễn phí (tối đa 5000 xu/lần, gọi lại
+ * bao nhiêu lần cũng được). Giờ gọi THẬT App Store / Google Play Developer API.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -30,22 +32,88 @@ const XU_BY_PRODUCT: Record<string, number> = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } });
 
-/** TODO: xác thực biên nhận iOS qua App Store (verifyReceipt / App Store Server API). */
-async function verifyApple(_receipt: string, _productId: string): Promise<{ ok: boolean; txnId?: string }> {
-  // const sharedSecret = Deno.env.get('APPLE_SHARED_SECRET');
-  // Gọi https://buy.itunes.apple.com/verifyReceipt (fallback sandbox), kiểm tra
-  // product_id khớp + transaction_id, trả { ok, txnId }.
-  // SKELETON: tạm chấp nhận để test luồng (PHẢI thay bằng xác thực thật khi phát hành).
-  return { ok: true };
+/** Xác thực biên nhận iOS qua App Store `verifyReceipt` (thử production trước, fallback sandbox
+ * khi Apple trả status 21007 — receipt sandbox gửi nhầm endpoint production). */
+async function verifyApple(receipt: string, productId: string): Promise<{ ok: boolean; txnId?: string }> {
+  const sharedSecret = Deno.env.get('APPLE_SHARED_SECRET') ?? '';
+  if (!receipt || !sharedSecret) return { ok: false };
+  const body = JSON.stringify({ 'receipt-data': receipt, password: sharedSecret, 'exclude-old-transactions': true });
+  const call = async (url: string) => {
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+      return await res.json();
+    } catch { return null; }
+  };
+  let j = await call('https://buy.itunes.apple.com/verifyReceipt');
+  if (j?.status === 21007) j = await call('https://sandbox.itunes.apple.com/verifyReceipt');
+  if (!j || j.status !== 0) return { ok: false };
+  const items = [...(j.receipt?.in_app ?? []), ...(j.latest_receipt_info ?? [])];
+  const match = items.find((it: any) => it?.product_id === productId);
+  if (!match?.transaction_id) return { ok: false };
+  return { ok: true, txnId: String(match.transaction_id) };
 }
 
-/** TODO: xác thực biên nhận Android qua Google Play Developer API. */
-async function verifyGoogle(_purchaseToken: string, _productId: string): Promise<{ ok: boolean; txnId?: string }> {
-  // Dùng GOOGLE_SERVICE_ACCOUNT_JSON lấy access token → gọi
-  // androidpublisher purchases.products.get(packageName, productId, purchaseToken)
-  // kiểm tra purchaseState=0 (purchased), trả { ok, txnId: orderId }.
-  // SKELETON: tạm chấp nhận để test luồng.
-  return { ok: true };
+function base64url(input: Uint8Array | string): string {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s+/g, '');
+  const raw = atob(b64);
+  const buf = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+  return buf.buffer;
+}
+
+/** Lấy OAuth2 access token cho service account (JWT Bearer flow) để gọi Android Publisher API. */
+async function getGoogleAccessToken(): Promise<string | null> {
+  const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) return null;
+  try {
+    const sa = JSON.parse(saJson);
+    const now = Math.floor(Date.now() / 1000);
+    const encHeader = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    const encClaims = base64url(JSON.stringify({
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/androidpublisher',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now, exp: now + 3600,
+    }));
+    const signInput = `${encHeader}.${encClaims}`;
+    const key = await crypto.subtle.importKey(
+      'pkcs8', pemToArrayBuffer(sa.private_key),
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
+    );
+    const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(signInput));
+    const jwt = `${signInput}.${base64url(new Uint8Array(sig))}`;
+
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${jwt}`,
+    });
+    const j = await res.json();
+    return j?.access_token ?? null;
+  } catch { return null; }
+}
+
+/** Xác thực biên nhận Android qua Google Play Developer API (androidpublisher). */
+async function verifyGoogle(purchaseToken: string, productId: string): Promise<{ ok: boolean; txnId?: string }> {
+  const packageName = Deno.env.get('ANDROID_PACKAGE_NAME') ?? '';
+  if (!purchaseToken || !packageName) return { ok: false };
+  const accessToken = await getGoogleAccessToken();
+  if (!accessToken) return { ok: false };
+  const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`;
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) return { ok: false };
+    const j = await res.json();
+    if (j?.purchaseState !== 0) return { ok: false }; // 0 = đã mua; 1 = đã hủy; 2 = đang chờ
+    return { ok: true, txnId: String(j.orderId ?? purchaseToken) };
+  } catch { return { ok: false }; }
 }
 
 Deno.serve(async (req) => {

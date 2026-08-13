@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Switch, Alert, ActivityIndicator, Modal, FlatList,
+  ScrollView, Switch, Alert, ActivityIndicator, Modal,
   KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,13 +52,48 @@ export default function InputScreen({ navigation }: Props) {
   // Năm xem: 1900 → currentYear + 100, sort giảm dần (mới nhất ở đầu)
   const viewingYearOptions = Array.from({ length: (currentYear + 100) - 1900 + 1 }, (_, i) => (currentYear + 100) - i);
   const [viewingYearSearch, setViewingYearSearch] = useState('');
+  const [yearSearch, setYearSearch] = useState('');
+  const pickerListRef = useRef<ScrollView>(null);
+  const PICKER_ROW_HEIGHT = 52;
 
   // Mở picker: LUÔN ẩn bàn phím trước (tránh bàn phím từ ô Họ tên / tìm Năm xem còn hiện).
   const openPicker = (which: 'day' | 'month' | 'year' | 'viewingYear') => {
     Keyboard.dismiss();
     if (which === 'viewingYear') setViewingYearSearch('');
+    if (which === 'year') setYearSearch('');
     setPickerOpen(which);
   };
+
+  // Danh sách hiện tại của picker đang mở (áp dụng lọc tìm kiếm nếu có).
+  const pickerItems: number[] =
+    pickerOpen === 'day' ? dayOptions
+    : pickerOpen === 'month' ? monthOptions
+    : pickerOpen === 'year'
+      ? (yearSearch ? yearOptions.filter(y => String(y).includes(yearSearch.trim())) : yearOptions)
+    : pickerOpen === 'viewingYear'
+      ? (viewingYearSearch ? viewingYearOptions.filter(y => String(y).includes(viewingYearSearch.trim())) : viewingYearOptions)
+    : [];
+
+  // Cuộn tới mục đang chọn khi vừa mở picker. Dùng ScrollView.scrollTo (thay vì
+  // FlatList initialScrollIndex) vì trên web, initialScrollIndex kết hợp với
+  // windowing của FlatList hay để trống (blank) phần nội dung phía trên vị trí
+  // cuộn tới — ScrollView cuộn thật (scrollTop) không bị lỗi này, và danh sách
+  // tối đa ~230 dòng nên không cần ảo hoá (virtualization) vẫn mượt.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const current = pickerOpen === 'day' ? day
+      : pickerOpen === 'month' ? month
+      : pickerOpen === 'viewingYear' ? viewingYear
+      : year;
+    const idx = pickerItems.findIndex(it => String(it) === current);
+    if (idx < 0) return;
+    const t = setTimeout(() => {
+      const y = Math.max(0, idx * PICKER_ROW_HEIGHT - PICKER_ROW_HEIGHT * 2);
+      pickerListRef.current?.scrollTo({ y, animated: false });
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerOpen]);
 
   async function handleCalculate() {
     if (!name.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập họ và tên'); return; }
@@ -243,7 +278,7 @@ export default function InputScreen({ navigation }: Props) {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
@@ -275,28 +310,33 @@ export default function InputScreen({ navigation }: Props) {
                 maxLength={4}
               />
             )}
-            <FlatList
+            {pickerOpen === 'year' && (
+              <TextInput
+                style={[styles.input, { marginHorizontal: SPACING.md, marginBottom: SPACING.sm }]}
+                value={yearSearch}
+                onChangeText={(text) => {
+                  setYearSearch(text);
+                  // Cho phép user tự nhập năm: nếu là số 4 chữ số → set ngay
+                  const n = parseInt(text, 10);
+                  if (!isNaN(n) && text.length === 4 && n >= 1900 && n <= currentYear) {
+                    setYear(String(n));
+                  }
+                }}
+                placeholder="Nhập năm sinh (vd 1990)..."
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            )}
+            {/* Dùng ScrollView thay FlatList: danh sách tối đa ~230 dòng, không cần ảo
+                hoá — tránh lỗi "khoảng trắng phía trên vị trí cuộn tới" của FlatList
+                initialScrollIndex trên bản web (xem ghi chú tại pickerListRef). */}
+            <ScrollView
+              ref={pickerListRef}
               keyboardShouldPersistTaps="handled"
-              data={
-                pickerOpen === 'day' ? dayOptions
-                : pickerOpen === 'month' ? monthOptions
-                : pickerOpen === 'year' ? yearOptions
-                : pickerOpen === 'viewingYear'
-                  ? (viewingYearSearch
-                      ? viewingYearOptions.filter(y => String(y).includes(viewingYearSearch.trim()))
-                      : viewingYearOptions)
-                : []
-              }
-              keyExtractor={(item) => String(item)}
-              initialScrollIndex={(() => {
-                if (pickerOpen === 'day') return Math.max(0, parseInt(day) - 1);
-                if (pickerOpen === 'month') return Math.max(0, parseInt(month) - 1);
-                if (pickerOpen === 'year') return Math.max(0, currentYear - parseInt(year));
-                if (pickerOpen === 'viewingYear') return Math.max(0, (currentYear + 100) - parseInt(viewingYear));
-                return 0;
-              })()}
-              getItemLayout={(_, index) => ({ length: 52, offset: 52 * index, index })}
-              renderItem={({ item }) => {
+              style={styles.pickerList}
+            >
+              {pickerItems.map((item) => {
                 const current = pickerOpen === 'day' ? day
                   : pickerOpen === 'month' ? month
                   : pickerOpen === 'viewingYear' ? viewingYear
@@ -304,6 +344,7 @@ export default function InputScreen({ navigation }: Props) {
                 const isActive = String(item) === current;
                 return (
                   <TouchableOpacity
+                    key={item}
                     style={[styles.provinceItem, isActive && styles.provinceItemActive]}
                     onPress={() => {
                       const v = String(item);
@@ -323,8 +364,8 @@ export default function InputScreen({ navigation }: Props) {
                     {isActive && <Text style={styles.provinceCheck}>✓</Text>}
                   </TouchableOpacity>
                 );
-              }}
-            />
+              })}
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -403,6 +444,7 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderWidth: 1, borderColor: COLORS.gold,
   },
+  pickerList: { maxHeight: 420 },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,

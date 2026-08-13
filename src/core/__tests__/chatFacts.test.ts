@@ -1,4 +1,5 @@
 import { buildChatFactsBlock } from '../chatFacts';
+import { ZODIAC_NAME } from '../xongDatEngine';
 import { allSampleResults } from './fixtures';
 
 /**
@@ -33,6 +34,22 @@ describe('buildChatFactsBlock', () => {
     // Nếu có dòng "tháng còn lại", nó phải xuất hiện sau dòng tháng hiện tại (thứ tự nhất quán).
     if (block.includes('CÒN LẠI')) {
       expect(block.indexOf('Tháng âm hiện tại')).toBeLessThan(block.indexOf('CÒN LẠI'));
+    }
+  });
+
+  /**
+   * Regression cho bug thực tế: AI trả lời nhầm tuổi Mão cho người tuổi Hợi vì
+   * phải tự suy ra con giáp từ năm sinh dương lịch (dễ sai, nhất là sinh gần
+   * Tết). Facts phải nêu THẲNG tuổi âm lịch lấy từ Chi của Trụ Năm Bát Tự đã
+   * tính sẵn, để AI không phải tự tính lại.
+   */
+  it('nêu rõ tuổi âm lịch (con giáp) lấy đúng từ Chi của Trụ Năm Bát Tự', () => {
+    for (const result of allSampleResults()) {
+      const block = buildChatFactsBlock(result, new Date());
+      const yearBranch = result.batTuChart?.pillars?.[0]?.branch;
+      if (!yearBranch) continue;
+      expect(block).toContain('TUỔI ÂM LỊCH (con giáp)');
+      expect(block).toContain(`${yearBranch} (tuổi ${ZODIAC_NAME[yearBranch]})`);
     }
   });
 });

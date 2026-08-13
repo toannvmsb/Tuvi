@@ -20,7 +20,7 @@ import {
 import { syncBroadcasts } from '../lib/broadcasts';
 
 const TYPE_EMOJI: Record<NotifType, string> = {
-  topup: '💰', day: '📅', month: '🌙', birthday: '🎂', life_task: '✅',
+  topup: '💰', day: '📅', month: '🌙', birthday: '🎂', life_task: '✅', life_event: '🗓️',
   promo: '🎉', feature: '✨', system: '🔔',
 };
 

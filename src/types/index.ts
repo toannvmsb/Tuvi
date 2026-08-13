@@ -1,3 +1,5 @@
+import type { ResolvedEvent } from '../core/lifeEventEngine';
+
 // Heavenly Stems (Thiên Can)
 export type HeavenlyStem = 'Giáp' | 'Ất' | 'Bính' | 'Đinh' | 'Mậu' | 'Kỷ' | 'Canh' | 'Tân' | 'Nhâm' | 'Quý';
 
@@ -184,6 +186,7 @@ export type RootStackParamList = {
   About: undefined;
   Notifications: undefined;
   Promotions: undefined;
+  EventDetail: { event: ResolvedEvent; result?: AstrologyResult };
 };
 
 export type MainTabParamList = {

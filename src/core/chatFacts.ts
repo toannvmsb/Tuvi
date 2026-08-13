@@ -5,6 +5,9 @@
  *
  * Chỉ tái dùng facts đã tính sẵn (không bịa, không tính điểm mới):
  *   - Danh tính + Mệnh/Thân: từ tuViChart (giống chartHeaderLines dùng cho PDF).
+ *   - Tuổi âm lịch (con giáp): lấy THẲNG từ Chi của Trụ Năm (batTuChart.pillars[0]) — KHÔNG để
+ *     AI tự suy ra từ năm sinh dương lịch (bug thực tế: AI từng trả lời nhầm tuổi Mão thay vì
+ *     đúng phải là tuổi Hợi, do tự tính sai từ năm sinh).
  *   - Bát Tự: Nhật chủ + Dụng thần/Kỵ thần (batTuChart, đã có).
  *   - Vận hiện tại: Đại Vận (scoreDaiVan), Tiểu Vận năm nay (scoreTieuVan),
  *     Hôm nay (scoreNhatVan) — cùng nguồn điểm dùng ở các màn Đại/Tiểu/Nhật Vận.
@@ -26,19 +29,31 @@ import { scoreTieuVan } from './tieuVanScore';
 import { scoreNhatVan } from './nhatVan';
 import { scoreAllNguyetVan } from './nguyetVanScore';
 import { solarToLunar } from './lunarCalendar';
+import { ZODIAC_NAME } from './xongDatEngine';
 
 export function buildChatFactsBlock(result: AstrologyResult, date: Date = new Date()): string {
   const b = result.birthInfo;
   const c = result.tuViChart;
+  const bt = result.batTuChart;
   const gender = b.gender === 'nam' ? 'Nam' : 'Nữ';
   const age = currentAgeOf(result, date);
 
   const lines: string[] = [];
   lines.push(`Họ tên: ${b.name || '(không tên)'} · ${gender} · Sinh ${b.day}/${b.month}/${b.year} · Tuổi hiện tại: ${age}`);
+  // ★ DỮ KIỆN CỐ ĐỊNH — bắt buộc nêu rõ tuổi âm lịch (con giáp) lấy từ Trụ Năm Bát Tự đã tính
+  // sẵn, KHÔNG để AI tự suy ra từ năm sinh dương lịch (dễ sai — nhất là sinh gần Tết, và thực tế
+  // đã có lần AI trả lời nhầm tuổi Mão thay vì đúng phải là tuổi Hợi).
+  const yearBranch = bt?.pillars?.[0]?.branch;
+  if (yearBranch) {
+    lines.push(
+      `★ DỮ KIỆN CỐ ĐỊNH — TUỔI ÂM LỊCH (con giáp) CỦA NGƯỜI NÀY: ${yearBranch} (tuổi ${ZODIAC_NAME[yearBranch]}). ` +
+      'BẮT BUỘC dùng ĐÚNG tuổi này trong mọi câu trả lời liên quan tới tuổi/con giáp/hợp-khắc theo năm — ' +
+      'TUYỆT ĐỐI KHÔNG tự suy đoán con giáp khác từ năm sinh dương lịch.',
+    );
+  }
   lines.push(`Mệnh: cung ${c.menhCung}, chủ tinh ${c.menhChu} · Bản Mệnh ${c.napAmMenh} (Cục ${c.cucName})`);
   if (c.thanCung !== c.menhCung) lines.push(`Thân: cung ${c.thanCung}, chủ tinh ${c.thanChu}`);
 
-  const bt = result.batTuChart;
   if (bt) {
     const fav = bt.favorableElements?.join(', ') || '?';
     const unfav = bt.unfavorableElements?.join(', ') || '?';

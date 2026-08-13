@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, Switch, KeyboardAvoidingView, Platform,
+  Alert, Switch, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import ScreenHeader from '../components/ScreenHeader';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t, setLanguage, getCurrentLanguage, Language } from '../i18n';
 import { testApiConnection } from '../api/claudeApi';
@@ -92,8 +93,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title={t('settingsTitle')} onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* AI Provider preference */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>⚙ Ưu tiên nhà cung cấp AI</Text>
@@ -211,15 +211,17 @@ export default function SettingsScreen() {
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
           <Text style={styles.saveBtnText}>{saved ? '✓ Đã lưu' : `💾 ${t('save')}`}</Text>
         </TouchableOpacity>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  scroll: {
+    padding: SPACING.lg, gap: SPACING.md,
+    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
+  },
   card: {
     backgroundColor: COLORS.card, borderRadius: 12,
     padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,

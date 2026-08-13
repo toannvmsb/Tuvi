@@ -26,6 +26,13 @@ import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import ScreenHeader from '../components/ScreenHeader';
 import MedDisclaimer from '../components/MedDisclaimer';
+import { runWithConcurrency } from '../lib/concurrency';
+import { useScrollToTop } from '../hooks/useScrollToTop';
+import ScrollToTopButton from '../components/ScrollToTopButton';
+
+// Toàn lá số có tới 11 phần — bắn hết cùng lúc từng làm chạm rate limit key AI dùng
+// chung phía server (hàng loạt phần lỗi/rớt về free model). Giới hạn 3 lượt cùng lúc.
+const AI_SECTION_CONCURRENCY = 3;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FullChartAI'>;
 
@@ -165,9 +172,10 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
     sectionsRef.current = sections;
     partsRef.current = new Array(sections.length).fill(null);
 
-    // Gọi TẤT CẢ phần SONG SONG ngay; ghép THEO THỨ TỰ khi từng phần về.
-    const inflight = sections.map(s =>
-      s.run().then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e })),
+    // Gọi song song có GIỚI HẠN (tránh chạm rate limit key dùng chung); ghép THEO THỨ TỰ khi từng phần về.
+    const inflight = runWithConcurrency(
+      sections.map(s => () => s.run().then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e }))),
+      AI_SECTION_CONCURRENCY,
     );
     for (let i = 0; i < inflight.length; i++) {
       const res = await inflight[i];
@@ -190,7 +198,9 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
     if (!missingIdx.length) return;
     setRetrying(true);
     const settle = (pr: Promise<string>) => pr.then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e }));
-    const results = await Promise.all(missingIdx.map(i => settle(sectionsRef.current[i].run())));
+    const results = await Promise.all(
+      runWithConcurrency(missingIdx.map(i => () => settle(sectionsRef.current[i].run())), AI_SECTION_CONCURRENCY),
+    );
     results.forEach((res, k) => { if (res.ok) partsRef.current[missingIdx[k]] = res.v; });
     if (revealRef.current) { clearInterval(revealRef.current); revealRef.current = null; }
     textRef.current = buildText();
@@ -201,6 +211,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
     setRetrying(false);
     if (miss === 0) setAiResult(aiKey, textRef.current);
   };
+  const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -240,7 +251,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         {mode === 'offline' && (
           <View style={styles.resultBox}>
             <Text style={styles.bigTitle}>Phân tích tổng thể lá số</Text>
@@ -342,6 +353,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
           <Text style={styles.bottomBackText}>← Về lá số</Text>
         </TouchableOpacity>
       </ScrollView>
+      <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
     </SafeAreaView>
   );
 }
