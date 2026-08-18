@@ -6,7 +6,7 @@
 
 import type { AstrologyResult, FiveElement } from '../types';
 import {
-  scoreNhatVan, goodBadHours, auspiciousHours, trucNgayInfo,
+  scoreNhatVan, goodBadHours, auspiciousHours, trucNgayInfo, genericDayFacts,
   type HourWindow,
 } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
@@ -188,6 +188,84 @@ export function pickGoodDays(
   if (totalDays > 366) warning = `Khoảng thời gian quá dài; chỉ phân tích 366 ngày đầu.`;
   if (top.length === 0) warning = (warning ? warning + ' ' : '') +
     `Trong ${safeTotal} ngày, không có ngày phù hợp cho "${task.name}". Thử chọn khoảng thời gian khác.`;
+
+  return {
+    task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
+    totalDays: safeTotal, okDays: okCount, top, warning,
+  };
+}
+
+/**
+ * Bản KHÔNG cá nhân hóa của `pickGoodDays` — dùng khi người dùng CHƯA gắn lá
+ * số (chế độ cơ bản). Chỉ dùng `genericDayFacts` (Trực/Lục Diệu/Hoàng Đạo/28
+ * Tú theo lịch chung, không cần Bát Tự) + Cấp 6 (Trực hợp việc, không đổi so
+ * với bản cá nhân hóa vì chỉ phụ thuộc nhóm việc + hành ngày). Bỏ hẳn: xung
+ * tuổi (không có tuổi để so), giờ tốt riêng theo lá số (`bestHours`), hướng/
+ * màu theo Dụng-Kỵ thần (đều để rỗng, UI tự ẩn khi rỗng).
+ */
+export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): DayPickOutput {
+  const found = findTaskByCode(taskCode);
+  if (!found) {
+    return {
+      task: { groupName: '?', taskName: '?', emoji: '' },
+      totalDays: 0, okDays: 0, top: [],
+      warning: 'Không tìm thấy việc trong danh mục.',
+    };
+  }
+  const { group, task } = found;
+  const candidates: DayPickResult[] = [];
+  const fromTs = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const toTs = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  if (toTs < fromTs) return {
+    task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
+    totalDays: 0, okDays: 0, top: [],
+    warning: 'Ngày kết thúc phải sau ngày bắt đầu.',
+  };
+  const DAY_MS = 86400000;
+  const totalDays = Math.floor((toTs - fromTs) / DAY_MS) + 1;
+  const safeTo = totalDays > 366 ? new Date(fromTs + 365 * DAY_MS) : to;
+  const safeTotal = Math.min(totalDays, 366);
+
+  let okCount = 0;
+  for (let t = fromTs; t <= safeTo.getTime(); t += DAY_MS) {
+    const date = new Date(t);
+    const facts = genericDayFacts(date);
+    const ld = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
+
+    const bonus = taskBonus(group.code, facts.canChi.branchEl, facts.trucIdx);
+    const adjustedScore100 = Math.max(0, Math.min(100, facts.score100 + bonus));
+    const reasons = [...facts.reasons];
+    if (bonus > 0) reasons.push(`Trực ${facts.truc} hợp việc "${task.name}" — thêm điểm.`);
+    if (bonus < 0 && TRUC_BAD_IDX.has(facts.trucIdx)) reasons.push(`Trực ${facts.truc} kỵ mọi việc trọng đại.`);
+
+    if (adjustedScore100 >= 55) okCount++;
+
+    candidates.push({
+      date,
+      dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
+      lunarLabel: `Âm: ${ld.day}/${ld.month}${ld.isLeapMonth ? ' nhuận' : ''}/${ld.year}`,
+      canChiLabel: `Ngày ${facts.canChi.stem} ${facts.canChi.branch}`,
+      rating: facts.rating, score: 0, score100: adjustedScore100,
+      reasons: reasons.slice(0, 5),
+      bestHours: [],
+      generalHours: auspiciousHours(date),
+      direction: '', goodColor: '', avoidColor: '',
+      truc: facts.truc, lucDieu: facts.lucDieu, hoangDao: facts.hoangDao, nhi28Tu: facts.nhi28Tu,
+      warnings: facts.warnings,
+    });
+  }
+
+  const top = candidates
+    .filter(c => c.score100 >= 40)
+    .sort((a, b) => b.score100 - a.score100)
+    .slice(0, 5);
+
+  let warning: string | undefined;
+  if (totalDays > 366) warning = `Khoảng thời gian quá dài; chỉ phân tích 366 ngày đầu.`;
+  if (top.length === 0) {
+    warning = (warning ? warning + ' ' : '') +
+      `Trong ${safeTotal} ngày, không có ngày phù hợp cho "${task.name}". Thử chọn khoảng thời gian khác.`;
+  }
 
   return {
     task: { groupName: group.name, taskName: task.name, emoji: group.emoji },

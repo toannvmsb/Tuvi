@@ -174,9 +174,15 @@ export type RootStackParamList = {
   PalaceDetail: { result: AstrologyResult; branchIndex: number };
   FullChartAI: { result: AstrologyResult };
   WealthChart: { result: AstrologyResult };
-  DailyView: { result: AstrologyResult };
-  DayPicker: { result: AstrologyResult };
-  Tasks: { result: AstrologyResult };
+  // `result` optional — Home dùng "chế độ mặc định" (chưa gắn lá số) điều
+  // hướng sang đây không kèm lá số, DailyScreen tự render nhánh chung.
+  DailyView: { result?: AstrologyResult };
+  // `result` optional — chế độ cơ bản (chưa gắn lá số) vẫn xem ngày tốt được,
+  // chỉ không cá nhân hóa theo Bát Tự/tuổi (xem pickGoodDaysGeneric).
+  DayPicker: { result?: AstrologyResult };
+  // Không còn nhận `result` qua route — Tasks tự nạp lá số "của tôi" (nếu có)
+  // giống hệt Notes, vì Việc & Mục tiêu gắn theo NGƯỜI DÙNG chứ không theo lá số.
+  Tasks: undefined;
   Notes: undefined;
   MyCharts: undefined;
   CompareCharts: { preSelectedResult?: AstrologyResult };

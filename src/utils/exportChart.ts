@@ -48,7 +48,9 @@ export async function saveImageToGallery(uri: string): Promise<void> {
   try { MediaLibrary = require('expo-media-library'); } catch {
     throw new Error('Thiếu package expo-media-library. Chạy: npx expo install expo-media-library');
   }
-  const perm = await MediaLibrary.requestPermissionsAsync();
+  // writeOnly=true — chỉ xin quyền GHI vào thư viện ảnh, không xin quyền đọc
+  // (app không cần duyệt/đọc ảnh có sẵn của người dùng, chỉ lưu ảnh lá số vừa xuất).
+  const perm = await MediaLibrary.requestPermissionsAsync(true);
   if (!(perm.granted || perm.status === 'granted')) {
     throw new Error('Cần cấp quyền truy cập Thư viện ảnh để lưu.');
   }

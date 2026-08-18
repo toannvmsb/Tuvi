@@ -1,11 +1,10 @@
 /**
  * Quản lý công việc (Task ngắn hạn) + Mục tiêu dài hạn (Goal) — 2 tab.
- * Chọn Ngày bắt đầu/Ngày kết thúc qua CHÍNH lịch màu dùng ở "Xem theo ngày"
- * (LunarCalendarPicker + buildMonthHeatmap) — nhất quán 1 nguồn "ngày đẹp/xấu"
- * duy nhất cho toàn app, không dựng lại thang điểm riêng.
- *
- * VỊ TRÍ MÀN HÌNH TRONG APP CHƯA CHỐT — hiện chỉ đăng ký route để test, entry
- * point tạm thời đặt ở Home (sẽ dời khi thống nhất vị trí chính thức).
+ * Gắn theo NGƯỜI DÙNG (RLS theo user_id ở bảng life_tasks), KHÔNG theo lá số —
+ * giống hệt Ghi chú nhanh (NotesScreen). Lịch chọn Ngày bắt đầu/Ngày kết thúc
+ * dùng chung LunarCalendarPicker: có lá số "của tôi" thì tô màu cá nhân hóa
+ * (buildMonthHeatmap), chưa gắn thì vẫn tô theo công thức chung
+ * (buildGenericMonthHeatmapForMonth) thay vì để lịch trắng.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -14,11 +13,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types';
+import type { RootStackParamList, AstrologyResult } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 import ScreenHeader from '../components/ScreenHeader';
 import LunarCalendarPicker from '../components/LunarCalendarPicker';
 import { buildMonthHeatmap } from '../core/dailyPeriodService';
+import { buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
+import { getMyChartId } from '../lib/myChart';
+import { listCharts, getCachedCharts, rowToResult } from '../lib/charts';
 import {
   listLifeTasks, createLifeTask, setLifeTaskStatus, setLifeTaskPriority, deleteLifeTask,
   type LifeTask, type TaskKind,
@@ -41,8 +44,9 @@ function dateRangeLabel(it: LifeTask): string {
   return '';
 }
 
-export default function TasksScreen({ route, navigation }: Props) {
-  const { result } = route.params;
+export default function TasksScreen({ navigation }: Props) {
+  const { online } = useAuth();
+  const [myResult, setMyResult] = useState<AstrologyResult | null>(null);
 
   const [tab, setTab] = useState<TaskKind>('task');
   const [items, setItems] = useState<LifeTask[]>([]);
@@ -60,8 +64,10 @@ export default function TasksScreen({ route, navigation }: Props) {
     const n = new Date(); return { year: n.getFullYear(), month0: n.getMonth() };
   });
   const pickerHeatmap = useMemo(
-    () => buildMonthHeatmap(result, pickerViewYM.year, pickerViewYM.month0 + 1),
-    [result, pickerViewYM.year, pickerViewYM.month0],
+    () => (myResult
+      ? buildMonthHeatmap(myResult, pickerViewYM.year, pickerViewYM.month0 + 1)
+      : buildGenericMonthHeatmapForMonth(pickerViewYM.year, pickerViewYM.month0 + 1)),
+    [myResult, pickerViewYM.year, pickerViewYM.month0],
   );
 
   const load = useCallback(async (kind: TaskKind) => {
@@ -76,6 +82,18 @@ export default function TasksScreen({ route, navigation }: Props) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(tab); }, [tab, load]));
+  // Nạp lá số "của tôi" (nếu có gắn) chỉ để tô màu lịch chọn ngày cá nhân hóa —
+  // KHÔNG bắt buộc để dùng Việc & Mục tiêu (xem chú thích đầu file).
+  useFocusEffect(useCallback(() => {
+    (async () => {
+      try {
+        const charts = online ? await listCharts() : (getCachedCharts() ?? []);
+        const id = await getMyChartId();
+        const row = id ? charts.find(r => r.id === id) : undefined;
+        setMyResult(row ? rowToResult(row) : null);
+      } catch { setMyResult(null); }
+    })();
+  }, [online]));
 
   const resetAddForm = () => {
     setShowAdd(false);

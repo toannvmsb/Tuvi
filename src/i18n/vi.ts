@@ -2,7 +2,7 @@ export default {
   // App
   appName: 'Trợ lý thông minh của bạn',
   loading: 'Đang tính toán...',
-  calculate: 'Xem Lá Số',
+  calculate: 'Lưu và Xem lá số',
   back: 'Quay lại',
   settings: 'Cài đặt',
   save: 'Lưu',
@@ -20,7 +20,7 @@ export default {
   homeCredit: 'Tuzi — Trợ lý thông minh của bạn',
 
   // Input Form
-  inputTitle: 'Lập lá số mới',
+  inputTitle: 'Tạo mới Hồ sơ/Lá số',
   name: 'Họ và tên',
   namePlaceholder: 'Nhập họ và tên',
   gender: 'Giới tính',

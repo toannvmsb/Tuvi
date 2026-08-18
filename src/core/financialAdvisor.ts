@@ -23,6 +23,7 @@ import { scoreNguyetVan } from './nguyetVanScore';
 import { analyzeFinancialDNA, type FinancialDNA } from './wealthAnalysis';
 import { solarToLunar } from './lunarCalendar';
 import { currentAgeOf } from './ageUtil';
+import { genericDayScore, buildGenericMonthHeatmap } from './genericMonthHeatmap';
 
 type Tier = 'good' | 'neutral' | 'caution';
 type Dominant = 'earn' | 'retain' | 'cashflow' | 'invest' | 'leverage' | 'property' | 'business';
@@ -311,6 +312,46 @@ export function buildFinancialAdvice(result: AstrologyResult, date: Date = new D
       text: withRiskNote(pick(ADVICE_MONTH[dominant][mTier], ld.month * 7 + seedBase), dna),
     };
   }
+
+  return { day, month };
+}
+
+/**
+ * Bản KHÔNG cá nhân hóa của `buildFinancialAdvice` — dùng cho box "Gợi ý tài
+ * chính" ở Home khi người dùng CHƯA gắn lá số nào. Không có Bát Tự/ADN Tài
+ * Chính để chọn "dominant" (kiếm tiền/giữ tiền/dòng tiền/...) nên cố định
+ * dùng nhóm 'cashflow' (quản lý dòng tiền) — chủ đề trung lập, phù hợp với
+ * mọi người, không thiên về cá nhân nào. Rating NGÀY dùng chung công thức
+ * quan hệ Can-Chi đã có ở `genericMonthHeatmap.ts` (không tính lại); rating
+ * THÁNG suy từ điểm trung bình heatmap tháng dương hiện tại.
+ */
+export function buildGenericFinancialAdvice(date: Date = new Date()): FinancialAdviceBundle {
+  const dominant: Dominant = 'cashflow';
+  const seedBase = dominantSeed(dominant);
+
+  const { rating: dayRating } = genericDayScore(date);
+  const dTier = dayTierOf(dayRating);
+  const isoDay = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const day: FinancialAdviceItem = {
+    label: 'Hôm nay',
+    periodKey: isoDay,
+    rating: dayRating,
+    tier: dTier,
+    tierLabel: TIER_LABEL[dTier],
+    text: pick(ADVICE_DAY[dominant][dTier], dayOfYear(date) + seedBase),
+  };
+
+  const genMonth = buildGenericMonthHeatmap(date);
+  const mTier: Tier = genMonth.stats.avgScore >= 60 ? 'good' : genMonth.stats.avgScore >= 45 ? 'neutral' : 'caution';
+  const mRating = mTier === 'good' ? 'Khá' : mTier === 'neutral' ? 'Bình thường' : 'Cần thận trọng';
+  const month: FinancialAdviceItem = {
+    label: 'Tháng này',
+    periodKey: `${genMonth.year}-m${genMonth.month}`,
+    rating: mRating,
+    tier: mTier,
+    tierLabel: TIER_LABEL[mTier],
+    text: pick(ADVICE_MONTH[dominant][mTier], genMonth.month * 7 + seedBase),
+  };
 
   return { day, month };
 }

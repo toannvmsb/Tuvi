@@ -13,8 +13,9 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
-import { pickGoodDays, type DayPickOutput } from '../core/dayPicker';
+import { pickGoodDays, pickGoodDaysGeneric, type DayPickOutput } from '../core/dayPicker';
 import { analyzeNumber, minDigitsFor, NUMBER_PURPOSES, type NumberAnalysis } from '../core/numberAnalysis';
+import { promptPersonalize } from '../lib/personalizePrompt';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DayPicker'>;
 
@@ -27,7 +28,10 @@ function daysInMonth(m: number, y: number): number {
 }
 
 export default function DayPickerScreen({ route, navigation }: Props) {
-  const { result } = route.params;
+  const { result } = route.params ?? {};
+  // Chế độ cơ bản (chưa gắn lá số): ẩn nhóm "Xem số hợp mệnh" — vốn cần Bát Tự
+  // để so số với mệnh, không có bản chung tương đương.
+  const groupOptions = result ? DAY_PICK_GROUPS : DAY_PICK_GROUPS.filter(g => g.code !== NUMBER_GROUP_CODE);
 
   // Lựa chọn group/task
   const [group, setGroup] = useState<DayPickGroup | null>(null);
@@ -64,11 +68,11 @@ export default function DayPickerScreen({ route, navigation }: Props) {
     if (!task) return;
     const fromD = new Date(from.y, from.m - 1, from.d);
     const toD = new Date(to.y, to.m - 1, to.d);
-    setOutput(pickGoodDays(result, task.code, fromD, toD));
+    setOutput(result ? pickGoodDays(result, task.code, fromD, toD) : pickGoodDaysGeneric(task.code, fromD, toD));
   };
 
   const runNumber = () => {
-    if (!task) return;
+    if (!task || !result) return; // "Xem số hợp mệnh" cần lá số, đã ẩn nhóm này ở chế độ cơ bản
     setNumberOut(analyzeNumber(result, numberInput, task.code, purpose.code));
   };
 
@@ -81,7 +85,7 @@ export default function DayPickerScreen({ route, navigation }: Props) {
     if (!modal) return null;
     let title = '', data: any[] = [], current: any = null, onPick: (v: any) => void = () => {};
     if (modal === 'group') {
-      title = 'Chọn nhóm việc'; data = DAY_PICK_GROUPS; current = group?.code;
+      title = 'Chọn nhóm việc'; data = groupOptions; current = group?.code;
       // Đổi nhóm → reset việc & mọi kết quả (giao diện cũ hiện lại khi chọn nhóm khác).
       onPick = (g: DayPickGroup) => { setGroup(g); setTask(null); setOutput(null); setNumberOut(null); closeModal(); };
     } else if (modal === 'task' && group) {
@@ -156,10 +160,13 @@ export default function DayPickerScreen({ route, navigation }: Props) {
       <ScreenHeader title="Xem ngày tốt" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Hàng giới thiệu: lá số đang xem */}
+        {/* Hàng giới thiệu: lá số đang xem, hoặc báo chế độ cơ bản nếu chưa gắn lá số */}
         <Text style={styles.chartFor}>
-          Xem ngày tốt cho{' '}
-          <Text style={styles.chartName}>{result.birthInfo.name || '(không tên)'}</Text>
+          {result ? (
+            <>Xem ngày tốt cho <Text style={styles.chartName}>{result.birthInfo.name || '(không tên)'}</Text></>
+          ) : (
+            'Xem ngày tốt (chế độ cơ bản — chưa gắn lá số)'
+          )}
         </Text>
 
         {/* Hàng 1: 2 droplist (nhóm + việc) */}
@@ -378,11 +385,20 @@ export default function DayPickerScreen({ route, navigation }: Props) {
 
         {!isNumberMode && (
         <Text style={styles.note}>
-          _Logic dựa trên lá số của bạn (Dụng/Kỵ thần Bát Tự + hợp/xung tuổi) kết hợp tính chất từng việc.
-          • "Khung giờ tốt cho lá số" hợp riêng với mệnh của bạn. • "Khung giờ tốt nói chung" là giờ
-          hoàng đạo của ngày theo phong thủy (dùng khi giờ hợp lá số rơi vào lúc bất tiện).
-          Kết quả mang tính tham khảo._
+          {result
+            ? '_Logic dựa trên lá số của bạn (Dụng/Kỵ thần Bát Tự + hợp/xung tuổi) kết hợp tính chất từng việc. ' +
+              '• "Khung giờ tốt cho lá số" hợp riêng với mệnh của bạn. • "Khung giờ tốt nói chung" là giờ ' +
+              'hoàng đạo của ngày theo phong thủy (dùng khi giờ hợp lá số rơi vào lúc bất tiện). ' +
+              'Kết quả mang tính tham khảo._'
+            : '_Chế độ cơ bản — chưa gắn lá số nên chỉ xét Trực/Lục Diệu/Hoàng Đạo/28 Tú theo lịch chung, ' +
+              'không có Dụng/Kỵ thần hay xung/hợp tuổi riêng của bạn. Kết quả mang tính tham khảo._'}
         </Text>
+        )}
+
+        {!result && (
+          <TouchableOpacity style={styles.personalizeBtn} onPress={() => promptPersonalize(navigation)} activeOpacity={0.85}>
+            <Text style={styles.personalizeBtnTxt}>✨ Cá nhân hóa để xem đầy đủ (Dụng/Kỵ thần, xung/hợp tuổi…)</Text>
+          </TouchableOpacity>
         )}
 
         <MedDisclaimer compact style={{ marginTop: SPACING.xs }} />
@@ -426,6 +442,11 @@ const styles = StyleSheet.create({
   },
   runBtnDisabled: { opacity: 0.4 },
   runBtnTxt: { color: '#1a0a00', fontSize: FONTS.size.md, fontWeight: '800' },
+  personalizeBtn: {
+    backgroundColor: COLORS.purple, borderRadius: 10, paddingVertical: SPACING.sm,
+    alignItems: 'center', marginTop: SPACING.xs,
+  },
+  personalizeBtnTxt: { color: '#fff', fontSize: FONTS.size.sm, fontWeight: '800', textAlign: 'center' },
 
   outputCard: {
     backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md,

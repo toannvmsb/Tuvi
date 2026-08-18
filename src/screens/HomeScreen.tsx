@@ -28,7 +28,8 @@ import { scrollInputAboveKeyboard } from '../lib/scrollToInput';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { listLifeTasks, compareLifeTasks, type LifeTask } from '../lib/lifeTasks';
 import { listLifeNotes, createLifeNote, type LifeNote } from '../lib/lifeNotes';
-import { buildFinancialAdvice, type FinancialAdviceItem } from '../core/financialAdvisor';
+import { buildFinancialAdvice, buildGenericFinancialAdvice, type FinancialAdviceItem } from '../core/financialAdvisor';
+import { promptPersonalize } from '../lib/personalizePrompt';
 import { getSelectedAvatarId } from '../lib/avatarPrefs';
 import { fetchEventPackages, listMyUserEvents } from '../lib/lifeEvents';
 import { pickUpcomingEvent, resolveAllUpcomingEvents, type ResolvedEvent, type EventPackage, type UserEvent } from '../core/lifeEventEngine';
@@ -100,7 +101,7 @@ export default function HomeScreen({ navigation }: Props) {
   // Gợi ý Tài chính - Đầu tư: tính lại mỗi khi màn hình mở/lấy focus (loadSummary chạy lại
   // qua useFocusEffect) — tự "sang kỳ mới" theo ngày/tháng âm mà không cần lưu trạng thái.
   const financeAdvice = useMemo(
-    () => (myResult ? buildFinancialAdvice(myResult, now) : null),
+    () => (myResult ? buildFinancialAdvice(myResult, now) : buildGenericFinancialAdvice(now)),
     [myResult, nowLunar.day, nowLunar.month],
   );
 
@@ -127,8 +128,10 @@ export default function HomeScreen({ navigation }: Props) {
     }
     // Xem trước Việc & Mục tiêu + báo hạn (chỉ khi đã đăng nhập online) — nạp
     // TRƯỚC để dùng chung cho cả preview lẫn 2 lời gọi thông báo bên dưới.
+    // Việc & Mục tiêu gắn theo NGƯỜI DÙNG (không theo lá số) — chỉ cần đăng
+    // nhập, giống hệt Ghi chú nhanh ngay bên dưới.
     let allOpenTasks: LifeTask[] = [];
-    if (online && result) {
+    if (online) {
       try {
         // "3 việc quan trọng nhất": gộp Việc + Mục tiêu rồi sắp lại bằng ĐÚNG
         // quy tắc đã dùng ở màn chi tiết (ưu tiên thủ công trước, còn lại theo
@@ -192,32 +195,30 @@ export default function HomeScreen({ navigation }: Props) {
     );
   };
 
-  /** Nhấn Tên trong lời chào → mở màn Lá Số (tab Tử Vi); cần có lá số. */
+  /** Nhấn Tên trong lời chào → mở màn Lá Số (tab Tử Vi); chưa có lá số → mời cá nhân hóa,
+   * "Tiếp tục ở chế độ mặc định" → màn Thông tin tài khoản. */
   const goMyChart = () => {
     if (myResult) {
       (navigation as any).navigate('MainTabs', { result: myResult, screen: 'TuViChart', params: { result: myResult } });
     } else {
-      promptNoChart();
+      promptPersonalize(navigation, () => navigation.navigate('Account'));
     }
   };
 
-  /** Nhấn nút "Xem ngày xuất hành" → mở DayPicker; cần có lá số. */
+  /** Nhấn nút "Xem ngày tốt" → mở DayPicker; chưa gắn lá số → mời cá nhân hóa,
+   * "Tiếp tục ở chế độ cơ bản" → vẫn vào DayPicker nhưng không cá nhân hóa
+   * (pickGoodDaysGeneric — xem DayPickerScreen.tsx). */
   const goDayPicker = () => {
     if (myResult) {
       navigation.navigate('DayPicker', { result: myResult });
     } else {
-      Alert.alert('Chưa gắn lá số', 'Gắn lá số của bạn để có lời khuyên dành riêng cho bạn.');
+      promptPersonalize(navigation, () => navigation.navigate('DayPicker', {}));
     }
   };
 
-  /** Nhấn "Việc & Mục tiêu" → mở TasksScreen; cần có lá số (dùng để gợi ý thời điểm). */
-  const goTasks = () => {
-    if (myResult) {
-      navigation.navigate('Tasks', { result: myResult });
-    } else {
-      Alert.alert('Chưa gắn lá số', 'Gắn lá số của bạn để có gợi ý thời điểm dành riêng cho bạn.');
-    }
-  };
+  /** Nhấn "Việc & Mục tiêu" → mở TasksScreen; gắn theo NGƯỜI DÙNG (không theo lá số),
+   * KHÔNG chặn bởi myResult — giống hệt "Ghi chú nhanh" (goNotes bên dưới). */
+  const goTasks = () => navigation.navigate('Tasks');
 
   /** Nhấn "Gợi ý Tài chính - Đầu tư" → mở phân tích Tài Lộc; cần có lá số (dùng ADN tài chính + Tài Bạch). */
   const goWealth = () => {
@@ -241,10 +242,12 @@ export default function HomeScreen({ navigation }: Props) {
    * Nhấn box "Gợi ý tài chính" → hiện modal đọc TOÀN BỘ nội dung tư vấn tháng này (box chỉ hiện
    * được vài dòng, dài hơn diện tích box), kèm 2 nút để người dùng CHỦ ĐỘNG chọn xem thêm ở Tài
    * Lộc hay Nguyệt Vận — thay vì điều hướng thẳng và mất nội dung tư vấn đang xem.
+   * Chưa gắn lá số → mời cá nhân hóa thay vì mở modal (2 nút "Xem Tài Lộc"/"Xem Nguyệt Vận"
+   * bên trong modal đều cần lá số nên không có ý nghĩa ở chế độ mặc định).
    */
   const openFinanceModal = () => {
     if (myResult) setShowFinanceModal(true);
-    else promptNoChart();
+    else promptPersonalize(navigation);
   };
 
   /** Nhấn "Ghi chú nhanh" → mở NotesScreen; KHÔNG cần lá số (ghi chú tự do, không gắn Tử Vi). */
@@ -356,7 +359,7 @@ export default function HomeScreen({ navigation }: Props) {
               style={styles.todayCard}
               onPress={() => {
                 if (myResult) navigation.navigate('DailyView', { result: myResult });
-                else promptNoChart();
+                else promptPersonalize(navigation, () => navigation.navigate('DailyView', {}));
               }}
             >
               <View style={styles.dateCell}>
@@ -447,7 +450,7 @@ export default function HomeScreen({ navigation }: Props) {
                 <Text style={styles.previewTitle}>💰 Gợi ý tài chính</Text>
               </View>
               {!financeAdvice?.month ? (
-                <Text style={styles.previewEmpty}>Gắn lá số để nhận gợi ý tài chính theo tháng, theo Tài Bạch của bạn.</Text>
+                <Text style={styles.previewEmpty}>Dữ liệu tháng này chưa sẵn sàng, thử lại sau.</Text>
               ) : (
                 <>
                   <View style={styles.financeHead}>
@@ -557,7 +560,11 @@ export default function HomeScreen({ navigation }: Props) {
                 // và crash "Cannot read property 'tuViChart' of undefined" khi chuyển tab.
                 (navigation as any).navigate('MainTabs', { result: myResult, screen: 'NguyetVan', params: { result: myResult } });
               } else {
-                promptNoChart();
+                // Tab Nguyệt Vận thuộc MainTabs, vốn LUÔN yêu cầu có lá số ở mọi tab con — không
+                // có phiên bản chung tương đương. "Tiếp tục ở chế độ mặc định" → điều hướng sang
+                // "Xem theo ngày" (giống hệt Box Thông báo ngày) — cùng tinh thần theo NGÀY,
+                // DailyScreen đã có sẵn bản chế độ mặc định đầy đủ (lịch + Nên/Hạn chế theo ngày).
+                promptPersonalize(navigation, () => navigation.navigate('DailyView', {}));
               }
             }}
           >
@@ -588,7 +595,7 @@ export default function HomeScreen({ navigation }: Props) {
           <View style={styles.moduleGrid}>
             <TouchableOpacity style={styles.moduleTile} onPress={() => navigation.navigate('Input')} activeOpacity={0.85}>
               <Text style={styles.moduleIcon}>🔮</Text>
-              <Text style={styles.moduleText}>Lập lá số</Text>
+              <Text style={styles.moduleText}>Hồ sơ mới</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.moduleTile} onPress={goDayPicker} activeOpacity={0.85}>
               <Text style={styles.moduleIcon}>🧭</Text>
@@ -596,7 +603,7 @@ export default function HomeScreen({ navigation }: Props) {
             </TouchableOpacity>
             <TouchableOpacity style={styles.moduleTile} onPress={() => navigation.navigate('MyCharts')} activeOpacity={0.85}>
               <Text style={styles.moduleIcon}>🗂️</Text>
-              <Text style={styles.moduleText}>Lá số đã lưu</Text>
+              <Text style={styles.moduleText}>Hồ sơ đã lưu</Text>
             </TouchableOpacity>
           </View>
 

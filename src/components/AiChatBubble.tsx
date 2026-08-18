@@ -22,13 +22,20 @@ import {
 // <Modal> tạo 1 cửa sổ (Dialog) RIÊNG khỏi cửa sổ chính của Activity — hành vi
 // tự đẩy/tự co khi bàn phím mở của cửa sổ đó KHÔNG nhất quán (đã thử qua nhiều
 // lần: khi thì không đẩy gì khiến bàn phím che hết, khi thì đẩy gấp đôi mức
-// cần) trong khi mọi màn hình KHÁC của app (không dùng Modal, chỉ là View
-// thường trong cây view chính) đều ăn theo đúng `windowSoftInputMode="pan"`
-// khai báo ở app.json — đã test ổn định. Sheet chat giờ cũng là 1 View overlay
-// thường (giống bong bóng nổi bên dưới), để hưởng chính cơ chế "pan" đó thay vì
-// tự đoán/tự tính chiều cao bàn phím bằng tay (không đáng tin cậy qua nhiều lần
-// thử). Nút back vật lý Android được xử lý thủ công qua BackHandler bên dưới
-// (trước đây Modal tự làm việc này qua onRequestClose).
+// cần). Sheet chat giờ là 1 View overlay thường (giống bong bóng nổi bên
+// dưới) — nằm CHUNG cửa sổ Activity với mọi màn hình khác nên không còn kẹt
+// giữa 2 cơ chế đẩy khác nhau. Trên Android, "pan" ở cấp Activity (app.json)
+// tự đẩy hộ phần lớn nhưng vẫn để lộ thiếu một phần nhỏ khung nhập (đã xác
+// nhận trên build native thật) — nên vẫn cần đẩy tay thêm chút, xem effect
+// tính `effectivePush` bên dưới. Điểm QUAN TRỌNG khác đã xác nhận trên build
+// thật: hễ gõ ký tự đầu tiên, thanh gợi ý từ của bàn phím Android mới hiện ra
+// và làm bàn phím "cao" thêm → hệ điều hành tự tính lại "pan" và đẩy thêm,
+// khiến sheet bị giật xuống ngay lúc gõ nếu mình cứ đo lại theo mỗi lần đó.
+// Nên `keyboardOverlap` CHỈ đo 1 LẦN ở lần bàn phím hiện ra đầu tiên rồi chốt
+// nguyên, bỏ qua các lần bắn lại sự kiện sau (xem effect đo bàn phím bên
+// dưới) — giữ đúng vị trí ổn định ngay từ lúc bàn phím vừa mở, trước khi gõ.
+// Nút back vật lý Android được xử lý thủ công qua BackHandler bên dưới (trước
+// đây Modal tự làm qua onRequestClose).
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { sendChatMessage, chargeAndSend, countWords, AI_CHAT_MAX_WORDS } from '../lib/aiChat';
 import { getSkipChargeConfirm, setSkipChargeConfirm, consumeDailyBannerFlag } from '../lib/aiChatPrefs';
@@ -68,6 +75,11 @@ export default function AiChatBubble() {
   const [dontAskAgain, setDontAskAgain] = useState(false);
   const [dailyBanner, setDailyBanner] = useState(false);
   const [keyboardOverlap, setKeyboardOverlap] = useState(0);
+  const [inputHeight, setInputHeight] = useState(0);
+  // Đánh dấu bàn phím ĐANG mở hay không — dùng để CHỈ đo `keyboardOverlap` ở
+  // lần bàn phím vừa hiện ra đầu tiên, bỏ qua mọi lần đo lại sau đó (xem effect
+  // đo bàn phím bên dưới để rõ lý do).
+  const keyboardOpenRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollToEnd = () => scrollRef.current?.scrollToEnd({ animated: true });
 
@@ -115,31 +127,60 @@ export default function AiChatBubble() {
     return () => sub.remove();
   }, [open]);
 
-  // Tự đo chiều cao bàn phím THẬT qua sự kiện hệ điều hành — CHỈ dùng để tự đẩy
-  // tay trên iOS (iOS không có cơ chế tự "pan" toàn màn hình như Android). Trên
-  // Android, sheet giờ là 1 View thường (không còn trong <Modal>) nên tự ăn
-  // theo `windowSoftInputMode="pan"` ở cấp Activity — CHÍNH cơ chế đã chứng
-  // minh chạy ổn định cho mọi màn hình khác của app — không cần tự tính nữa.
+  // Tự đo chiều cao bàn phím THẬT qua sự kiện hệ điều hành. Đo theo `screenY`
+  // (đỉnh bàn phím) trừ chiều cao window hiện tại thay vì dùng thẳng
+  // `endCoordinates.height` — trên Android, `height` đôi khi cộng thêm cả
+  // thanh điều hướng hệ thống, khiến giá trị lớn hơn phần thực sự che nội dung.
+  //
+  // CHỈ đo ở lần `keyboardDidShow` ĐẦU TIÊN sau khi bàn phím đóng — bỏ qua mọi
+  // lần bắn lại sự kiện này SAU ĐÓ trong khi bàn phím vẫn đang mở. Lý do: trên
+  // Android, ngay khi gõ ký tự đầu tiên, thanh gợi ý từ (Gboard/bàn phím hãng
+  // khác) mới hiện thêm phía trên bàn phím, làm chiều cao bàn phím THỰC TẾ
+  // tăng lên → `keyboardDidShow` bắn lại với giá trị lớn hơn → "pan" ở cấp hệ
+  // điều hành tự tính lại và đẩy thêm, kéo cả khung chat giật xuống. Vị trí ở
+  // lần hiện ra ĐẦU TIÊN (trước khi gõ, trước khi có thanh gợi ý) đã ổn rồi
+  // nên giữ nguyên, không đo lại nữa cho tới khi bàn phím đóng hẳn.
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const onShow = (e: any) => {
-      setKeyboardOverlap(e?.endCoordinates?.height ?? 0);
+      if (keyboardOpenRef.current) return;
+      keyboardOpenRef.current = true;
+      const endY = e?.endCoordinates?.screenY;
+      const rawHeight = e?.endCoordinates?.height ?? 0;
+      const winH = Dimensions.get('window').height;
+      const overlap = typeof endY === 'number' ? Math.max(0, winH - endY) : rawHeight;
+      setKeyboardOverlap(overlap);
       setTimeout(scrollToEnd, 50);
     };
-    const onHide = () => setKeyboardOverlap(0);
-    const s1 = Keyboard.addListener('keyboardWillShow', onShow);
-    const s2 = Keyboard.addListener('keyboardWillHide', onHide);
+    const onHide = () => {
+      keyboardOpenRef.current = false;
+      setKeyboardOverlap(0);
+    };
+    const s1 = Keyboard.addListener(showEvt, onShow);
+    const s2 = Keyboard.addListener(hideEvt, onHide);
     return () => { s1.remove(); s2.remove(); };
   }, []);
 
-  // Sheet cao 60% màn hình mặc định; trên iOS khi bàn phím mở, bị bóp lại vừa
-  // đủ để luôn còn khoảng trống SHEET_TOP_GAP phía trên (không để tiêu đề bị
-  // đẩy khuất khỏi màn hình trên các máy bàn phím rất cao như iPad). Trên
-  // Android, `keyboardOverlap` luôn = 0 (effect ở trên chỉ chạy trên iOS) nên
-  // sheetHeight giữ nguyên BASE_SHEET_H — việc đẩy lên khi bàn phím mở đã do
-  // chính Android xử lý (pan toàn màn hình), không phải bóp chiều cao sheet.
-  const sheetHeight = keyboardOverlap > 0
-    ? Math.min(BASE_SHEET_H, SCREEN_H - keyboardOverlap - SHEET_TOP_GAP)
+  // Khoảng ĐẨY TAY thực tế — KHÁC nhau giữa 2 nền tảng vì Android đã có "pan"
+  // ở cấp Activity (app.json) tự đẩy hộ PHẦN LỚN rồi (bỏ hẳn đẩy tay trên
+  // Android từng khiến khung nhập bị che một phần nhỏ — "pan" một mình không
+  // đủ cho overlay View thường này). iOS KHÔNG có "pan" tự động nên vẫn cần
+  // đẩy tay TRỌN `keyboardOverlap`. Trên Android chỉ đẩy thêm đúng phần đệm
+  // còn thiếu = 1 lần chiều cao ô nhập (đo thực qua onLayout). `keyboardOverlap`
+  // đã được CHỐT ở lần bàn phím hiện ra đầu tiên (xem effect đo bàn phím) nên
+  // giá trị này ổn định suốt lúc gõ, không còn bị giật xuống nữa.
+  const effectivePush = keyboardOverlap <= 0
+    ? 0
+    : Platform.OS === 'ios'
+      ? keyboardOverlap
+      : Math.min(keyboardOverlap, Math.max(0, inputHeight));
+
+  // Sheet cao 60% màn hình mặc định; khi bàn phím mở, bị bóp lại vừa đủ để
+  // luôn còn khoảng trống SHEET_TOP_GAP phía trên (không để tiêu đề bị đẩy
+  // khuất khỏi màn hình trên các máy bàn phím rất cao như iPad).
+  const sheetHeight = effectivePush > 0
+    ? Math.min(BASE_SHEET_H, SCREEN_H - effectivePush - SHEET_TOP_GAP)
     : BASE_SHEET_H;
 
   const panResponder = useRef(
@@ -252,9 +293,10 @@ export default function AiChatBubble() {
       {open && (
         // View overlay THƯỜNG thay cho <Modal> (xem giải thích ở đầu file) — phủ
         // kín màn hình bằng position:absolute, zIndex cao hơn bong bóng nổi.
-        // paddingBottom chỉ khác 0 trên iOS (effect đo bàn phím ở trên); trên
-        // Android, việc đẩy lên khi bàn phím mở do chính OS xử lý (windowSoftInputMode="pan").
-        <View style={[styles.modalRoot, { paddingBottom: keyboardOverlap }]}>
+        // paddingBottom = effectivePush (xem cách tính ở trên — iOS đẩy trọn,
+        // Android chỉ đẩy thêm phần đệm nhỏ vì "pan" ở cấp Activity đã đẩy hộ
+        // phần lớn rồi).
+        <View style={[styles.modalRoot, { paddingBottom: effectivePush }]}>
           <TouchableOpacity style={styles.backdropTap} activeOpacity={1} onPress={closeChat} />
           <View style={[styles.sheet, { height: sheetHeight }]}>
             <View style={styles.sheetHeader}>
@@ -298,6 +340,14 @@ export default function AiChatBubble() {
                 value={input}
                 onChangeText={setInput}
                 onFocus={() => setTimeout(scrollToEnd, 50)}
+                // CHỈ giữ giá trị LỚN NHẤT từng đo được (không cho co lại) — ô nhập
+                // multiline tự đo lại layout mỗi khi gõ chữ, có lúc đo ra một giá trị
+                // NHỎ HƠN thoáng qua — chỉ tăng, không giảm, để `effectivePush` không
+                // bị co bất ngờ.
+                onLayout={(e) => {
+                  const h = e.nativeEvent.layout.height;
+                  setInputHeight(prev => (h > prev ? h : prev));
+                }}
                 multiline
                 maxLength={2000}
               />

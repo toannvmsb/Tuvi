@@ -13,7 +13,10 @@ import { toneOf, assembleMonthHeatmap, type DayTone, type DayCell, type MonthHea
 const SINH: Record<FiveElement, FiveElement> = { Mộc: 'Hỏa', Hỏa: 'Thổ', Thổ: 'Kim', Kim: 'Thủy', Thủy: 'Mộc' };
 const KHAC: Record<FiveElement, FiveElement> = { Mộc: 'Thổ', Thổ: 'Thủy', Thủy: 'Hỏa', Hỏa: 'Kim', Kim: 'Mộc' };
 
-function genericDayScore(date: Date): { score: number; rating: string } {
+/** Điểm/rating 1 ngày theo công thức chung (quan hệ Can-Chi ngày) — KHÔNG cần lá số.
+ * Export để dùng chung ở nơi khác cần cùng 1 công thức "ngày bình thường" (vd
+ * financialAdvisor.ts's buildGenericFinancialAdvice) — không tính lại logic. */
+export function genericDayScore(date: Date): { score: number; rating: string } {
   const cc = dayCanChi(date);
   const a = cc.stemEl, b = cc.branchEl;
   const rel = a === b ? 'dong' : SINH[a] === b || SINH[b] === a ? 'sinh' : KHAC[a] === b || KHAC[b] === a ? 'khac' : 'binh';

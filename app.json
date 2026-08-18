@@ -29,7 +29,6 @@
       "versionCode": 4,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.INTERNET",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED"
@@ -42,7 +41,16 @@
     "plugins": [
       "expo-secure-store",
       "expo-asset",
-      "react-native-iap"
+      "react-native-iap",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Cho phép Tuzi lưu ảnh lá số vào thư viện ảnh của bạn.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": []
+        }
+      ]
     ],
     "extra": {
       "eas": {

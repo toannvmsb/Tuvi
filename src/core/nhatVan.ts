@@ -403,6 +403,70 @@ export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore 
   };
 }
 
+export interface GenericDayFacts {
+  canChi: DayCanChi;
+  rating: NhatVanScore['rating'];
+  score100: number;
+  reasons: string[];
+  truc: string;
+  trucIdx: number;
+  lucDieu: string;
+  hoangDao: boolean;
+  nhi28Tu: string;
+  warnings: string[];
+}
+
+/**
+ * Bản KHÔNG cá nhân hóa của scoreNhatVan — chỉ dùng đúng phần "CẤP 1: Điểm
+ * nền" (Trực, Lục Diệu, Hoàng Đạo, 28 Tú — cả 4 đều chỉ phụ thuộc NGÀY, đã
+ * tính y hệt bên trong scoreNhatVan, KHÔNG viết lại công thức) + 2 hard-rule
+ * lịch chung (Tam Nương, Nguyệt Kỵ). Bỏ hẳn các cấp cần lá số (Bát Tự, Đại
+ * Vận, Lưu Niên, Nguyệt Vận, xung tuổi, Kim Lâu, Tam Tai) vì không có dữ
+ * liệu để tính. Dùng cho box/màn "Xem ngày tốt"/"Xem theo ngày" khi người
+ * dùng CHƯA gắn lá số (chế độ cơ bản).
+ */
+export function genericDayFacts(date: Date): GenericDayFacts {
+  const cc = dayCanChi(date);
+  const ld = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
+  const truc = trucNgayInfo(cc.branch, ld.month);
+  const ld6 = lucDieuInfo(ld.month, ld.day);
+  const isHoangDao = hoangDaoNgay(cc.branch, ld.month);
+  const hdScore = isHoangDao ? 70 : 30;
+  const nhi28 = nhi28Info(date);
+  const base100 = Math.round(truc.score * 0.30 + ld6.score * 0.15 + hdScore * 0.30 + nhi28.score * 0.25);
+
+  const reasons: string[] = [
+    `Trực ${truc.name} — ${truc.hint}.`,
+    `Lục Diệu ${ld6.name} — ${ld6.hint}.`,
+    isHoangDao ? 'Ngày Hoàng Đạo — khí trường tốt lành.' : 'Ngày Hắc Đạo — nên thận trọng trong hành động.',
+    `Tú ${nhi28.name} — ${nhi28.hint}.`,
+  ];
+
+  const warnings: string[] = [];
+  let raw100 = base100;
+  if (TAM_NUONG_DAYS.has(ld.day)) {
+    raw100 = Math.max(0, raw100 - 20);
+    warnings.push(`⚠ Ngày Tam Nương (${ld.day}/${ld.month} âm) — kỵ cưới hỏi, khai trương, xuất hành.`);
+  }
+  if (NGUYET_KY_DAYS.has(ld.day)) {
+    raw100 = Math.max(0, raw100 - 15);
+    warnings.push(`⚠ Ngày Nguyệt Kỵ (${ld.day}/${ld.month} âm) — kỵ ký kết, xuất hành, việc lớn.`);
+  }
+
+  const score100 = Math.max(0, Math.min(100, Math.round(raw100)));
+  const rating: NhatVanScore['rating'] =
+    score100 >= 70 ? 'Rất tốt' :
+    score100 >= 55 ? 'Tốt' :
+    score100 >= 40 ? 'Bình thường' :
+    score100 >= 25 ? 'Cần thận trọng' : 'Xấu';
+
+  return {
+    canChi: cc, rating, score100, reasons,
+    truc: truc.name, trucIdx: truc.idx, lucDieu: ld6.name, hoangDao: isHoangDao, nhi28Tu: nhi28.name,
+    warnings,
+  };
+}
+
 const WEEKDAY = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 
 // ─────────────────────────────────────────────
