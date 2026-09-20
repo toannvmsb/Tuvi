@@ -36,6 +36,8 @@ import { buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
 import { WeatherMini } from '../components/WeatherCards';
+import { formatXu } from '../lib/format';
+import HomeNotesBox from '../components/HomeNotesBox';
 
 const WEEKDAY_LONG = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const TONE_TIER: Record<DayTone, string> = {
@@ -155,7 +157,7 @@ export default function OverviewScreen() {
         <View style={s.topRight}>
           <Pressable style={s.xuChip} onPress={() => navigation.navigate('Wallet')} accessibilityRole="button" accessibilityLabel="Ví xu">
             <Icon name="coin" size={18} color="#F5E0AE" />
-            <Text style={s.xuTxt}>{wallet.balance} xu</Text>
+            <Text style={s.xuTxt}>{formatXu(wallet.balance)} xu</Text>
           </Pressable>
           <NotificationBell />
         </View>
@@ -182,6 +184,13 @@ export default function OverviewScreen() {
         </Card>
         <WeatherMini onPress={openDay} />
       </View>
+
+      {/* Thanh Hỏi Tuzi */}
+      <Pressable style={s.askBar} onPress={openAiChat} accessibilityRole="button" accessibilityLabel="Hỏi Tuzi">
+        <View style={s.askIcon}><Icon name="spark" size={20} color="#1E1230" strokeWidth={2} /></View>
+        <Text style={s.askTxt}>Hỏi Tuzi về lá số của bạn…</Text>
+        <Icon name="chev" size={18} color={COLORS.gold} />
+      </Pressable>
 
       {/* Lịch tháng */}
       <Card style={{ gap: 12, paddingHorizontal: 14 }}>
@@ -284,12 +293,8 @@ export default function OverviewScreen() {
         )}
       </Card>
 
-      {/* Thanh Hỏi Tuzi */}
-      <Pressable style={s.askBar} onPress={openAiChat} accessibilityRole="button" accessibilityLabel="Hỏi Tuzi">
-        <View style={s.askIcon}><Icon name="spark" size={20} color="#1E1230" strokeWidth={2} /></View>
-        <Text style={s.askTxt}>Hỏi Tuzi về lá số của bạn…</Text>
-        <Icon name="chev" size={18} color={COLORS.gold} />
-      </Pressable>
+      {/* Ghi chú: 5 ghi chú gần nhất + nhập nhanh */}
+      <HomeNotesBox />
 
       {/* Lối tắt */}
       <View style={{ gap: 12 }}>
@@ -299,7 +304,7 @@ export default function OverviewScreen() {
             { icon: 'chart', label: 'Lập lá số', color: COLORS.gold, go: () => navigation.navigate('Input') },
             { icon: 'calendar', label: 'Xem ngày', color: COLORS.green, go: openDay },
             { icon: 'compare', label: 'Tương hợp', color: COLORS.purple, go: () => navigation.navigate('CompareCharts', {}) },
-            { icon: 'note', label: 'Ghi chú', color: COLORS.blue, go: () => navigation.navigate('Notes') },
+            { icon: 'user', label: 'Lá số đã lưu', color: COLORS.blue, go: () => navigation.navigate('MyCharts') },
           ] as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
             <Pressable key={t.label} onPress={t.go} style={[s.shortcut, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
               <View style={[s.shortcutIcon, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={22} color={t.color} /></View>

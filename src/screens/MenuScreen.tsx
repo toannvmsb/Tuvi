@@ -2,6 +2,7 @@
  * MENU (tab cuối) — thẻ hồ sơ + số dư xu, rồi các nhóm: Cá nhân hóa · Tài khoản · Ứng dụng · Hỗ trợ.
  * Thay cho HeaderMenuButton ở các màn chính; các màn con vẫn dùng HeaderMenuButton cũ.
  */
+import { formatXu } from '../lib/format';
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -67,7 +68,7 @@ export default function MenuScreen() {
         <Pressable style={s.balance} onPress={go('Wallet')} accessibilityRole="button" accessibilityLabel="Ví xu">
           <Icon name="coin" size={24} color={COLORS.gold} />
           <View>
-            <Text style={s.balanceNum}>{wallet.balance} xu</Text>
+            <Text style={s.balanceNum}>{formatXu(wallet.balance)} xu</Text>
             <Text style={s.balanceSub}>Số dư ví</Text>
           </View>
         </Pressable>
