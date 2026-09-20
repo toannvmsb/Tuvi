@@ -245,7 +245,7 @@ const nt = StyleSheet.create({
   itemDate: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textSecondary },
   itemContent: { fontFamily: FONTS.body, fontSize: 14.5, lineHeight: 23, color: COLORS.textPrimary },
   itemFoot: { flexDirection: 'row', justifyContent: 'flex-end' },
-  delBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
+  delBtn: { width: 24, height: 24, marginLeft: 'auto', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
 });
 
 const styles = StyleSheet.create({
