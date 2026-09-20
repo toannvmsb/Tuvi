@@ -56,7 +56,7 @@ export default function HeaderMenuButton({ color }: { color?: string }) {
     { label: `Tin thông báo (${unread})`, emoji: '🔔', run: () => goRoot('Notifications') },
     { label: 'Khuyến mại', emoji: '🎁', run: () => goRoot('Promotions') },
     { label: 'Lập lá số mới', emoji: '🧾', run: () => goRoot('Input') },
-    { label: 'Hồ sơ/Lá số đã lưu', emoji: '🗂️', run: () => goRoot('MyCharts') },
+    { label: 'Lá số đã lưu', emoji: '🗂️', run: () => goRoot('MyCharts') },
     { label: 'Thông tin tài khoản', emoji: '👤', run: () => goRoot('Account') },
     { label: 'Nạp xu', emoji: '💰', run: () => goRoot('Wallet') },
     { label: 'Thông tin bảo mật', emoji: '🔒', run: () => goRoot('Privacy') },

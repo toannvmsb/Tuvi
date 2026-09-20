@@ -52,7 +52,7 @@ export default function MyChartsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Hồ sơ/Lá số đã lưu" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Lá số đã lưu" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.topActions}>
           <TouchableOpacity style={styles.compareBtn} onPress={() => navigation.navigate('CompareCharts', {})} activeOpacity={0.8}>

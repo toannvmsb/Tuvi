@@ -76,7 +76,7 @@ export default function MenuScreen() {
       </View>
 
       <Group title="Cá nhân hóa" items={[
-        { icon: 'user', label: 'Hồ sơ / Lá số đã lưu', sub: 'Quản lý và gắn hồ sơ của tôi', color: COLORS.gold, onPress: go('MyCharts') },
+        { icon: 'user', label: 'Lá số đã lưu', sub: 'Quản lý và gắn hồ sơ của tôi', color: COLORS.gold, onPress: go('MyCharts') },
         { icon: 'compare', label: 'Tương hợp', sub: 'So sánh hai lá số', color: COLORS.purple, onPress: go('CompareCharts', {}) },
         { icon: 'user', label: 'Chân dung tương hợp', sub: 'AI vẽ người hợp với bạn (từ cung Phu Thê)', color: COLORS.red, onPress: go('Portrait') },
         { icon: 'note', label: 'Ghi chú', sub: 'Ghi chú nhanh gắn theo ngày', color: COLORS.blue, onPress: go('Notes') },

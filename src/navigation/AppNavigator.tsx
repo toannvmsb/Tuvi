@@ -136,7 +136,7 @@ const ROUTE_TITLES: Record<string, string> = {
   Tasks: 'Việc & Mục tiêu',
   Notes: 'Ghi chú nhanh',
   EventDetail: 'Sự kiện sắp tới',
-  MyCharts: 'Hồ sơ/Lá số đã lưu',
+  MyCharts: 'Lá số đã lưu',
   Portrait: 'Chân dung tương hợp',
   CompareCharts: 'So sánh lá số',
   Wallet: 'Nạp xu',

@@ -37,6 +37,8 @@ import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
 import { WeatherMini } from '../components/WeatherCards';
 import { formatXu } from '../lib/format';
+import AnimatedAvatar from '../components/AnimatedAvatar';
+import { getSelectedAvatarId } from '../lib/avatarPrefs';
 import HomeNotesBox from '../components/HomeNotesBox';
 
 const WEEKDAY_LONG = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
@@ -63,6 +65,7 @@ export default function OverviewScreen() {
   const displayName = user?.displayName || (online ? '' : wallet.userName) || 'bạn';
   const [myResult, setMyResult] = useState<AstrologyResult | null>(null);
   const [event, setEvent] = useState<ResolvedEvent | null>(null);
+  const [avatarId, setAvatarId] = useState<string | null>(null);
   const [summaryGood, setSummaryGood] = useState('');
   const pkgRef = useRef<EventPackage[]>([]);
   const userEvRef = useRef<UserEvent[]>([]);
@@ -112,7 +115,7 @@ export default function OverviewScreen() {
     void syncBroadcasts();
   }, [online]);
 
-  useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => { void loadData(); getSelectedAvatarId().then(setAvatarId); }, [loadData]));
 
   const todayScore = useMemo(
     () => (myResult ? scoreNhatVan(myResult, now).score100 : genericDayScore(now).score),
@@ -144,10 +147,10 @@ export default function OverviewScreen() {
       <View style={s.topRow}>
         <Pressable
           style={s.profilePill}
-          onPress={() => (myResult ? navigation.navigate('MyCharts') : promptPersonalize(navigation, () => navigation.navigate('Account')))}
-          accessibilityRole="button" accessibilityLabel="Đổi hồ sơ"
+          onPress={() => navigation.navigate('Account')}
+          accessibilityRole="button" accessibilityLabel="Thông tin tài khoản"
         >
-          <View style={s.avatar}><Text style={s.avatarTxt}>{displayName.slice(0, 1).toUpperCase()}</Text></View>
+          <View style={s.avatar}><AnimatedAvatar avatarId={avatarId} size={38} animated={false} /></View>
           <View>
             <Text style={s.pillName}>{displayName}</Text>
             <Text style={s.pillSub}>{myResult ? 'Hồ sơ của tôi' : 'Chế độ cơ bản'}</Text>
@@ -323,7 +326,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 5, paddingLeft: 6, paddingRight: 12,
     borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
   },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.goldDeep, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.5)', alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#1E1230' },
   pillName: { fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.textPrimary },
   pillSub: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textMuted },

@@ -168,17 +168,15 @@ export default function NotesScreen({ navigation }: Props) {
           <Card><Body>Chưa có ghi chú nào. Note lại điều đầu tiên nhé!</Body></Card>
         ) : (
           items.map(it => (
-            <Card key={it.id} style={{ gap: 10 }}>
+            <Card key={it.id} style={nt.itemCard}>
               <View style={nt.itemHead}>
                 <Text style={nt.itemDate}>{formatDate(it.note_date)} · {formatTime(it.created_at)}</Text>
                 <RatingChip rating={dayRating(it.note_date)} />
-              </View>
-              <Text style={nt.itemContent}>{it.content}</Text>
-              <View style={nt.itemFoot}>
-                <Pressable onPress={() => remove(it)} style={nt.delBtn} accessibilityRole="button" accessibilityLabel="Xóa ghi chú">
-                  <Icon name="plus" size={18} color={COLORS.textMuted} />
+                <Pressable onPress={() => remove(it)} style={nt.delBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel="Xóa ghi chú">
+                  <Icon name="plus" size={16} color={COLORS.textMuted} />
                 </Pressable>
               </View>
+              <Text style={nt.itemContent}>{it.content}</Text>
             </Card>
           ))
         )}
@@ -241,11 +239,13 @@ const nt = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
   chipDot: { width: 7, height: 7, borderRadius: 4 },
   chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11.5 },
-  itemHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  // Hộp ôm vừa nội dung: ngắn thì gọn, dài thì rộng/cao dần (tối đa bằng chiều ngang màn).
+  itemCard: { alignSelf: 'flex-start', maxWidth: '100%', gap: 8, paddingVertical: 10, paddingHorizontal: 14 },
+  itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   itemDate: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textSecondary },
   itemContent: { fontFamily: FONTS.body, fontSize: 14.5, lineHeight: 23, color: COLORS.textPrimary },
   itemFoot: { flexDirection: 'row', justifyContent: 'flex-end' },
-  delBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
+  delBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
 });
 
 const styles = StyleSheet.create({
