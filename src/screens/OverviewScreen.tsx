@@ -165,9 +165,8 @@ export default function OverviewScreen() {
 
       {/* Lời chào */}
       <View style={{ gap: 6 }}>
-        <Eyebrow>{`${WEEKDAY_LONG[now.getDay()]} · ${now.getDate()}/${m}/${y}`}</Eyebrow>
+        <Eyebrow>{`${WEEKDAY_LONG[now.getDay()]} - ${now.getDate()}/${m}/${y} (${lunarNow.day}/${lunarNow.month}${lunarNow.isLeapMonth ? ' nhuận' : ''} âm lịch)`}</Eyebrow>
         <Display size={36}>Xin chào, {displayName}</Display>
-        <Text style={s.lunarLine}>Mồng {lunarNow.day} tháng {lunarNow.month} âm lịch{lunarNow.isLeapMonth ? ' (nhuận)' : ''}</Text>
       </View>
 
       {/* Vận khí hôm nay + Thời tiết hôm nay */}
@@ -346,7 +345,7 @@ const s = StyleSheet.create({
   weekTxt: { flex: 1, textAlign: 'center', fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cellWrap: { width: `${100 / 7}%`, padding: 2 },
-  cell: { height: 50, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cell: { height: 40, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellToday: { borderColor: '#FFFFFF', borderWidth: 3 },
   cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary, lineHeight: 16 },
   cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: COLORS.textSecondary, lineHeight: 12 },

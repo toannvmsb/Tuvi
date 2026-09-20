@@ -1,5 +1,5 @@
 /**
- * Khối Ghi chú ở Tổng quan: 5 ghi chú gần nhất + ô nhập nhanh. Bấm vào tiêu đề hoặc 1 ghi chú → màn Ghi chú.
+ * Khối Ghi chú ở Tổng quan: 3 ghi chú gần nhất + ô nhập nhanh. Bấm vào tiêu đề hoặc 1 ghi chú → màn Ghi chú.
  * Cần đăng nhập (ghi chú lưu trên Supabase); lỗi/offline → báo nhẹ, không làm hỏng màn chính.
  */
 import React, { useCallback, useState } from 'react';
@@ -29,7 +29,7 @@ export default function HomeNotesBox() {
 
   const load = useCallback(async () => {
     try {
-      setNotes(await listLifeNotes(5));
+      setNotes(await listLifeNotes(3));
       setErr('');
     } catch {
       setErr('Chưa tải được ghi chú (cần đăng nhập và có mạng).');
