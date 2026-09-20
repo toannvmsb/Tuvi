@@ -75,13 +75,13 @@ export const FONTS = {
   },
 };
 
-/** Màu ô lịch theo mức ngày (kiểu bản thiết kế, sáng hơn): nền mờ + viền + màu chấm chú giải. */
+/** Màu ô lịch theo mức ngày (kiểu bản thiết kế, đã làm sáng): nền phủ màu + viền sáng + màu chấm chú giải. */
 export const CAL_TONE: Record<'tốt' | 'khá' | 'trung bình' | 'thận trọng' | 'xấu', { bg: string; border: string; dot: string }> = {
-  'tốt':        { bg: TIER_COLORS.great   + '66', border: TIER_COLORS.great   + 'DD', dot: TIER_COLORS.great },
-  'khá':        { bg: TIER_COLORS.good    + '55', border: TIER_COLORS.good    + 'CC', dot: TIER_COLORS.good },
-  'trung bình': { bg: TIER_COLORS.normal  + '40', border: TIER_COLORS.normal  + 'AA', dot: TIER_COLORS.normal },
-  'thận trọng': { bg: TIER_COLORS.caution + '5A', border: TIER_COLORS.caution + 'DD', dot: TIER_COLORS.caution },
-  'xấu':        { bg: TIER_COLORS.bad     + '5A', border: TIER_COLORS.bad     + 'DD', dot: TIER_COLORS.bad },
+  'tốt':        { bg: 'rgba(72,214,160,0.55)',  border: '#7CF0C0', dot: '#5FE3B0' },
+  'khá':        { bg: 'rgba(170,232,110,0.50)', border: '#C4F58F', dot: '#B4EE7C' },
+  'trung bình': { bg: 'rgba(196,190,240,0.34)', border: '#D6D0F7', dot: '#CFC9F4' },
+  'thận trọng': { bg: 'rgba(255,184,64,0.55)',  border: '#FFCB6B', dot: '#FFBF4A' },
+  'xấu':        { bg: 'rgba(255,110,96,0.55)',  border: '#FF9A8D', dot: '#FF8074' },
 };
 
 export const SPACING = {

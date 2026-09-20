@@ -16,8 +16,7 @@ export default function VanTierHeader({ active, result }: { active: Tier; result
   const nav = useNavigation<any>();
   const go = (t: Tier) => {
     if (t === active) return;
-    if (t === 'nhat') nav.navigate('DailyView', { result });
-    else nav.navigate(t === 'dai' ? 'DaiVan' : t === 'tieu' ? 'TieuVan' : 'NguyetVan', { result });
+    nav.navigate(t === 'dai' ? 'DaiVan' : t === 'tieu' ? 'TieuVan' : t === 'nguyet' ? 'NguyetVan' : 'NhatVan', { result });
   };
   return (
     <View style={s.wrap}>

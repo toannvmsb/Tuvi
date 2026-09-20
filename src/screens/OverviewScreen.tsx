@@ -244,7 +244,7 @@ export default function OverviewScreen() {
         <View style={s.legend}>
           {LEGEND.map(l => (
             <View key={l.t} style={s.legendItem}>
-              <View style={[s.legendSw, { backgroundColor: l.c + 'CC' }]} />
+              <View style={[s.legendSw, { backgroundColor: l.c }]} />
               <Text style={s.legendTxt}>{l.t}</Text>
             </View>
           ))}

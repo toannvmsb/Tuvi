@@ -73,7 +73,7 @@ export default function VanHubScreen() {
         head={`${now.getDate()}/${now.getMonth() + 1} · ${today.rating}`}
         sub="Ngày Hoàng Đạo/Hắc Đạo, giờ tốt, nên và hạn chế"
         score={today.score100}
-        onPress={() => navigation.navigate('DayView')} />
+        onPress={() => go('NhatVan')} />
 
       <SectionTitle title="Bốn tầng lồng nhau" />
       <Card style={{ gap: 8 }}>

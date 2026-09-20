@@ -110,10 +110,9 @@ Deno.serve(async (req) => {
             content:
               "Bạn là chuyên gia Tử Vi Nam Phái. Dữ liệu đầu vào là các sao tọa thủ cung Phu Thê + khí chất/dụng thần của NGƯỜI XEM. " +
               "Dựa trên ý nghĩa của các sao Phu Thê (mô tả người bạn đời/đối tác tương hợp: dáng vẻ, thần thái, tính cách) và nguyên lý bổ trợ ngũ hành, hãy suy ra đặc điểm KHUÔN MẶT của một NGƯỜI KHÁC — người tương hợp với người xem. Đây chỉ là gợi ý mang tính tham khảo, giải trí. " +
-              "Trả về DUY NHẤT 1 JSON hợp lệ (không markdown, không giải thích) đúng cấu trúc:
-" +
-              '{"faceShape":"hình dáng khuôn mặt, tiếng Anh, vd 'oval'/'heart-shaped'/'round'/'square'","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}
-' +
+              "Trả về DUY NHẤT 1 JSON hợp lệ (không markdown, không giải thích) đúng cấu trúc: " +
+              '{"faceShape":"hình dáng khuôn mặt, tiếng Anh, vd oval/heart-shaped/round/square","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}' +
+              " " +
               "Không nhắc tên riêng, không phán đoán tuyệt đối. Nếu thiếu dữ liệu, tự chọn một bộ đặc điểm hài hoà, dễ mến.",
           },
           {

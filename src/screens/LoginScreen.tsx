@@ -1,5 +1,5 @@
 /**
- * Màn Đăng nhập / Đăng ký (Supabase Auth).
+ * Màn Chào (Welcome) + Đăng nhập / Đăng ký (Supabase Auth) — giao diện theo thiết kế mới.
  * Hiển thị khi đã cấu hình Supabase và người dùng chưa đăng nhập.
  *
  * LoginScreen render TRƯỚC AppNavigator (App.tsx) nên KHÔNG có navigation context →
@@ -7,16 +7,17 @@
  */
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signIn, signUp, requestPasswordReset } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { COLORS, FONTS } from '../constants/theme';
 import SimpleMarkdown from '../components/SimpleMarkdown';
-import BrandLogo from '../components/BrandLogo';
+import Icon from '../ui/Icon';
+import { Segmented } from '../ui';
 import { PRIVACY_CONTENT, TERMS_CONTENT } from '../data/legalContent';
 
 /** Kiểm tra định dạng email cơ bản (đủ để chặn email sai trước khi gọi server). */
@@ -24,9 +25,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const isValidEmail = (s: string) => EMAIL_RE.test(s.trim());
 const MIN_PW = 6;
 
+type Mode = 'login' | 'register';
+
 export default function LoginScreen() {
   const { refresh } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [stage, setStage] = useState<'welcome' | 'form'>('welcome');
+  const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -100,86 +104,152 @@ export default function LoginScreen() {
     }
   };
 
-  const switchMode = (m: 'login' | 'register') => {
+  const switchMode = (m: Mode) => {
     setMode(m);
     setErr('');
     setPwConfirm('');
     setShowPw(false);
     setShowPwConfirm(false);
   };
+  const enter = (m: Mode) => { switchMode(m); setStage('form'); };
 
   // Nút Tạo tài khoản bị khóa khi chưa tích đồng ý (chỉ ở mode đăng ký).
   const submitDisabled = busy || (mode === 'register' && !agreed);
 
+  const bgColors = ['#2B2160', '#15162F', '#0A0B1A'] as const;
+
+  // ── Màn chào (Welcome) ──
+  if (stage === 'welcome') {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={bgColors} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.welcomeTop}>
+            <Image source={require('../../assets/logo.jpg')} style={styles.welcomeLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
+          </View>
+          <View style={styles.welcomeBottom}>
+            <Text style={styles.eyebrow}>TỬ VI · BÁT TỰ</Text>
+            <Text style={styles.welcomeQuote}>{'Lá số của riêng bạn,\nđọc bằng dữ kiện, không bằng phán đoán.'}</Text>
+            <Text style={styles.welcomeBody}>
+              Lập lá số Tử Vi theo Nam Phái Việt Nam, Bát Tự và vận hạn từng năm, từng tháng. Mỗi nhận định đều chỉ rõ dựa trên sao nào, cung nào.
+            </Text>
+            <TouchableOpacity onPress={() => enter('register')} activeOpacity={0.85} style={{ width: '100%', marginTop: 8 }} accessibilityRole="button">
+              <LinearGradient colors={[COLORS.goldLight, COLORS.goldDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryBtn}>
+                <Text style={styles.primaryTxt}>Lập lá số của tôi</Text>
+                <Icon name="arrow" size={20} color="#1E1230" strokeWidth={2.2} />
+              </LinearGradient>
+            </TouchableOpacity>
+            <View style={styles.haveAccount}>
+              <Text style={styles.haveAccountTxt}>Đã có tài khoản?</Text>
+              <TouchableOpacity onPress={() => enter('login')} style={styles.haveAccountBtn} accessibilityRole="button">
+                <Text style={styles.haveAccountLink}>Đăng nhập</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // ── Form Đăng nhập / Đăng ký ──
+  const pwField = (
+    label: string, value: string, set: (v: string) => void, shown: boolean, toggle: () => void,
+    opts: { go?: () => void; right?: React.ReactNode },
+  ) => (
+    <View style={{ gap: 8 }}>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{label}</Text>
+        {opts.right}
+      </View>
+      <View>
+        <TextInput
+          style={[styles.input, { paddingRight: 52 }]} value={value} onChangeText={set}
+          placeholder={label} placeholderTextColor={COLORS.textMuted}
+          secureTextEntry={!shown} autoCapitalize="none" autoCorrect={false}
+          returnKeyType={opts.go ? 'go' : 'next'} onSubmitEditing={opts.go}
+        />
+        <TouchableOpacity
+          onPress={toggle} style={styles.eyeBtn} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        >
+          <Icon name={shown ? 'eyeOff' : 'eye'} size={22} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={[COLORS.background, '#1a0a3a', COLORS.background]} style={styles.bg}>
+    <View style={styles.container}>
+      <LinearGradient colors={bgColors} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+      <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <View style={styles.logoWrap}>
-              <BrandLogo size={104} />
-              <Text style={styles.appName}>Trợ lý thông minh của bạn</Text>
-              <Text style={styles.sub}>Đăng nhập để lưu lá số & nội dung đã mở</Text>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={styles.topRow}>
+              <TouchableOpacity onPress={() => setStage('welcome')} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Quay lại">
+                <Icon name="back" size={22} />
+              </TouchableOpacity>
+              <Image source={require('../../assets/logo.jpg')} style={styles.smallLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
+              <View style={{ width: 44 }} />
             </View>
 
-            <View style={styles.tabs}>
-              <TouchableOpacity style={[styles.tab, mode === 'login' && styles.tabActive]} onPress={() => switchMode('login')}>
-                <Text style={[styles.tabTxt, mode === 'login' && styles.tabTxtActive]}>Đăng nhập</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.tab, mode === 'register' && styles.tabActive]} onPress={() => switchMode('register')}>
-                <Text style={[styles.tabTxt, mode === 'register' && styles.tabTxtActive]}>Đăng ký</Text>
-              </TouchableOpacity>
-            </View>
-
-            {mode === 'register' && (
-              <TextInput style={styles.input} value={name} onChangeText={setName}
-                placeholder="Tên hiển thị" placeholderTextColor={COLORS.textMuted}
-                returnKeyType="next" />
-            )}
-            <TextInput style={styles.input} value={email} onChangeText={setEmail}
-              placeholder="Email" placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
-              returnKeyType="next" />
-            <View style={styles.pwWrap}>
-              <TextInput style={styles.pwInput} value={pw} onChangeText={setPw}
-                placeholder="Mật khẩu" placeholderTextColor={COLORS.textMuted}
-                secureTextEntry={!showPw} autoCapitalize="none"
-                returnKeyType={mode === 'login' ? 'go' : 'next'}
-                onSubmitEditing={mode === 'login' ? submit : undefined} />
-              <TouchableOpacity onPress={() => setShowPw(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
-                <Text style={styles.eyeIcon}>{showPw ? '🙈' : '👁'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Gợi ý điều kiện mật khẩu — chỉ ở mode đăng ký */}
-            {mode === 'register' && (
-              <Text style={[styles.hint, pw.length > 0 && pw.length < MIN_PW && { color: COLORS.red }]}>
-                Mật khẩu tối thiểu {MIN_PW} ký tự{pw.length > 0 && pw.length < MIN_PW ? ` (hiện ${pw.length})` : ''}.
+            <View style={{ alignItems: 'center', gap: 6 }}>
+              <Text style={styles.title}>{mode === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản'}</Text>
+              <Text style={styles.sub}>
+                {mode === 'login'
+                  ? 'Đăng nhập để đồng bộ hồ sơ, lá số và ghi chú của bạn trên mọi thiết bị.'
+                  : 'Đăng ký để lưu lá số và nhận xu tặng cho tài khoản mới.'}
               </Text>
-            )}
+            </View>
 
-            {/* Xác nhận mật khẩu — chỉ ở mode đăng ký */}
-            {mode === 'register' && (
-              <View style={styles.pwWrap}>
-                <TextInput style={styles.pwInput} value={pwConfirm} onChangeText={setPwConfirm}
-                  placeholder="Xác nhận mật khẩu" placeholderTextColor={COLORS.textMuted}
-                  secureTextEntry={!showPwConfirm} autoCapitalize="none"
-                  returnKeyType="done" onSubmitEditing={submit} />
-                <TouchableOpacity onPress={() => setShowPwConfirm(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
-                  <Text style={styles.eyeIcon}>{showPwConfirm ? '🙈' : '👁'}</Text>
-                </TouchableOpacity>
+            <Segmented<Mode>
+              options={[{ value: 'login', label: 'Đăng nhập' }, { value: 'register', label: 'Đăng ký' }]}
+              value={mode} onChange={switchMode}
+            />
+
+            <View style={{ gap: 16 }}>
+              {mode === 'register' && (
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.label}>Tên hiển thị</Text>
+                  <TextInput
+                    style={styles.input} value={name} onChangeText={setName}
+                    placeholder="Tên hiển thị" placeholderTextColor={COLORS.textMuted} returnKeyType="next"
+                  />
+                </View>
+              )}
+              <View style={{ gap: 8 }}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input} value={email} onChangeText={setEmail}
+                  placeholder="ten@gmail.com" placeholderTextColor={COLORS.textMuted}
+                  autoCapitalize="none" keyboardType="email-address" autoCorrect={false} returnKeyType="next"
+                />
               </View>
-            )}
 
-            {/* Checkbox đồng ý — chỉ hiện ở mode đăng ký */}
+              {pwField('Mật khẩu', pw, setPw, showPw, () => setShowPw(v => !v), {
+                go: mode === 'login' ? submit : undefined,
+                right: mode === 'login' ? (
+                  <TouchableOpacity onPress={forgotPassword} disabled={busy} style={styles.forgotBtn} accessibilityRole="button">
+                    <Text style={styles.forgot}>Quên mật khẩu?</Text>
+                  </TouchableOpacity>
+                ) : undefined,
+              })}
+
+              {mode === 'register' && (
+                <Text style={[styles.hint, pw.length > 0 && pw.length < MIN_PW && { color: COLORS.red }]}>
+                  Mật khẩu tối thiểu {MIN_PW} ký tự{pw.length > 0 && pw.length < MIN_PW ? ` (hiện ${pw.length})` : ''}.
+                </Text>
+              )}
+
+              {mode === 'register' && pwField('Xác nhận mật khẩu', pwConfirm, setPwConfirm, showPwConfirm, () => setShowPwConfirm(v => !v), { go: submit })}
+            </View>
+
             {mode === 'register' && (
               <TouchableOpacity
-                style={styles.agreeRow}
-                onPress={() => setAgreed(v => !v)}
-                activeOpacity={0.7}
+                style={styles.agreeRow} onPress={() => setAgreed(v => !v)} activeOpacity={0.7}
+                accessibilityRole="checkbox" accessibilityState={{ checked: agreed }}
               >
                 <View style={[styles.checkbox, agreed && styles.checkboxOn]}>
-                  {agreed && <Text style={styles.checkmark}>✓</Text>}
+                  {agreed && <Icon name="check" size={16} color="#1E1230" strokeWidth={2.6} />}
                 </View>
                 <Text style={styles.agreeText}>
                   Tôi đã đọc và đồng ý với{' '}
@@ -194,46 +264,38 @@ export default function LoginScreen() {
             {!!err && <Text style={styles.err}>{err}</Text>}
 
             <TouchableOpacity
-              style={[styles.btn, submitDisabled && styles.btnDisabled]}
-              onPress={submit}
-              disabled={submitDisabled}
-              activeOpacity={0.85}
+              onPress={submit} disabled={submitDisabled} activeOpacity={0.85}
+              style={submitDisabled ? { opacity: 0.5 } : undefined} accessibilityRole="button"
             >
-              {busy ? <ActivityIndicator color="#1a0a00" /> : (
-                <Text style={styles.btnTxt}>{mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</Text>
-              )}
+              <LinearGradient colors={[COLORS.goldLight, COLORS.goldDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryBtn}>
+                {busy ? <ActivityIndicator color="#1E1230" /> : (
+                  <Text style={styles.primaryTxt}>{mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
-
-            {mode === 'login' && (
-              <TouchableOpacity onPress={forgotPassword} disabled={busy} activeOpacity={0.7}>
-                <Text style={styles.forgot}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
-            )}
 
             {mode === 'login' && (
               <Text style={styles.note}>
                 Bằng việc tiếp tục, bạn đồng ý với{' '}
-                <Text style={styles.noteLink} onPress={() => setLegalModal('privacy')}>Chính sách bảo mật</Text>
+                <Text style={styles.link} onPress={() => setLegalModal('privacy')}>Chính sách bảo mật</Text>
                 {' '}&{' '}
-                <Text style={styles.noteLink} onPress={() => setLegalModal('terms')}>Điều khoản sử dụng</Text>.
+                <Text style={styles.link} onPress={() => setLegalModal('terms')}>Điều khoản sử dụng</Text>.
               </Text>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
 
         {/* Modal hiển thị Chính sách bảo mật / Điều khoản sử dụng đầy đủ */}
-        <Modal
-          visible={legalModal !== null}
-          animationType="slide"
-          onRequestClose={() => setLegalModal(null)}
-          transparent={false}
-        >
+        <Modal visible={legalModal !== null} animationType="slide" onRequestClose={() => setLegalModal(null)} transparent={false}>
           <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle} numberOfLines={1}>
                 {legalModal === 'privacy' ? 'Chính sách bảo mật' : 'Điều khoản sử dụng'}
               </Text>
-              <TouchableOpacity onPress={() => setLegalModal(null)} style={styles.modalClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <TouchableOpacity
+                onPress={() => setLegalModal(null)} style={styles.modalClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} accessibilityRole="button" accessibilityLabel="Đóng"
+              >
                 <Text style={styles.modalCloseTxt}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -245,98 +307,93 @@ export default function LoginScreen() {
             {/* Nút tiện: đọc xong → tích đồng ý luôn (chỉ ở mode đăng ký) */}
             {mode === 'register' && (
               <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.modalAgreeBtn}
-                  onPress={() => { setAgreed(true); setLegalModal(null); }}
-                  activeOpacity={0.85}
-                >
+                <TouchableOpacity style={styles.modalAgreeBtn} onPress={() => { setAgreed(true); setLegalModal(null); }} activeOpacity={0.85}>
                   <Text style={styles.modalAgreeTxt}>Tôi đã đọc & đồng ý</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalBackBtn}
-                  onPress={() => setLegalModal(null)}
-                  activeOpacity={0.85}
-                >
+                <TouchableOpacity style={styles.modalBackBtn} onPress={() => setLegalModal(null)} activeOpacity={0.85}>
                   <Text style={styles.modalBackTxt}>Đóng</Text>
                 </TouchableOpacity>
               </View>
             )}
           </SafeAreaView>
         </Modal>
-      </LinearGradient>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
+const GOLD_LINE = 'rgba(226,194,133,0.28)';
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  bg: { flex: 1 },
-  scroll: { padding: SPACING.xl, gap: SPACING.md, flexGrow: 1, justifyContent: 'center' },
-  logoWrap: { alignItems: 'center', marginBottom: SPACING.lg, gap: 8 },
-  appName: { fontSize: FONTS.size.xxl, fontWeight: 'bold', color: COLORS.gold },
-  sub: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, textAlign: 'center' },
-  tabs: { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
-  tab: { flex: 1, paddingVertical: SPACING.sm, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: COLORS.gold, backgroundColor: COLORS.gold + '11' },
-  tabTxt: { color: COLORS.textSecondary, fontWeight: '700', fontSize: FONTS.size.md },
-  tabTxtActive: { color: COLORS.gold },
+  // Welcome
+  welcomeTop: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  welcomeLogo: { width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)' },
+  welcomeBottom: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center', gap: 14 },
+  eyebrow: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 2.4, color: COLORS.gold },
+  welcomeQuote: { fontFamily: FONTS.displayItalic, fontSize: 28, lineHeight: 33, textAlign: 'center', color: COLORS.textPrimary },
+  welcomeBody: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, textAlign: 'center', color: COLORS.textSecondary, maxWidth: 310 },
+  haveAccount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  haveAccountTxt: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary },
+  haveAccountBtn: { minHeight: 44, justifyContent: 'center' },
+  haveAccountLink: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.gold },
+  // Form
+  scroll: { padding: 20, gap: 20, flexGrow: 1 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
+  },
+  smallLogo: { width: 64, height: 64, borderRadius: 32, borderWidth: 1.5, borderColor: 'rgba(226,194,133,0.7)' },
+  title: { fontFamily: FONTS.display, fontSize: 38, lineHeight: 42, color: COLORS.textPrimary, textAlign: 'center' },
+  sub: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, color: COLORS.textSecondary, textAlign: 'center', maxWidth: 310 },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  label: { fontFamily: FONTS.bodyMedium, fontSize: 12.5, color: '#C4C0D8' },
   input: {
-    backgroundColor: COLORS.surface, color: COLORS.textPrimary, borderRadius: 8,
-    padding: SPACING.md, fontSize: FONTS.size.md, borderWidth: 1, borderColor: COLORS.border,
+    height: 52, borderRadius: 14, borderWidth: 1, borderColor: GOLD_LINE, backgroundColor: 'rgba(255,255,255,0.06)',
+    color: COLORS.textPrimary, paddingHorizontal: 16, fontFamily: FONTS.bodyMedium, fontSize: 16,
   },
-  pwWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: 8,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  pwInput: {
-    flex: 1, color: COLORS.textPrimary, fontSize: FONTS.size.md,
-    padding: SPACING.md,
-  },
-  eyeBtn: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  eyeIcon: { fontSize: 18 },
-  agreeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.xs },
+  eyeBtn: { position: 'absolute', right: 4, top: 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  forgotBtn: { minHeight: 44, justifyContent: 'center' },
+  forgot: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.gold },
+  hint: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted, marginTop: -8 },
+  agreeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   checkbox: {
-    width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: COLORS.gold,
+    width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: COLORS.gold,
     alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
   checkboxOn: { backgroundColor: COLORS.gold },
-  checkmark: { color: '#1a0a00', fontSize: 15, fontWeight: '900', lineHeight: 17 },
-  agreeText: { flex: 1, color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
-  link: { color: COLORS.gold, fontWeight: '700', textDecorationLine: 'underline' },
-  err: { color: COLORS.red, fontSize: FONTS.size.sm },
-  hint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, marginTop: -SPACING.xs, marginLeft: 4 },
-  btn: { backgroundColor: COLORS.gold, borderRadius: 10, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.sm },
-  btnDisabled: { opacity: 0.5 },
-  btnTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.lg },
-  forgot: { color: COLORS.gold, fontSize: FONTS.size.sm, textAlign: 'center', fontWeight: '700', marginTop: SPACING.xs },
-  note: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textAlign: 'center', marginTop: SPACING.sm, lineHeight: 18 },
-  noteLink: { color: COLORS.gold, fontWeight: '700', textDecorationLine: 'underline' },
+  agreeText: { flex: 1, fontFamily: FONTS.body, color: COLORS.textSecondary, fontSize: 13, lineHeight: 20 },
+  link: { color: COLORS.gold, fontFamily: FONTS.bodySemi, textDecorationLine: 'underline' },
+  err: { fontFamily: FONTS.bodySemi, color: COLORS.red, fontSize: 13, lineHeight: 19 },
+  primaryBtn: { height: 56, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  primaryTxt: { fontFamily: FONTS.bodyBold, color: '#1E1230', fontSize: 16 },
+  note: { fontFamily: FONTS.body, color: COLORS.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18 },
 
   // Modal pháp lý
   modalContainer: { flex: 1, backgroundColor: COLORS.background },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, backgroundColor: COLORS.surface,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(226,194,133,0.14)',
   },
-  modalTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800', flex: 1 },
+  modalTitle: { fontFamily: FONTS.display, color: COLORS.textPrimary, fontSize: 24, flex: 1 },
   modalClose: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.card,
-    alignItems: 'center', justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
   },
-  modalCloseTxt: { color: COLORS.textPrimary, fontSize: 20, fontWeight: '700' },
-  modalScroll: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
+  modalCloseTxt: { color: COLORS.textPrimary, fontSize: 18 },
+  modalScroll: { padding: 16, paddingBottom: 32 },
   modalCard: {
-    backgroundColor: COLORS.card, borderRadius: 12,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: 16,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)',
   },
   modalFooter: {
-    flexDirection: 'row', gap: SPACING.sm, padding: SPACING.md,
-    borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.surface,
+    flexDirection: 'row', gap: 10, padding: 16,
+    borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)',
   },
-  modalAgreeBtn: { flex: 1, backgroundColor: COLORS.gold, borderRadius: 10, padding: SPACING.md, alignItems: 'center' },
-  modalAgreeTxt: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.md },
-  modalBackBtn: { paddingHorizontal: SPACING.lg, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
-  modalBackTxt: { color: COLORS.textSecondary, fontWeight: '700', fontSize: FONTS.size.md },
+  modalAgreeBtn: { flex: 1, minHeight: 52, backgroundColor: COLORS.gold, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  modalAgreeTxt: { fontFamily: FONTS.bodyBold, color: '#1E1230', fontSize: 15 },
+  modalBackBtn: { paddingHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: GOLD_LINE, alignItems: 'center', justifyContent: 'center' },
+  modalBackTxt: { fontFamily: FONTS.bodySemi, color: COLORS.textSecondary, fontSize: 15 },
 });

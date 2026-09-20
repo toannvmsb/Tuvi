@@ -212,4 +212,5 @@ export type MainTabParamList = {
   DaiVan: { result: AstrologyResult };
   TieuVan: { result: AstrologyResult };
   NguyetVan: { result: AstrologyResult };
+  NhatVan: { result: AstrologyResult };
 };

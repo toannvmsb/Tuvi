@@ -16,6 +16,7 @@ import BatTuScreen from '../screens/BatTuScreen';
 import PalaceDetailScreen from '../screens/PalaceDetailScreen';
 import FullChartAIScreen from '../screens/FullChartAIScreen';
 import NguyetVanScreen from '../screens/NguyetVanScreen';
+import NhatVanScreen from '../screens/NhatVanScreen';
 import DailyScreen from '../screens/DailyScreen';
 import DayPickerScreen from '../screens/DayPickerScreen';
 import TasksScreen from '../screens/TasksScreen';
@@ -109,6 +110,8 @@ function MainTabs({ route }: any) {
         initialParams={{ result }} options={{ tabBarLabel: t('tabTieuVan') }} />
       <Tab.Screen name="NguyetVan" component={NguyetVanScreen}
         initialParams={{ result }} options={{ tabBarLabel: 'Nguyệt Vận' }} />
+      <Tab.Screen name="NhatVan" component={NhatVanScreen}
+        initialParams={{ result }} options={{ tabBarLabel: 'Nhật Vận' }} />
     </Tab.Navigator>
   );
 }
@@ -124,6 +127,7 @@ const ROUTE_TITLES: Record<string, string> = {
   DaiVan: 'Đại Vận',
   TieuVan: 'Tiểu Vận',
   NguyetVan: 'Nguyệt Vận',
+  NhatVan: 'Nhật Vận',
   PalaceDetail: 'Chi tiết cung',
   FullChartAI: 'Phân tích AI toàn lá số',
   WealthChart: 'Tài Lộc',
