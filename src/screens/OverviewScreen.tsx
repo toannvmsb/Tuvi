@@ -136,6 +136,8 @@ export default function OverviewScreen() {
   const dv = myResult?.daiVans.find(d => age >= d.startAge && age <= d.endAge);
   const dvPalace = dv ? myResult?.tuViChart.houses.find(h => h.daiVanStartAge === dv.startAge)?.palaceName : undefined;
   const tv = myResult?.tieuVans.find(t => t.year === y);
+  // Cung mà tiểu hạn năm nay rơi vào (theo địa chi cung tiểu hạn).
+  const tvPalace = tv ? myResult?.tuViChart.houses.find(h => h.branch === tv.branch)?.palaceName : undefined;
 
   const eventDays = event
     ? (event.daysUntil === 0 ? 'Hôm nay' : event.daysUntil < 0 ? `${-event.daysUntil} ngày trước` : `Còn ${event.daysUntil} ngày`)
@@ -271,7 +273,7 @@ export default function OverviewScreen() {
             </Pressable>
             <View style={s.hr} />
             <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'TieuVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
-              <Eyebrow>{`Tiểu vận · ${y}${tv ? ` ${tv.yearStem} ${tv.yearBranch}` : ''}`}</Eyebrow>
+              <Eyebrow>{`Tiểu vận - ${y}${tvPalace ? ` Cung ${tvPalace}` : (tv ? ` ${tv.yearStem} ${tv.yearBranch}` : '')}`}</Eyebrow>
               <Text style={s.tierText}>Kế hoạch 1 năm theo lá số của bạn</Text>
             </Pressable>
             <View style={s.hr} />

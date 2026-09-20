@@ -24,7 +24,7 @@ export default function VanTierHeader({ active, result }: { active: Tier; result
         <Pressable style={s.round} onPress={() => popStack()} accessibilityRole="button" accessibilityLabel="Quay lại">
           <Icon name="back" size={22} />
         </Pressable>
-        <Display size={34}>Vận hạn</Display>
+        <Display size={30}>Vận hạn tổng quát</Display>
       </View>
       <Segmented<Tier>
         options={[

@@ -46,6 +46,7 @@ export default function VanHubScreen() {
   const dv = result.daiVans.find(d => age >= d.startAge && age <= d.endAge);
   const palace = dv ? result.tuViChart.houses.find(h => h.daiVanStartAge === dv.startAge)?.palaceName : undefined;
   const tv = result.tieuVans.find(t => t.year === now.getFullYear());
+  const tvPalace = tv ? result.tuViChart.houses.find(h => h.branch === tv.branch)?.palaceName : undefined;
   const lunar = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
   const today = scoreNhatVan(result, now);
   const go = (screen: string) => navigation.navigate('MainTabs', { result, screen, params: { result } });
@@ -53,7 +54,7 @@ export default function VanHubScreen() {
   return (
     <Screen tabBarSpace>
       <View style={{ gap: 6 }}>
-        <Display size={34}>Vận hạn</Display>
+        <Display size={34}>Vận hạn tổng quát</Display>
         <Body>Bốn tầng thời gian lồng vào nhau. Chọn một tầng để xem chi tiết.</Body>
       </View>
 
@@ -62,7 +63,7 @@ export default function VanHubScreen() {
         sub={dv ? `${dv.startAge}–${dv.endAge} tuổi · ${dv.stem} ${dv.branch}` : 'Xem các đại vận của bạn'}
         onPress={() => go('DaiVan')} />
       <Tier color={COLORS.purple} eyebrow="Tiểu vận · 1 năm"
-        head={tv ? `${now.getFullYear()} · ${tv.yearStem} ${tv.yearBranch}` : `Năm ${now.getFullYear()}`}
+        head={tv ? `${now.getFullYear()} - ${tvPalace ? `Cung ${tvPalace}` : `${tv.yearStem} ${tv.yearBranch}`}` : `Năm ${now.getFullYear()}`}
         sub="Kế hoạch 1 năm: các cung được kích hoạt và Lưu Tứ Hóa"
         onPress={() => go('TieuVan')} />
       <Tier color={COLORS.green} eyebrow="Nguyệt vận · 30 ngày"
