@@ -79,6 +79,8 @@ export default function ChartHubScreen() {
           onPress={() => navigation.navigate('FullChartAI', { result: r })} />
         <Row icon="coin" color={COLORS.green} title="Tài Lộc" sub="ADN tài chính và các đại vận tài lộc"
           onPress={() => navigation.navigate('WealthChart', { result: r })} />
+        <Row icon="chart" color={COLORS.gold} title="Lá số đã lưu" sub="Xem, mở và chọn lá số của tôi"
+          onPress={() => navigation.navigate('MyCharts')} />
         <Row icon="compare" color={COLORS.blue} title="So sánh với lá số khác" sub="Tương hợp Bát Tự và Tử Vi"
           onPress={() => navigation.navigate('CompareCharts', { preSelectedResult: r })} />
         <Row icon="user" color={COLORS.red} title="Chân dung người tương hợp" sub="AI vẽ từ cung Phu Thê của bạn"
