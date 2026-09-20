@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5, backgroundColor: '#ffffff',
   },
   dayCellToday: {
-    borderWidth: 2, borderColor: COLORS.gold,
+    borderWidth: 3, borderColor: '#FFFFFF',
   },
   dayCellTxtToday: { fontSize: 11 },
   todayDot: {

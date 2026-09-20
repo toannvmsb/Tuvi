@@ -35,16 +35,16 @@ import { pickUpcomingEvent, type ResolvedEvent, type EventPackage, type UserEven
 import { buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
-import { WeatherCard } from '../components/WeatherCards';
+import { WeatherMini } from '../components/WeatherCards';
 
 const WEEKDAY_LONG = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const TONE_TIER: Record<DayTone, string> = {
   'tốt': TIER_COLORS.great, 'khá': TIER_COLORS.good, 'trung bình': TIER_COLORS.normal,
   'thận trọng': TIER_COLORS.caution, 'xấu': TIER_COLORS.bad,
 };
-const LEGEND: { c: string; t: string }[] = [
-  { c: CAL_TONE['tốt'].dot, t: 'Tốt' }, { c: CAL_TONE['khá'].dot, t: 'Khá' }, { c: CAL_TONE['trung bình'].dot, t: 'Trung bình' },
-  { c: CAL_TONE['thận trọng'].dot, t: 'Thận trọng' }, { c: CAL_TONE['xấu'].dot, t: 'Xấu' },
+const LEGEND: { c: (typeof CAL_TONE)['tốt']; t: string }[] = [
+  { c: CAL_TONE['tốt'], t: 'Tốt' }, { c: CAL_TONE['khá'], t: 'Khá' }, { c: CAL_TONE['trung bình'], t: 'Trung bình' },
+  { c: CAL_TONE['thận trọng'], t: 'Thận trọng' }, { c: CAL_TONE['xấu'], t: 'Xấu' },
 ];
 
 function ratingLabel(score: number): { label: string; color: string } {
@@ -168,7 +168,7 @@ export default function OverviewScreen() {
         <Text style={s.lunarLine}>Mồng {lunarNow.day} tháng {lunarNow.month} âm lịch{lunarNow.isLeapMonth ? ' (nhuận)' : ''}</Text>
       </View>
 
-      {/* Vận khí hôm nay + Sự kiện sắp tới */}
+      {/* Vận khí hôm nay + Thời tiết hôm nay */}
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Card hero style={s.miniCard}>
           <Pressable onPress={openDay} style={{ flex: 1, justifyContent: 'space-between', gap: 10 }} accessibilityRole="button">
@@ -180,26 +180,8 @@ export default function OverviewScreen() {
             <Body size={11.5} style={{ lineHeight: 16 }}>{summaryGood || 'Nhấn để xem chi tiết theo ngày'}</Body>
           </Pressable>
         </Card>
-        <Card style={[s.miniCard, { backgroundColor: 'rgba(183,156,255,0.08)', borderColor: 'rgba(183,156,255,0.3)' }]}>
-          <Pressable
-            onPress={() => (event ? navigation.navigate('EventDetail', { event, result: myResult ?? undefined }) : undefined)}
-            disabled={!event} style={{ flex: 1, justifyContent: 'space-between', gap: 10 }} accessibilityRole="button"
-          >
-            <Eyebrow color={COLORS.purple} style={s.miniEyebrow}>Sự kiện sắp tới</Eyebrow>
-            {event ? (
-              <>
-                <Text style={s.eventName} numberOfLines={2}>{event.icon} {event.displayName}</Text>
-                <Text style={s.eventDays}>{eventDays}</Text>
-              </>
-            ) : (
-              <Body size={12}>Chưa có sự kiện nào sắp tới.</Body>
-            )}
-          </Pressable>
-        </Card>
+        <WeatherMini onPress={openDay} />
       </View>
-
-      {/* Thời tiết (địa điểm của lá số, mặc định Hà Nội) */}
-      <WeatherCard />
 
       {/* Lịch tháng */}
       <Card style={{ gap: 12, paddingHorizontal: 14 }}>
@@ -232,7 +214,7 @@ export default function OverviewScreen() {
                   accessibilityRole="button" accessibilityLabel={`Ngày ${d.day}, ${d.rating}`}
                 >
                   {isEvent && <View style={s.eventDot} />}
-                  <Text style={[s.cellNum, isToday && { color: COLORS.goldLight }]}>{d.day}</Text>
+                  <Text style={[s.cellNum, isToday && { color: '#FFFFFF' }]}>{d.day}</Text>
                   <Text style={[s.cellLunar, (l.day === 1 || l.day === 15) && { color: COLORS.gold, fontFamily: FONTS.bodyBold }]}>
                     {l.day === 1 ? `1/${l.month}` : l.day}
                   </Text>
@@ -244,11 +226,11 @@ export default function OverviewScreen() {
         <View style={s.legend}>
           {LEGEND.map(l => (
             <View key={l.t} style={s.legendItem}>
-              <View style={[s.legendSw, { backgroundColor: l.c }]} />
+              <View style={[s.legendSw, { backgroundColor: l.c.bg, borderWidth: 1, borderColor: l.c.border }]} />
               <Text style={s.legendTxt}>{l.t}</Text>
             </View>
           ))}
-          <View style={s.legendItem}><View style={[s.legendSw, { backgroundColor: 'transparent', borderWidth: 2, borderColor: COLORS.gold }]} /><Text style={s.legendTxt}>Hôm nay</Text></View>
+          <View style={s.legendItem}><View style={[s.legendSw, { backgroundColor: 'transparent', borderWidth: 3, borderColor: '#FFFFFF' }]} /><Text style={s.legendTxt}>Hôm nay</Text></View>
         </View>
         {event && (
           <Pressable
@@ -360,13 +342,13 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cellWrap: { width: `${100 / 7}%`, padding: 2 },
   cell: { height: 50, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  cellToday: { borderColor: COLORS.gold, borderWidth: 2 },
+  cellToday: { borderColor: '#FFFFFF', borderWidth: 3 },
   cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary, lineHeight: 16 },
   cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: COLORS.textSecondary, lineHeight: 12 },
   eventDot: { position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 2 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendSw: { width: 10, height: 10, borderRadius: 3 },
+  legendSw: { width: 14, height: 14, borderRadius: 4 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
   legendTxt: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textSecondary },
   specialStrip: {

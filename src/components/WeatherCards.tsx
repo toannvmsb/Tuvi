@@ -5,7 +5,8 @@
  * Không có mạng / lỗi → tự ẩn (không làm hỏng màn chính).
  */
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import Icon from '../ui/Icon';
 import { COLORS, FONTS } from '../constants/theme';
 import { Card, Eyebrow } from '../ui';
 import { useWeather, dayForecast, describeWeather, type Weather } from '../lib/weather';
@@ -16,40 +17,96 @@ function shortPlace(name: string): string {
   return name.split(',')[0];
 }
 
-export function WeatherCard() {
+/** Thẻ thời tiết nhỏ cho Tổng quan: hôm nay — hiện tại, cao/thấp, trạng thái, khả năng mưa, độ ẩm. */
+export function WeatherMini({ onPress }: { onPress?: () => void }) {
+  const { weather, place, loading } = useWeather();
+  const today = weather?.days[0];
+  const d = weather ? describeWeather(weather.now.code, weather.now.isDay) : null;
+  return (
+    <Card tint={COLORS.blue} style={m.card}>
+      <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, justifyContent: 'space-between', gap: 8 }} accessibilityRole="button" accessibilityLabel="Thời tiết hôm nay">
+        <View style={m.head}>
+          <Icon name="pin" size={16} color={COLORS.blue} />
+          <Text style={m.place} numberOfLines={1}>{shortPlace(place.name).toUpperCase()}</Text>
+        </View>
+        {weather && d ? (
+          <>
+            <View style={m.tempRow}>
+              <Text style={m.emoji}>{d.emoji}</Text>
+              <Text style={m.temp}>{weather.now.temp}°</Text>
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text style={m.status} numberOfLines={1}>{d.label}{today ? ` · ${today.tmin}°–${today.tmax}°` : ''}</Text>
+              <Text style={m.sub} numberOfLines={1}>Mưa {weather.now.rainProb}% · Ẩm {weather.now.humidity}%</Text>
+            </View>
+          </>
+        ) : (
+          <Text style={m.sub}>{loading ? 'Đang tải thời tiết…' : 'Chưa lấy được thời tiết (kiểm tra mạng).'}</Text>
+        )}
+      </Pressable>
+    </Card>
+  );
+}
+
+const DAY_MS = 86400000;
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/**
+ * Thời tiết đầy đủ cho màn Xem theo ngày: ngày đang chọn + 5 ngày tiếp theo (nhiệt độ cao/thấp, trạng thái, mưa, ẩm).
+ * Ngày đã qua hoặc quá xa (ngoài dự báo 16 ngày) → hiện dữ liệu gần nhất có được kèm câu ước lượng tương đối.
+ */
+export function WeatherPanel({ date }: { date: Date }) {
   const { weather, place, loading } = useWeather();
   if (loading) return null;
   if (!weather) return null;
-  const today = weather.days[0];
-  const d = describeWeather(weather.now.code, weather.now.isDay);
+  const first = new Date(weather.days[0].date + 'T00:00:00');
+  const last = new Date(weather.days[weather.days.length - 1].date + 'T00:00:00');
+  const sel = startOfDay(date);
+  const past = sel < first;
+  const far = sel > last;
+  const inRange = !past && !far;
+
+  // Cửa sổ 6 ngày bắt đầu từ ngày chọn; ngoài phạm vi thì lấy 6 ngày gần nhất có dữ liệu.
+  let startIdx = 0;
+  if (inRange) startIdx = Math.round((sel.getTime() - first.getTime()) / DAY_MS);
+  else if (far) startIdx = Math.max(0, weather.days.length - 6);
+  const rows = weather.days.slice(startIdx, startIdx + 6);
+
+  let note: string | null = null;
+  if (past) note = 'Ngày đã qua nên không còn dự báo. Đang hiển thị thời tiết những ngày gần đây nhất để tham khảo.';
+  else if (far) {
+    const diff = Math.round((sel.getTime() - last.getTime()) / DAY_MS);
+    note = `Ngày này còn xa (quá ${diff} ngày so với dữ liệu dự báo) nên chưa có dự báo chính xác. Thời tiết thường gần với những ngày cuối dự báo bên dưới, nhưng có thể khác — chỉ mang tính ước lượng tương đối.`;
+  } else if (rows.length < 6) {
+    note = 'Các ngày sau nữa chưa có dự báo (dữ liệu chỉ có 16 ngày tới).';
+  }
+
   return (
-    <Card style={{ gap: 12, paddingVertical: 14 }}>
+    <Card tint={COLORS.blue} style={{ gap: 12 }}>
       <View style={s.head}>
-        <Eyebrow>{`Thời tiết · ${shortPlace(place.name)}`}</Eyebrow>
-        <Text style={s.desc}>{d.label}</Text>
+        <Eyebrow color={COLORS.blue}>{`Thời tiết · ${shortPlace(place.name)}`}</Eyebrow>
+        <Text style={s.desc}>{inRange ? 'Từ ngày đang chọn' : 'Gần nhất có dữ liệu'}</Text>
       </View>
-      <View style={s.mainRow}>
-        <Text style={s.emoji}>{d.emoji}</Text>
-        <Text style={s.temp}>{weather.now.temp}°</Text>
-        <View style={{ flex: 1, gap: 3 }}>
-          {today && <Text style={s.line}>Cao nhất {today.tmax}° · Thấp nhất {today.tmin}°</Text>}
-          <Text style={s.line}>Độ ẩm {weather.now.humidity}% · Khả năng mưa {weather.now.rainProb}%</Text>
-        </View>
-      </View>
-      <View style={s.strip}>
-        {weather.days.slice(1, 6).map(day => {
-          const dt = new Date(day.date + 'T00:00:00');
-          const w = describeWeather(day.code);
-          return (
-            <View key={day.date} style={s.dayCol}>
-              <Text style={s.dayName}>{WEEK[dt.getDay()]} {dt.getDate()}</Text>
-              <Text style={s.dayEmoji}>{w.emoji}</Text>
-              <Text style={s.dayTemp}>{day.tmax}°<Text style={s.dayTempLow}> {day.tmin}°</Text></Text>
-              <Text style={[s.dayRain, day.rainProb >= 50 && { color: COLORS.blue }]}>{day.rainProb}%</Text>
+      {rows.map((day, i) => {
+        const dt = new Date(day.date + 'T00:00:00');
+        const w = describeWeather(day.code);
+        const isSel = inRange && i === 0;
+        return (
+          <View key={day.date} style={[p.row, isSel && p.rowSel]}>
+            <View style={{ width: 54 }}>
+              <Text style={p.dayName}>{WEEK[dt.getDay()]}</Text>
+              <Text style={p.dayDate}>{dt.getDate()}/{dt.getMonth() + 1}</Text>
             </View>
-          );
-        })}
-      </View>
+            <Text style={p.emoji}>{w.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={p.status} numberOfLines={1}>{w.label}</Text>
+              <Text style={p.meta} numberOfLines={1}>Mưa {day.rainProb}% · Ẩm {day.humidity}%</Text>
+            </View>
+            <Text style={p.temp}>{day.tmax}°<Text style={p.tempLow}> / {day.tmin}°</Text></Text>
+          </View>
+        );
+      })}
+      {note && <Text style={p.note}>{note}</Text>}
     </Card>
   );
 }
@@ -93,4 +150,28 @@ const s = StyleSheet.create({
   dateEmoji: { fontSize: 26 },
   dateTitle: { fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.textPrimary },
   dateSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+});
+
+const m = StyleSheet.create({
+  card: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  place: { flex: 1, fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 1.6, color: COLORS.blue },
+  tempRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  emoji: { fontSize: 30 },
+  temp: { fontFamily: FONTS.display, fontSize: 40, lineHeight: 44, color: COLORS.textPrimary },
+  status: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary },
+  sub: { fontFamily: FONTS.body, fontSize: 11.5, color: COLORS.textSecondary },
+});
+
+const p = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 12 },
+  rowSel: { backgroundColor: 'rgba(127,182,240,0.16)', borderWidth: 1, borderColor: 'rgba(127,182,240,0.45)' },
+  dayName: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary },
+  dayDate: { fontFamily: FONTS.body, fontSize: 11.5, color: COLORS.textMuted },
+  emoji: { fontSize: 24 },
+  status: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.textPrimary },
+  meta: { fontFamily: FONTS.body, fontSize: 11.5, color: COLORS.textSecondary },
+  temp: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary },
+  tempLow: { fontFamily: FONTS.body, color: COLORS.textMuted },
+  note: { fontFamily: FONTS.body, fontSize: 12, lineHeight: 18, color: COLORS.textSecondary, fontStyle: 'italic' },
 });

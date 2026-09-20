@@ -182,17 +182,17 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
           <View style={styles.legendRow}>
             {LEGEND_ITEMS.map(item => (
               <View key={item.tone} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: CAL_TONE[item.tone].dot }]} />
+                <View style={[styles.legendDot, { backgroundColor: CAL_TONE[item.tone].bg, borderWidth: 1, borderColor: CAL_TONE[item.tone].border }]} />
                 <Text style={styles.legendTxt}>{item.label}</Text>
               </View>
             ))}
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: 'transparent', borderWidth: 2, borderColor: COLORS.gold }]} />
+              <View style={[styles.legendDot, { backgroundColor: 'transparent', borderWidth: 3, borderColor: '#FFFFFF' }]} />
               <Text style={styles.legendTxt}>Hôm nay</Text>
             </View>
           </View>
           <Text style={styles.legendNote}>
-            Màu ô = mức thuận lợi của ngày (điểm Nhật Vận). Chấm trắng = ngày có cảnh báo (xung tuổi/Tam Nương/Nguyệt Kỵ…). Viền vàng = hôm nay/ngày đang chọn.
+            Màu ô = mức thuận lợi của ngày (điểm Nhật Vận). Chấm trắng = ngày có cảnh báo (xung tuổi/Tam Nương/Nguyệt Kỵ…). Viền trắng = hôm nay/ngày đang chọn.
           </Text>
         </>
       )}
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     minHeight: 44, borderRadius: 8, paddingVertical: 3, gap: 1, position: 'relative',
   },
-  cellHighlight: { borderWidth: 2, borderColor: COLORS.gold },
+  cellHighlight: { borderWidth: 3, borderColor: '#FFFFFF' },
 
   solar: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '800' },
   sunTxt:      { color: '#ef4444' },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
 
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.sm, justifyContent: 'center' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 9, height: 9, borderRadius: 4.5 },
+  legendDot: { width: 12, height: 12, borderRadius: 4 },
   legendTxt: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' },
   legendNote: { color: COLORS.textMuted, fontSize: 9, fontStyle: 'italic', lineHeight: 13, textAlign: 'center', marginTop: 4 },
 
