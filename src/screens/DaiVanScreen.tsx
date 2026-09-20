@@ -21,6 +21,7 @@ import TuViChart from '../components/TuViChart';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { captureChartDataUri, captureRefDataUri, chartHeaderLines, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import VanTierHeader from '../ui/VanTierHeader';
 import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { daiVanSections } from '../utils/aiAnalysis';
@@ -162,7 +163,7 @@ export default function DaiVanScreen({ route }: Props) {
     run(idx, fkey(result, `dv:${idx}:ai`), daiVanSections(result, idx), force, PREMIUM.COST.aiLarge);
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Lá số ẩn + ô cung đại vận/tiểu vận ẩn để chụp ảnh nhúng PDF */}
       <View style={styles.hiddenChart} pointerEvents="none">
         <TuViChart ref={chartRef} chart={result.tuViChart} birthInfo={result.birthInfo} />
@@ -180,7 +181,7 @@ export default function DaiVanScreen({ route }: Props) {
           </View>
         )}
       </View>
-      <ScreenHeader title="Đại Vận" onBack={() => navigationRef.navigate('Home')} />
+      <VanTierHeader active="dai" result={result} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>Đại Vận của {result.birthInfo.name || 'bạn'}</Text>
         <Text style={styles.subtitle}>Biểu đồ xu hướng các đại vận (từ {scores[0]?.label ?? '?'} đến {scores[scores.length - 1]?.label ?? '?'} tuổi)</Text>

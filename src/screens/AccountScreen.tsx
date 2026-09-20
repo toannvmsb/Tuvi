@@ -15,7 +15,7 @@ import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import AnimatedAvatar from '../components/AnimatedAvatar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
-import { updateDisplayName, updatePassword } from '../lib/auth';
+import { updateDisplayName, updatePassword, deleteMyAccount } from '../lib/auth';
 import { wallet } from '../constants/premium';
 import { APP_VERSION, COPYRIGHT } from '../constants/appInfo';
 import { AVATAR_OPTIONS } from '../core/avatarCatalog';
@@ -65,6 +65,37 @@ export default function AccountScreen() {
     } catch (e: any) {
       Alert.alert('Lỗi', e?.message || 'Không đổi được mật khẩu.');
     } finally { setSavingPw(false); }
+  };
+
+  const [deleting, setDeleting] = useState(false);
+  /** Xóa tài khoản: 2 bước xác nhận (giải thích hậu quả → xác nhận cuối) rồi RPC + đăng xuất. */
+  const onDeleteAccount = () => {
+    Alert.alert(
+      'Xóa tài khoản?',
+      'Toàn bộ hồ sơ, lá số, ghi chú, việc, lịch sử giao dịch và số xu còn lại sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Tiếp tục', style: 'destructive',
+          onPress: () => Alert.alert('Xác nhận lần cuối', 'Bạn thật sự muốn xóa vĩnh viễn tài khoản này?', [
+            { text: 'Không xóa', style: 'cancel' },
+            {
+              text: 'Xóa vĩnh viễn', style: 'destructive',
+              onPress: async () => {
+                setDeleting(true);
+                try {
+                  await deleteMyAccount();
+                  Alert.alert('Đã xóa tài khoản', 'Cảm ơn bạn đã sử dụng Tuzi.');
+                  await logout();
+                } catch (e: any) {
+                  Alert.alert('Không xóa được', e?.message || 'Vui lòng thử lại sau hoặc liên hệ support@tuzi.vn.');
+                } finally { setDeleting(false); }
+              },
+            },
+          ]),
+        },
+      ],
+    );
   };
 
   const onLogout = () => {
@@ -166,6 +197,22 @@ export default function AccountScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Xóa tài khoản — bắt buộc theo App Store 5.1.1(v) */}
+        {online && user && (
+          <View style={styles.dangerBox}>
+            <Text style={styles.dangerTitle}>Xóa tài khoản</Text>
+            <Text style={styles.dangerText}>
+              Xóa vĩnh viễn tài khoản, hồ sơ, lá số, ghi chú và số xu còn lại. Không thể hoàn tác.
+            </Text>
+            <TouchableOpacity
+              style={[styles.dangerBtn, deleting && { opacity: 0.5 }]}
+              onPress={onDeleteAccount} disabled={deleting} activeOpacity={0.85}
+            >
+              <Text style={styles.logoutText}>{deleting ? 'Đang xóa…' : 'Xóa tài khoản của tôi'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.footer}>
           <Text style={styles.version}>Phiên bản {APP_VERSION}</Text>
           <Text style={styles.copyright}>{COPYRIGHT}</Text>
@@ -218,6 +265,13 @@ const styles = StyleSheet.create({
     padding: SPACING.md, alignItems: 'center',
   },
   logoutText: { color: COLORS.red, fontSize: FONTS.size.md, fontWeight: '800' },
+  dangerBox: {
+    gap: SPACING.sm, padding: SPACING.md, borderRadius: 14,
+    backgroundColor: 'rgba(231,123,107,0.07)', borderWidth: 1, borderColor: 'rgba(231,123,107,0.3)',
+  },
+  dangerTitle: { color: COLORS.red, fontSize: FONTS.size.md, fontWeight: '800' },
+  dangerText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
+  dangerBtn: { borderWidth: 1, borderColor: COLORS.red, borderRadius: 10, padding: SPACING.md, alignItems: 'center' },
   footer: { alignItems: 'center', marginTop: SPACING.lg, gap: 2 },
   version: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '700' },
   copyright: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textAlign: 'center' },

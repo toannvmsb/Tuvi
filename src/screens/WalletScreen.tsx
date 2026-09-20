@@ -253,7 +253,7 @@ export default function WalletScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Kho Xu của tôi" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Ví xu" onBack={() => navigation.goBack()} />
       <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Số dư */}
         <View style={styles.balCard}>
@@ -549,31 +549,31 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
   },
   balCard: {
-    backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.gold, alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(226,194,133,0.14)', borderRadius: 24, padding: 22,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)', alignItems: 'flex-start', gap: 4,
   },
-  balLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
-  balValue: { color: COLORS.gold, fontSize: FONTS.size.xxl, fontWeight: '900' },
-  balUser: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
-  infoCard: { backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: COLORS.gold },
-  infoText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
-  section: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  balLabel: { color: COLORS.gold, fontSize: 11, fontFamily: FONTS.bodySemi, letterSpacing: 1.8, textTransform: 'uppercase' },
+  balValue: { color: COLORS.goldLight, fontSize: 52, lineHeight: 56, fontFamily: FONTS.displayBold },
+  balUser: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontFamily: FONTS.body },
+  infoCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)' },
+  infoText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 21, fontFamily: FONTS.body },
+  section: { color: COLORS.textPrimary, fontSize: 24, lineHeight: 28, fontFamily: FONTS.display },
   packGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   pack: {
-    width: '47%', backgroundColor: COLORS.card, borderRadius: 10, padding: SPACING.md,
-    alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 4,
+    width: '47%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: SPACING.md, paddingVertical: 18,
+    alignItems: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.22)', gap: 6, minHeight: 112,
   },
-  packTag: { color: '#1a0a00', backgroundColor: COLORS.gold, fontSize: FONTS.size.xs, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
-  packXu: { color: COLORS.gold, fontWeight: '800', fontSize: FONTS.size.md },
-  packGia: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
+  packTag: { color: '#1E1230', backgroundColor: COLORS.gold, fontSize: 10.5, fontFamily: FONTS.bodyBold, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
+  packXu: { color: COLORS.goldLight, fontFamily: FONTS.displayBold, fontSize: 28, lineHeight: 30 },
+  packGia: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontFamily: FONTS.bodySemi, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12, overflow: 'hidden' },
   packOff: { borderColor: COLORS.green, borderWidth: 1.5 },
   packGiaOld: { color: COLORS.textMuted, fontSize: FONTS.size.xs, textDecorationLine: 'line-through' },
   packGiaNew: { color: COLORS.green, fontSize: FONTS.size.sm, fontWeight: '800' },
 
   // Voucher
   voucherBox: {
-    backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.gold, gap: SPACING.xs, marginBottom: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: SPACING.md,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.34)', gap: SPACING.xs, marginBottom: SPACING.sm,
   },
   voucherTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
   voucherRow: { flexDirection: 'row', gap: SPACING.sm },
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   histBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.xs },
   histHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   refresh: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700' },
-  comboBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
+  comboBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)', gap: SPACING.sm },
   // Cách nạp khác (website chuyển khoản)
   altPayBox: { backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm, marginTop: SPACING.md },
   altPayTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },

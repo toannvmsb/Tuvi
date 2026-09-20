@@ -72,6 +72,17 @@ export async function signOut() {
   try { const { invalidateChartsCache } = await import('./charts'); invalidateChartsCache(); } catch {}
 }
 
+/**
+ * TỰ XÓA TÀI KHOẢN (App Store 5.1.1(v)): gọi RPC delete_my_account (xem
+ * supabase_delete_my_account.sql) xóa toàn bộ dữ liệu + tài khoản auth, rồi dọn cache cục bộ.
+ * Sau khi gọi xong, phiên hiện tại không còn hợp lệ → nơi gọi nên đăng xuất.
+ */
+export async function deleteMyAccount(): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw new Error(error.message || 'Không xóa được tài khoản.');
+  try { const { invalidateChartsCache } = await import('./charts'); invalidateChartsCache(); } catch {}
+}
+
 /** Đổi TÊN HIỂN THỊ: cập nhật user metadata + bảng profiles. */
 export async function updateDisplayName(name: string): Promise<void> {
   const clean = name.trim();

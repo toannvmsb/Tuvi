@@ -24,6 +24,7 @@ import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
+import VanTierHeader from '../ui/VanTierHeader';
 import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { useScrollToTop } from '../hooks/useScrollToTop';
@@ -178,8 +179,8 @@ export default function NguyetVanScreen({ route }: Props) {
   const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      <ScreenHeader title="Nguyệt Vận" onBack={() => navigationRef.navigate('Home')} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <VanTierHeader active="nguyet" result={result} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         {/* Hàng 1: chọn Đại vận */}
         <Text style={styles.rowLabel}>Chọn Đại vận</Text>

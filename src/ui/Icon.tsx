@@ -1,0 +1,44 @@
+/** Bộ icon nét mảnh (lưới 24) của thiết kế mới — dùng react-native-svg, đổi màu qua `color`. */
+import React from 'react';
+import Svg, { Path } from 'react-native-svg';
+
+const P = {
+  spark: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z',
+  chart: 'M6.5 3.5h11a3 3 0 013 3v11a3 3 0 01-3 3h-11a3 3 0 01-3-3v-11a3 3 0 013-3zM10.2 9h3.6a1.2 1.2 0 011.2 1.2v3.6a1.2 1.2 0 01-1.2 1.2h-3.6A1.2 1.2 0 019 13.8v-3.6A1.2 1.2 0 0110.2 9zM9 3.5V9M15 3.5V9M9 15v5.5M15 15v5.5M3.5 9H9M3.5 15H9M15 9h5.5M15 15h5.5',
+  wave: 'M3 15.5c2.6 0 2.6-7 5.2-7s2.6 7 5.2 7 2.6-7 5.2-7M3 20h18',
+  calendar: 'M6.5 5h11a3 3 0 013 3v9a3 3 0 01-3 3h-11a3 3 0 01-3-3V8a3 3 0 013-3zM3.5 10h17M8 3v4M16 3v4',
+  menu: 'M5.5 3.5h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 012-2zM15.5 3.5h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 012-2zM5.5 13.5h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 012-2zM15.5 13.5h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 012-2z',
+  chev: 'M9 5l7 7-7 7',
+  back: 'M15 5l-7 7 7 7',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  bell: 'M6 16.5V11a6 6 0 0112 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 004 0',
+  coin: 'M12 3.5a8.5 8.5 0 100 17 8.5 8.5 0 000-17zM12 7.5l1.4 3.1 3.1.4-2.3 2.2.6 3.1L12 14.7 9.2 16.3l.6-3.1-2.3-2.2 3.1-.4z',
+  note: 'M5 4.5h11l3 3V19a1.5 1.5 0 01-1.5 1.5h-12A1.5 1.5 0 013 19V6A1.5 1.5 0 014.5 4.5zM7.5 10h8M7.5 13.5h8M7.5 17h5',
+  compare: 'M9 7a5 5 0 100 10 5 5 0 000-10zM15 7a5 5 0 100 10 5 5 0 000-10z',
+  event: 'M6.5 5h11a3 3 0 013 3v9a3 3 0 01-3 3h-11a3 3 0 01-3-3V8a3 3 0 013-3zM3.5 10h17M8 3v4M16 3v4M12 12.5l.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z',
+  user: 'M12 5a4 4 0 100 8 4 4 0 000-8zM4.5 20c1-4 4-6 7.5-6s6.5 2 7.5 6',
+  gear: 'M12 9a3 3 0 100 6 3 3 0 000-6zM12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8',
+  gift: 'M5.5 9h13a2 2 0 012 2v7a2 2 0 01-2 2h-13a2 2 0 01-2-2v-7a2 2 0 012-2zM12 9v11M3.5 13h17M12 9c-1-3-5-3.5-5-1s3 1 5 1zm0 0c1-3 5-3.5 5-1s-3 1-5 1z',
+  globe: 'M12 3.5a8.5 8.5 0 100 17 8.5 8.5 0 000-17zM3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17',
+  info: 'M12 3.5a8.5 8.5 0 100 17 8.5 8.5 0 000-17zM12 11v5M12 8v.5',
+  shield: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
+  doc: 'M6 3.5h9l3 3V20.5H6zM9 11h6M9 14.5h6',
+  mail: 'M6 5.5h12a2.5 2.5 0 012.5 2.5v8a2.5 2.5 0 01-2.5 2.5H6A2.5 2.5 0 013.5 16V8A2.5 2.5 0 016 5.5zM4 7l8 6 8-6',
+  logout: 'M9 4.5H6.5A1.5 1.5 0 005 6v12a1.5 1.5 0 001.5 1.5H9M15 8l4 4-4 4M19 12H9',
+  send: 'M5 12l14-7-5 14-2.5-5.5z',
+  plus: 'M12 5v14M5 12h14',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  pin: 'M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21zM12 7.1a2.4 2.4 0 100 4.8 2.4 2.4 0 000-4.8z',
+} as const;
+
+export type IconName = keyof typeof P;
+
+export default function Icon({ name, size = 22, color = '#F3EBDC', strokeWidth = 1.8 }: {
+  name: IconName; size?: number; color?: string; strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d={P[name]} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

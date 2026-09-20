@@ -6,7 +6,7 @@ import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList, MainTabParamList, AstrologyResult } from '../types';
-import HomeScreen from '../screens/HomeScreen';
+import AppTabs from './AppTabs';
 import InputScreen from '../screens/InputScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AccountScreen from '../screens/AccountScreen';
@@ -162,7 +162,7 @@ export default function AppNavigator() {
         {/* TẤT CẢ màn đều ẩn native header → dùng ScreenHeader (back trong nội dung)
             để nút Quay lại luôn nhận touch, tránh lỗi đóng băng header native iOS
             sau khi điều hướng qua menu. */}
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Home" component={AppTabs} options={{ headerShown: false }} />
         <Stack.Screen name="Input" component={InputScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Account" component={AccountScreen} options={{ headerShown: false }} />

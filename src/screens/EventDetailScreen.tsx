@@ -825,22 +825,22 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
   },
   heroCard: {
-    backgroundColor: COLORS.surface, borderRadius: 12, borderWidth: 1, borderColor: COLORS.gold,
-    padding: SPACING.lg, gap: SPACING.sm,
+    backgroundColor: 'rgba(226,194,133,0.13)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(226,194,133,0.38)',
+    padding: 20, gap: SPACING.sm,
   },
   heroRow: { flexDirection: 'row', alignItems: 'stretch' },
   heroLeft: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   heroIconInline: { fontSize: 34 },
-  heroTitleBig: { color: COLORS.textPrimary, fontSize: FONTS.size.xl, fontWeight: '900', textAlign: 'center' },
-  heroDivider: { width: 1, alignSelf: 'stretch', backgroundColor: COLORS.border, marginHorizontal: SPACING.sm },
+  heroTitleBig: { color: COLORS.goldLight, fontSize: 26, lineHeight: 30, fontFamily: FONTS.displayBold, textAlign: 'center' },
+  heroDivider: { width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(226,194,133,0.25)', marginHorizontal: SPACING.sm },
   heroRight: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   heroDate: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, textAlign: 'center' },
   // "Timeline" (TUZI_M04 mục 7) — nhãn giai đoạn tính từ daysUntil, xem eventStage() trong lifeEventEngine.ts.
   heroStageBadge: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontWeight: '700', textAlign: 'center' },
-  heroCountdown: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800', textAlign: 'center' },
+  heroCountdown: { color: COLORS.goldLight, fontSize: 22, lineHeight: 26, fontFamily: FONTS.displayBold, textAlign: 'center' },
   shareBtn: {
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 20,
-    paddingVertical: 6, paddingHorizontal: SPACING.md, backgroundColor: COLORS.card,
+    minHeight: 44, justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)', borderRadius: 999,
+    paddingHorizontal: SPACING.md, backgroundColor: 'rgba(255,255,255,0.06)',
   },
   shareBtnText: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
   deleteEventBtn: {
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   },
   deleteEventBtnText: { color: COLORS.red, fontSize: FONTS.size.xs, fontWeight: '700' },
   card: {
-    backgroundColor: COLORS.card, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)',
     padding: SPACING.md,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -857,23 +857,23 @@ const styles = StyleSheet.create({
   cardBody: { gap: 6, marginTop: SPACING.sm },
   // To hơn 1 chút so với trước (sm→lg) để dễ nhìn, đồng thời cao hơn cả subHeading/bodyText (md)
   // bên trong để giữ đúng thứ bậc tiêu đề box > tiêu đề phụ > nội dung.
-  cardTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
+  cardTitle: { color: COLORS.textPrimary, fontSize: 22, lineHeight: 26, fontFamily: FONTS.display, flex: 1 },
   // Đồng bộ với font "AI cá nhân hóa" (SimpleMarkdown dùng FONTS.size.md cho tiêu đề phụ lẫn nội
   // dung) — subHeading trước đây nhỏ hơn cả nội dung bên dưới nó (xs < sm), gây lệch thứ bậc.
   subHeading: {
-    color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800', marginTop: 4,
+    color: COLORS.gold, fontSize: FONTS.size.md, fontFamily: FONTS.bodyBold, marginTop: 4,
   },
   innerDivider: { height: 1, backgroundColor: COLORS.border, marginTop: SPACING.xs },
   // Nhiều sự kiện trùng ngày — chip chọn (tính năng CHÍNH THỨC, không phải test).
   sameDayBox: {
-    backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)',
     padding: SPACING.sm, gap: SPACING.xs,
   },
   sameDayLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
   // Nội dung chính trong mọi box — đồng bộ font với "AI cá nhân hóa" (SimpleMarkdown dùng
   // FONTS.size.md/lineHeight 22) để không còn chỗ to chỗ nhỏ giữa các mục trong cùng màn hình,
   // căn justify cho gọn 2 lề (giống SimpleMarkdown's `para`/`bulletText`).
-  bodyText: { color: COLORS.textSecondary, fontSize: FONTS.size.md, lineHeight: 22, textAlign: 'justify' },
+  bodyText: { color: COLORS.textSecondary, fontSize: FONTS.size.md, lineHeight: 24, fontFamily: FONTS.body },
   emptyHint: { color: COLORS.textMuted, fontSize: FONTS.size.md, lineHeight: 22, fontStyle: 'italic', textAlign: 'justify' },
   highlight: { color: COLORS.gold, fontWeight: '800' },
   // "Nên làm/Nên tránh": chữ nội dung dùng CHUNG 1 màu với các nội dung khác (textSecondary) —
@@ -913,12 +913,12 @@ const styles = StyleSheet.create({
   },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   typeChip: {
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 20,
-    paddingVertical: 6, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.surface,
+    minHeight: 44, justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.25)', borderRadius: 999,
+    paddingHorizontal: SPACING.md, backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  typeChipActive: { borderColor: COLORS.gold, backgroundColor: COLORS.gold },
-  typeChipText: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '700' },
-  typeChipTextActive: { color: '#1a0a00' },
+  typeChipActive: { borderColor: COLORS.gold, backgroundColor: 'rgba(226,194,133,0.2)' },
+  typeChipText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontFamily: FONTS.bodySemi },
+  typeChipTextActive: { color: COLORS.goldLight },
   input: {
     backgroundColor: COLORS.surface, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
     color: COLORS.textPrimary, padding: SPACING.sm, fontSize: FONTS.size.sm,

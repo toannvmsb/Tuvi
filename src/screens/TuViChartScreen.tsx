@@ -16,6 +16,8 @@ import { navigationRef } from '../navigation/AppNavigator';
 import { isWeb, useContentWidth } from '../lib/platform';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import { Display, Segmented, Body } from '../ui';
+import Icon from '../ui/Icon';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TuViChart'>;
 
@@ -176,38 +178,37 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   }, [birthInfo.name]);
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      <ScreenHeader
-        title="Lá Số"
-        onBack={() => navigationRef.navigate('Home')}
-      />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Tiêu đề + chuyển Tử Vi | Bát Tự (thiết kế mới) */}
+      <View style={nx.header}>
+        <View style={nx.headRow}>
+          <TouchableOpacity style={nx.roundBtn} onPress={() => navigationRef.navigate('Home')} accessibilityRole="button" accessibilityLabel="Quay lại">
+            <Icon name="back" size={22} />
+          </TouchableOpacity>
+          <Display size={34}>Lá số</Display>
+        </View>
+        <Segmented
+          options={[{ value: 'tuvi', label: '紫微 Tử Vi' }, { value: 'battu', label: '八字 Bát Tự' }]}
+          value="tuvi"
+          onChange={(v) => { if (v === 'battu') navigation.navigate('BatTu', { result }); }}
+        />
+        <Body size={12.5}>
+          {`${birthInfo.name || 'Hồ sơ'} · ${birthInfo.gender === 'nu' ? 'Nữ' : 'Nam'} · ${chart.lunarDate.yearStem} ${chart.lunarDate.yearBranch}`}
+        </Body>
+      </View>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
-        {/* 3 TAB chức năng — trên cùng màn lá số */}
-        <View style={styles.tabRow}>
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => navigationRef.navigate('WealthChart', { result })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.tabIcon}>💰</Text>
-            <Text style={styles.tabLabel}>Xem tài lộc</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => navigationRef.navigate('DailyView', { result })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.tabIcon}>📅</Text>
-            <Text style={styles.tabLabel}>Nhật vận</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => navigationRef.navigate('DayPicker', { result })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.tabIcon}>🧭</Text>
-            <Text style={styles.tabLabel}>Xem ngày tốt</Text>
-          </TouchableOpacity>
+        {/* Lối tắt — Tài lộc · Nhật vận · Xem ngày tốt */}
+        <View style={nx.quickRow}>
+          {([
+            { icon: 'coin', label: 'Xem tài lộc', go: () => navigationRef.navigate('WealthChart', { result }) },
+            { icon: 'calendar', label: 'Nhật vận', go: () => navigationRef.navigate('DailyView', { result }) },
+            { icon: 'event', label: 'Xem ngày tốt', go: () => navigationRef.navigate('DayPicker', { result }) },
+          ] as const).map(q => (
+            <TouchableOpacity key={q.label} style={nx.quickBtn} onPress={q.go} activeOpacity={0.85} accessibilityRole="button">
+              <Icon name={q.icon} size={20} color={COLORS.gold} />
+              <Text style={nx.quickTxt}>{q.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Toolbar — Hiện Lưu Tiểu Vận (trái) · Năm xem (phải) */}
@@ -392,6 +393,21 @@ function ToggleSwitch({ label, value, onToggle }: { label: string; value: boolea
     </View>
   );
 }
+
+const nx = StyleSheet.create({
+  header: { width: '100%', gap: 12, paddingTop: 4 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  roundBtn: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
+  },
+  quickRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  quickBtn: {
+    flex: 1, minHeight: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: 'rgba(226,194,133,0.1)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.3)',
+  },
+  quickTxt: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary, textAlign: 'center' },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },

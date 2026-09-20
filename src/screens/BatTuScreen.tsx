@@ -24,10 +24,12 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import { Display, Segmented } from '../ui';
+import Icon from '../ui/Icon';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BatTu'>;
 
-export default function BatTuScreen({ route }: Props) {
+export default function BatTuScreen({ route, navigation }: Props) {
   const { result } = route.params;
   const { batTuChart } = result;
   const phongThuy = useMemo(() => analyzePhongThuyBatTu(batTuChart), [batTuChart]);
@@ -52,8 +54,20 @@ export default function BatTuScreen({ route }: Props) {
   const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      <ScreenHeader title="Bát Tự" onBack={() => navigationRef.navigate('Home')} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={hx.header}>
+        <View style={hx.headRow}>
+          <TouchableOpacity style={hx.roundBtn} onPress={() => navigationRef.navigate('Home')} accessibilityRole="button" accessibilityLabel="Quay lại">
+            <Icon name="back" size={22} />
+          </TouchableOpacity>
+          <Display size={34}>Lá số</Display>
+        </View>
+        <Segmented
+          options={[{ value: 'tuvi', label: '紫微 Tử Vi' }, { value: 'battu', label: '八字 Bát Tự' }]}
+          value="battu"
+          onChange={(v) => { if (v === 'tuvi') navigation.navigate('TuViChart', { result }); }}
+        />
+      </View>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>{t('batTuTitle')}</Text>
         <Text style={styles.subtitle}>
@@ -153,6 +167,15 @@ export default function BatTuScreen({ route }: Props) {
     </SafeAreaView>
   );
 }
+
+const hx = StyleSheet.create({
+  header: { gap: 12, paddingHorizontal: 16, paddingTop: 12 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  roundBtn: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
+  },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },

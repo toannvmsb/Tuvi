@@ -12,6 +12,7 @@ import { COLORS } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
 import WebAlertHost from './src/components/WebAlertHost';
 import AiChatBubble from './src/components/AiChatBubble';
+import { useAppFonts } from './src/ui/fonts';
 
 // Web: app fluid — tự fit TRỌN khung màn hình thiết bị (không giới hạn bề rộng).
 // Lá số & biểu đồ fill full chiều ngang cửa sổ; cỡ chữ lá số scale theo.
@@ -34,6 +35,7 @@ function Boot() {
   const { online, ready: authReady, user } = useAuth();
   const [langReady, setLangReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const fontsReady = useAppFonts();
 
   useEffect(() => {
     loadLanguage().then(() => setLangReady(true));
@@ -49,7 +51,7 @@ function Boot() {
     return () => { sub.remove(); clearInterval(timer); };
   }, [online]);
 
-  const done = langReady && authReady;
+  const done = langReady && authReady && fontsReady;
 
   if (showSplash) {
     return <StartupProgress done={done} onFinish={() => setShowSplash(false)} />;

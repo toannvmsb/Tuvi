@@ -31,6 +31,7 @@ import { useContentWidth } from '../lib/platform';
 import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import ScreenHeader from '../components/ScreenHeader';
+import VanTierHeader from '../ui/VanTierHeader';
 import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { useScrollToTop } from '../hooks/useScrollToTop';
@@ -169,8 +170,8 @@ export default function TieuVanScreen({ route }: Props) {
   const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      <ScreenHeader title="Tiểu Vận" onBack={() => navigationRef.navigate('Home')} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <VanTierHeader active="tieu" result={result} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>Tiểu Vận của {result.birthInfo.name || 'bạn'}</Text>
         <Text style={styles.subtitle}>Chọn một đại vận để xem chi tiết vận từng năm</Text>

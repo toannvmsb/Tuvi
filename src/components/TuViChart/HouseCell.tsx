@@ -74,13 +74,18 @@ function brightnessShort(b?: string): string {
   }
 }
 
+/** Độ sáng của sao → độ đậm chữ: miếu/vượng rõ nhất, hãm mờ nhất (như thiết kế mới). */
+const BRIGHT_OPACITY: Record<string, number> = { 'miếu': 1, 'vượng': 1, 'đắc': 0.92, 'bình': 0.78, 'hãm': 0.6 };
+
 function ChinhStar({ star, fontSize }: { star: StarEntry; fontSize: number }) {
   const color = getStarColor(star.name);
   const b = brightnessShort(star.brightness);
+  const opacity = star.brightness ? (BRIGHT_OPACITY[star.brightness] ?? 1) : 1;
   return (
     <Text
       style={{
         color,
+        opacity,
         fontSize,
         lineHeight: Math.round(fontSize * 1.2),
         fontWeight: '800',
@@ -96,10 +101,10 @@ function ChinhStar({ star, fontSize }: { star: StarEntry; fontSize: number }) {
   );
 }
 
-function PhuStar({ star, fontSize, faded, align }: {
-  star: StarEntry; fontSize: number; faded?: boolean; align: 'left' | 'right';
+function PhuStar({ star, fontSize, align, tone }: {
+  star: StarEntry; fontSize: number; align: 'left' | 'right'; tone: string;
 }) {
-  const color = faded ? '#cdd9ee' : getStarColor(star.name);   // sao lưu: tông sáng hơn cho dễ đọc
+  const color = tone;
   const b = brightnessShort(star.brightness);
   // Auto-shrink: nếu tên dài quá thì RN tự co font xuống min 60% — đảm bảo
   // hiển thị đầy đủ tên + suffix M/V/Đ/H trong 1 dòng.
@@ -198,7 +203,7 @@ export default function HouseCell({ house, width, height, showLuuStars = false, 
           : (
             <Text
               style={{
-                color: '#a8b0d0',
+                color: COLORS.textMuted,
                 fontSize: chinhFs,
                 fontStyle: 'italic',
                 fontWeight: '500',
@@ -213,10 +218,10 @@ export default function HouseCell({ house, width, height, showLuuStars = false, 
       {/* Phụ tinh: Cát LEFT — Hung RIGHT */}
       <View style={styles.twoCols}>
         <View style={styles.colCat}>
-          {showCat.map((s, i) => <PhuStar key={`p${i}`} star={s} fontSize={phuFs} align="left" />)}
+          {showCat.map((s, i) => <PhuStar key={`p${i}`} star={s} fontSize={phuFs} align="left" tone={COLORS.starCat} />)}
         </View>
         <View style={styles.colHung}>
-          {showHung.map((s, i) => <PhuStar key={`h${i}`} star={s} fontSize={phuFs} align="right" />)}
+          {showHung.map((s, i) => <PhuStar key={`h${i}`} star={s} fontSize={phuFs} align="right" tone={COLORS.starHung} />)}
         </View>
       </View>
 
@@ -224,7 +229,7 @@ export default function HouseCell({ house, width, height, showLuuStars = false, 
       {showLuu.length > 0 && (
         <View style={styles.luuRow}>
           {showLuu.map((s, i) => (
-            <PhuStar key={`l${i}`} star={s} fontSize={luuFs} faded align="left" />
+            <PhuStar key={`l${i}`} star={s} fontSize={luuFs} align="left" tone={COLORS.starLuu} />
           ))}
         </View>
       )}
@@ -256,8 +261,8 @@ export default function HouseCell({ house, width, height, showLuuStars = false, 
 const styles = StyleSheet.create({
   cell: {
     backgroundColor: COLORS.cellBg,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(226,194,133,0.28)',
     paddingHorizontal: 3,
     paddingVertical: 2,
     overflow: 'hidden',
@@ -266,12 +271,12 @@ const styles = StyleSheet.create({
   },
   cellMenh: {
     borderColor: COLORS.gold,
-    borderWidth: 2,
+    borderWidth: 1.5,
     backgroundColor: COLORS.cellBgMenh,
   },
   cellThan: {
     borderColor: COLORS.red,
-    borderWidth: 2.5,
+    borderWidth: 2,
   },
 
   // Tuần / Triệt
@@ -286,21 +291,21 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   tuanFlag: {
-    backgroundColor: '#e63946',
+    backgroundColor: COLORS.red,
     paddingHorizontal: 7,
     paddingVertical: 1,
     borderBottomLeftRadius: 4,
     borderBottomRightRadius: 4,
   },
   trietFlag: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#5B8DEF',
     paddingHorizontal: 7,
     paddingVertical: 1,
     borderBottomLeftRadius: 4,
     borderBottomRightRadius: 4,
   },
   flagText: {
-    color: '#fff',
+    color: '#1E1230',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -311,15 +316,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(226,194,133,0.3)',
     paddingBottom: 1,
     marginBottom: 1,
     marginTop: 9, // chừa chỗ cho banner Tuần/Triệt
     minHeight: 14,
   },
   dvAge: {
-    color: '#ffaa55',
+    color: COLORS.purple,
     fontWeight: '800',
     minWidth: 16,
   },
@@ -332,8 +337,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   thanChip: {
-    color: '#fff',
-    backgroundColor: '#cc2222',
+    color: '#1E1230',
+    backgroundColor: COLORS.red,
     paddingHorizontal: 3,
     paddingVertical: 1,
     fontWeight: '800',
@@ -379,8 +384,8 @@ const styles = StyleSheet.create({
     columnGap: 4,
     marginTop: 1,
     paddingTop: 1,
-    borderTopWidth: 0.3,
-    borderTopColor: COLORS.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(168,209,104,0.4)',
   },
 
   // Footer
@@ -388,8 +393,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 0.5,
-    borderTopColor: COLORS.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(226,194,133,0.3)',
     paddingTop: 1,
     marginTop: 1,
   },
@@ -398,13 +403,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   footerMonth: {
-    color: '#ffaa55',
+    color: COLORS.textMuted,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
   },
   footerVTS: {
-    color: '#c8d0e8',
+    color: COLORS.textMuted,
     fontWeight: '600',
     fontStyle: 'italic',
     textAlign: 'right',

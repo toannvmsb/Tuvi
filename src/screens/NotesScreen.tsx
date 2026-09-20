@@ -6,13 +6,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Modal,
-  Platform,
+  Platform, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, AstrologyResult } from '../types';
-import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { COLORS, FONTS, SPACING, TIER_COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import ScreenHeader from '../components/ScreenHeader';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
@@ -21,7 +21,11 @@ import { listLifeNotes, createLifeNote, deleteLifeNote, type LifeNote } from '..
 import { getMyChartId } from '../lib/myChart';
 import { listCharts, getCachedCharts, rowToResult } from '../lib/charts';
 import { buildMonthHeatmap } from '../core/dailyPeriodService';
-import { buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
+import { buildGenericMonthHeatmapForMonth, genericDayScore } from '../core/genericMonthHeatmap';
+import { scoreNhatVan } from '../core/nhatVan';
+import { toneOf, type DayTone } from '../core/dailyPeriodService';
+import { Card, Eyebrow, Body, GoldButton } from '../ui';
+import Icon from '../ui/Icon';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notes'>;
 
@@ -118,47 +122,64 @@ export default function NotesScreen({ navigation }: Props) {
     ]);
   };
 
+  /** Điểm/nhãn vận khí của 1 ngày (cá nhân hóa nếu có lá số, ngược lại theo lịch chung). */
+  const dayRating = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const score = myResult ? scoreNhatVan(myResult, dt).score100 : genericDayScore(dt).score;
+    return { score, tone: toneOf(score) };
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      <ScreenHeader title="Ghi chú nhanh" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Ghi chú" onBack={() => navigation.goBack()} />
       <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.addBox}>
+        <Card hero style={{ gap: 12, padding: 16 }}>
+          <View style={nt.addHead}>
+            <Eyebrow>Ghi chú nhanh</Eyebrow>
+            <RatingChip rating={dayRating(noteDate)} label={noteDate === toISO(new Date()) ? 'Hôm nay' : formatDate(noteDate)} />
+          </View>
           <TextInput
-            style={styles.input}
-            placeholder="Chợt nhớ ra điều gì đó? Hoặc note lại một sự kiện…"
+            style={nt.input}
+            placeholder="Hôm nay bạn muốn ghi nhớ điều gì?"
             placeholderTextColor={COLORS.textMuted}
             value={content}
             onChangeText={setContent}
             multiline
           />
-          <TouchableOpacity style={styles.dateField} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-            <Text style={styles.dateFieldLabel}>Ngày</Text>
-            <Text style={styles.dateFieldValue}>{formatDate(noteDate)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveBtn, (!content.trim() || saving) && styles.saveBtnDisabled]}
-            onPress={save}
-            disabled={!content.trim() || saving}
-          >
-            <Text style={styles.saveBtnText}>{saving ? 'Đang lưu…' : 'Lưu ghi chú'}</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={nt.addFoot}>
+            <Pressable style={nt.dateBtn} onPress={() => setShowPicker(true)} accessibilityRole="button" accessibilityLabel="Chọn ngày ghi chú">
+              <Icon name="calendar" size={18} color={COLORS.gold} />
+              <Text style={nt.dateTxt}>{formatDate(noteDate)}</Text>
+            </Pressable>
+            <GoldButton
+              label={saving ? 'Đang lưu…' : 'Lưu ghi chú'}
+              onPress={save}
+              disabled={!content.trim() || saving}
+              style={{ flex: 1 }}
+            />
+          </View>
+          <Body size={12}>Ghi chú tự gắn ngày và vận khí của ngày đó.</Body>
+        </Card>
 
         {loading ? (
           <ActivityIndicator color={COLORS.gold} style={{ marginTop: SPACING.lg }} />
         ) : items.length === 0 ? (
-          <Text style={styles.emptyHint}>Chưa có ghi chú nào. Note lại điều đầu tiên nhé!</Text>
+          <Card><Body>Chưa có ghi chú nào. Note lại điều đầu tiên nhé!</Body></Card>
         ) : (
           items.map(it => (
-            <View key={it.id} style={styles.item}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemContent}>{it.content}</Text>
-                <Text style={styles.itemDate}>📝 {formatDate(it.note_date)} · {formatTime(it.created_at)}</Text>
+            <Card key={it.id} style={{ gap: 10 }}>
+              <View style={nt.itemHead}>
+                <Text style={nt.itemDate}>{formatDate(it.note_date)} · {formatTime(it.created_at)}</Text>
+                <RatingChip rating={dayRating(it.note_date)} />
               </View>
-              <TouchableOpacity onPress={() => remove(it)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.deleteTxt}>✕</Text>
-              </TouchableOpacity>
-            </View>
+              <Text style={nt.itemContent}>{it.content}</Text>
+              <View style={nt.itemFoot}>
+                <Pressable onPress={() => remove(it)} style={nt.delBtn} accessibilityRole="button" accessibilityLabel="Xóa ghi chú">
+                  <Icon name="plus" size={18} color={COLORS.textMuted} />
+                </Pressable>
+              </View>
+            </Card>
           ))
         )}
       </KeyboardAwareScreen>
@@ -185,6 +206,47 @@ export default function NotesScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
+
+const TONE_LABEL: Record<DayTone, { label: string; color: string }> = {
+  'tốt': { label: 'Tốt', color: TIER_COLORS.great },
+  'khá': { label: 'Khá', color: TIER_COLORS.good },
+  'trung bình': { label: 'Bình thường', color: TIER_COLORS.normal },
+  'thận trọng': { label: 'Thận trọng', color: TIER_COLORS.caution },
+  'xấu': { label: 'Xấu', color: TIER_COLORS.bad },
+};
+
+/** Chấm màu + nhãn vận khí của ngày ghi chú. */
+function RatingChip({ rating, label }: { rating: { score: number; tone: DayTone }; label?: string }) {
+  const t = TONE_LABEL[rating.tone];
+  return (
+    <View style={[nt.chip, { backgroundColor: t.color + '24', borderColor: t.color + '66' }]}>
+      <View style={[nt.chipDot, { backgroundColor: t.color }]} />
+      <Text style={[nt.chipTxt, { color: t.color }]}>{label ? `${label} · ` : ''}{t.label} {rating.score}</Text>
+    </View>
+  );
+}
+
+const nt = StyleSheet.create({
+  addHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  input: {
+    minHeight: 112, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(226,194,133,0.28)', backgroundColor: 'rgba(255,255,255,0.06)',
+    color: COLORS.textPrimary, paddingHorizontal: 16, paddingVertical: 14, fontFamily: FONTS.body, fontSize: 15, lineHeight: 23, textAlignVertical: 'top',
+  },
+  addFoot: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dateBtn: {
+    minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.34)', backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  dateTxt: { fontFamily: FONTS.bodySemi, fontSize: 13.5, color: COLORS.textPrimary },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+  chipDot: { width: 7, height: 7, borderRadius: 4 },
+  chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11.5 },
+  itemHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  itemDate: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textSecondary },
+  itemContent: { fontFamily: FONTS.body, fontSize: 14.5, lineHeight: 23, color: COLORS.textPrimary },
+  itemFoot: { flexDirection: 'row', justifyContent: 'flex-end' },
+  delBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },

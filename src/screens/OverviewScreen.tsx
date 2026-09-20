@@ -1,0 +1,388 @@
+/**
+ * TỔNG QUAN — màn chính của thiết kế mới (thay HomeScreen cũ làm tab đầu).
+ * Thứ tự: lời chào · Vận khí hôm nay + Sự kiện sắp tới · Lịch tháng tô màu ngày tốt/xấu ·
+ * Vận khí hiện tại (Đại/Tiểu/Nguyệt vận) · thanh "Hỏi Tuzi" · lối tắt.
+ *
+ * Giữ NGUYÊN các tác vụ nền của Home cũ (đồng bộ thông báo sự kiện, nhắc hạn việc, broadcasts) —
+ * xem `loadData`. Chưa gắn lá số → chế độ cơ bản (điểm ngày theo Can-Chi chung) và mọi ô
+ * cá nhân hóa mở modal "Cá nhân hóa trải nghiệm" như trước.
+ * Thời tiết (WeatherKit) chưa có nguồn dữ liệu nên CHƯA hiển thị — thêm khi có Edge Function.
+ */
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { COLORS, FONTS, TIER_COLORS, SURFACE } from '../constants/theme';
+import { Screen, Card, Chip, Display, Eyebrow, SectionTitle, ScoreRing, ProgressBar, Body } from '../ui';
+import Icon, { type IconName } from '../ui/Icon';
+import NotificationBell from '../components/NotificationBell';
+import { useAuth } from '../context/AuthContext';
+import { wallet } from '../constants/premium';
+import type { AstrologyResult } from '../types';
+import { getMyChartId } from '../lib/myChart';
+import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
+import { scoreNhatVan } from '../core/nhatVan';
+import { genericDayScore, buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
+import { buildMonthHeatmap, type DayTone } from '../core/dailyPeriodService';
+import { solarToLunar } from '../core/lunarCalendar';
+import { currentAgeOf } from '../core/ageUtil';
+import { buildTodaySummary } from '../core/todaySummary';
+import { syncEventNotifications, planScheduledReminders } from '../lib/notificationEvents';
+import { syncBroadcasts } from '../lib/broadcasts';
+import { openAiChat } from '../lib/aiChatBus';
+import { listLifeTasks, compareLifeTasks, type LifeTask } from '../lib/lifeTasks';
+import { fetchEventPackages, listMyUserEvents } from '../lib/lifeEvents';
+import { pickUpcomingEvent, type ResolvedEvent, type EventPackage, type UserEvent } from '../core/lifeEventEngine';
+import { buildIsDismissed } from '../lib/eventDismiss';
+import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
+import { promptPersonalize } from '../lib/personalizePrompt';
+
+const WEEKDAY_LONG = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+const TONE_TIER: Record<DayTone, string> = {
+  'tốt': TIER_COLORS.great, 'khá': TIER_COLORS.good, 'trung bình': TIER_COLORS.normal,
+  'thận trọng': TIER_COLORS.caution, 'xấu': TIER_COLORS.bad,
+};
+const LEGEND: { c: string; t: string }[] = [
+  { c: TIER_COLORS.great, t: 'Rất tốt' }, { c: TIER_COLORS.good, t: 'Tốt' }, { c: TIER_COLORS.normal, t: 'Bình thường' },
+  { c: TIER_COLORS.caution, t: 'Thận trọng' }, { c: TIER_COLORS.bad, t: 'Xấu' },
+];
+
+function ratingLabel(score: number): { label: string; color: string } {
+  if (score >= 80) return { label: 'Rất thuận lợi', color: TIER_COLORS.great };
+  if (score >= 65) return { label: 'Thuận lợi', color: TIER_COLORS.good };
+  if (score >= 50) return { label: 'Bình thường', color: TIER_COLORS.normal };
+  if (score >= 35) return { label: 'Cần thận trọng', color: TIER_COLORS.caution };
+  return { label: 'Nhiều trở ngại', color: TIER_COLORS.bad };
+}
+
+export default function OverviewScreen() {
+  const navigation = useNavigation<any>();
+  const { online, user } = useAuth();
+  const displayName = user?.displayName || (online ? '' : wallet.userName) || 'bạn';
+  const [myResult, setMyResult] = useState<AstrologyResult | null>(null);
+  const [event, setEvent] = useState<ResolvedEvent | null>(null);
+  const [summaryGood, setSummaryGood] = useState('');
+  const pkgRef = useRef<EventPackage[]>([]);
+  const userEvRef = useRef<UserEvent[]>([]);
+
+  const now = new Date();
+  const lunarNow = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+
+  const loadData = useCallback(async () => {
+    let result: AstrologyResult | null = null;
+    let charts: SavedChartRow[] = getCachedCharts() ?? [];
+    try {
+      if (online) charts = await listCharts();
+      const id = await getMyChartId();
+      const row = id ? charts.find(r => r.id === id) : undefined;
+      if (row) result = rowToResult(row);
+    } catch { /* dùng chế độ cơ bản */ }
+    setMyResult(result);
+    setSummaryGood(buildTodaySummary(result, new Date()).good[0] ?? '');
+
+    // Việc & Mục tiêu — chỉ để phục vụ nhắc hạn (không còn hiển thị ở Tổng quan).
+    let openTasks: LifeTask[] = [];
+    if (online) {
+      try {
+        const [tasks, goals] = await Promise.all([listLifeTasks('task'), listLifeTasks('goal')]);
+        openTasks = [...tasks, ...goals].filter(t => t.status === 'open').sort(compareLifeTasks);
+      } catch { /* bỏ qua */ }
+    }
+
+    try {
+      const [packages, userEvents] = await Promise.all([
+        fetchEventPackages(),
+        online ? listMyUserEvents().catch(() => []) : Promise.resolve([]),
+      ]);
+      pkgRef.current = packages;
+      userEvRef.current = userEvents;
+      const isDismissed = await buildIsDismissed();
+      setEvent(pickUpcomingEvent(packages, userEvents, new Date(), isDismissed));
+    } catch { setEvent(null); }
+
+    (async () => {
+      const prefs = await buildNotifyPrefLookup();
+      void syncEventNotifications(result, charts, openTasks, pkgRef.current, userEvRef.current, prefs);
+      void planScheduledReminders(result, charts, openTasks, pkgRef.current, userEvRef.current, prefs);
+    })();
+    void syncBroadcasts();
+  }, [online]);
+
+  useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
+
+  const todayScore = useMemo(
+    () => (myResult ? scoreNhatVan(myResult, now).score100 : genericDayScore(now).score),
+    [myResult, now.getDate()],
+  );
+  const hm = useMemo(
+    () => (myResult ? buildMonthHeatmap(myResult, y, m) : buildGenericMonthHeatmapForMonth(y, m)),
+    [myResult, y, m],
+  );
+  const rating = ratingLabel(todayScore);
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // T2 = cột đầu
+
+  const goPersonal = (go: () => void) => (myResult ? go() : promptPersonalize(navigation, go));
+  const openDay = () => goPersonal(() => navigation.navigate('DayView'));
+
+  // Vận khí hiện tại (chỉ khi có lá số)
+  const age = myResult ? currentAgeOf(myResult) : 0;
+  const dv = myResult?.daiVans.find(d => age >= d.startAge && age <= d.endAge);
+  const dvPalace = dv ? myResult?.tuViChart.houses.find(h => h.daiVanStartAge === dv.startAge)?.palaceName : undefined;
+  const tv = myResult?.tieuVans.find(t => t.year === y);
+
+  const eventDays = event
+    ? (event.daysUntil === 0 ? 'Hôm nay' : event.daysUntil < 0 ? `${-event.daysUntil} ngày trước` : `Còn ${event.daysUntil} ngày`)
+    : '';
+
+  return (
+    <Screen tabBarSpace>
+      {/* Thanh trên: hồ sơ · xu · chuông */}
+      <View style={s.topRow}>
+        <Pressable
+          style={s.profilePill}
+          onPress={() => (myResult ? navigation.navigate('MyCharts') : promptPersonalize(navigation, () => navigation.navigate('Account')))}
+          accessibilityRole="button" accessibilityLabel="Đổi hồ sơ"
+        >
+          <View style={s.avatar}><Text style={s.avatarTxt}>{displayName.slice(0, 1).toUpperCase()}</Text></View>
+          <View>
+            <Text style={s.pillName}>{displayName}</Text>
+            <Text style={s.pillSub}>{myResult ? 'Hồ sơ của tôi' : 'Chế độ cơ bản'}</Text>
+          </View>
+          <Icon name="chev" size={14} color={COLORS.textMuted} />
+        </Pressable>
+        <View style={s.topRight}>
+          <Pressable style={s.xuChip} onPress={() => navigation.navigate('Wallet')} accessibilityRole="button" accessibilityLabel="Ví xu">
+            <Icon name="coin" size={18} color="#F5E0AE" />
+            <Text style={s.xuTxt}>{wallet.balance} xu</Text>
+          </Pressable>
+          <NotificationBell />
+        </View>
+      </View>
+
+      {/* Lời chào */}
+      <View style={{ gap: 6 }}>
+        <Eyebrow>{`${WEEKDAY_LONG[now.getDay()]} · ${now.getDate()}/${m}/${y}`}</Eyebrow>
+        <Display size={36}>Xin chào, {displayName}</Display>
+        <Text style={s.lunarLine}>Mồng {lunarNow.day} tháng {lunarNow.month} âm lịch{lunarNow.isLeapMonth ? ' (nhuận)' : ''}</Text>
+      </View>
+
+      {/* Vận khí hôm nay + Sự kiện sắp tới */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Card hero style={s.miniCard}>
+          <Pressable onPress={openDay} style={{ flex: 1, justifyContent: 'space-between', gap: 10 }} accessibilityRole="button">
+            <Eyebrow style={s.miniEyebrow}>Vận khí hôm nay</Eyebrow>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ScoreRing score={todayScore} size={52} stroke={5} numberSize={22} />
+              <Text style={[s.miniHead, { color: COLORS.goldLight, flexShrink: 1 }]}>{rating.label}</Text>
+            </View>
+            <Body size={11.5} style={{ lineHeight: 16 }}>{summaryGood || 'Nhấn để xem chi tiết theo ngày'}</Body>
+          </Pressable>
+        </Card>
+        <Card style={[s.miniCard, { backgroundColor: 'rgba(183,156,255,0.08)', borderColor: 'rgba(183,156,255,0.3)' }]}>
+          <Pressable
+            onPress={() => (event ? navigation.navigate('EventDetail', { event, result: myResult ?? undefined }) : undefined)}
+            disabled={!event} style={{ flex: 1, justifyContent: 'space-between', gap: 10 }} accessibilityRole="button"
+          >
+            <Eyebrow color={COLORS.purple} style={s.miniEyebrow}>Sự kiện sắp tới</Eyebrow>
+            {event ? (
+              <>
+                <Text style={s.eventName} numberOfLines={2}>{event.icon} {event.displayName}</Text>
+                <Text style={s.eventDays}>{eventDays}</Text>
+              </>
+            ) : (
+              <Body size={12}>Chưa có sự kiện nào sắp tới.</Body>
+            )}
+          </Pressable>
+        </Card>
+      </View>
+
+      {/* Lịch tháng */}
+      <Card style={{ gap: 12, paddingHorizontal: 14 }}>
+        <View style={s.calHead}>
+          <View style={{ flex: 1 }}>
+            <Display size={26}>Lịch tháng {m} · {y}</Display>
+            <Text style={s.calSub}>{myResult ? 'Màu theo lá số của bạn' : 'Màu theo lịch chung, chưa cá nhân hóa'}</Text>
+          </View>
+          <Pressable style={s.roundBtn} onPress={openDay} accessibilityRole="button" accessibilityLabel="Mở xem ngày">
+            <Icon name="chev" size={18} color="#F5E0AE" />
+          </Pressable>
+        </View>
+        <View style={s.weekRow}>
+          {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d, i) => (
+            <Text key={d} style={[s.weekTxt, i === 6 && { color: '#F3B0A5' }]}>{d}</Text>
+          ))}
+        </View>
+        <View style={s.grid}>
+          {Array.from({ length: lead }).map((_, i) => <View key={`b${i}`} style={s.cellWrap} />)}
+          {hm.days.map(d => {
+            const c = TONE_TIER[d.tone];
+            const isToday = d.day === now.getDate();
+            const isEvent = !!event && event.occursOn.getFullYear() === y && event.occursOn.getMonth() + 1 === m && event.occursOn.getDate() === d.day;
+            const l = solarToLunar(d.day, m, y);
+            return (
+              <View key={d.day} style={s.cellWrap}>
+                <Pressable
+                  onPress={openDay}
+                  style={[s.cell, { backgroundColor: c + (d.tone === 'tốt' ? '38' : '24'), borderColor: c + '66' }, isToday && s.cellToday]}
+                  accessibilityRole="button" accessibilityLabel={`Ngày ${d.day}, ${d.rating}`}
+                >
+                  {isEvent && <View style={s.eventDot} />}
+                  <Text style={[s.cellNum, isToday && { color: COLORS.goldLight }]}>{d.day}</Text>
+                  <Text style={[s.cellLunar, (l.day === 1 || l.day === 15) && { color: COLORS.gold, fontFamily: FONTS.bodyBold }]}>
+                    {l.day === 1 ? `1/${l.month}` : l.day}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+        <View style={s.legend}>
+          {LEGEND.map(l => (
+            <View key={l.t} style={s.legendItem}>
+              <View style={[s.legendSw, { backgroundColor: l.c + 'AA' }]} />
+              <Text style={s.legendTxt}>{l.t}</Text>
+            </View>
+          ))}
+          <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: COLORS.goldLight }]} /><Text style={s.legendTxt}>Ngày đặc biệt</Text></View>
+        </View>
+        {event && (
+          <Pressable
+            style={s.specialStrip}
+            onPress={() => navigation.navigate('EventDetail', { event, result: myResult ?? undefined })}
+            accessibilityRole="button" accessibilityLabel="Sự kiện sắp tới"
+          >
+            <View style={s.specialIcon}><Text style={{ fontSize: 16 }}>{event.icon}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.specialTitle} numberOfLines={1}>{event.displayName}</Text>
+              <Text style={s.specialSub}>{eventDays}</Text>
+            </View>
+            <Icon name="chev" size={18} color={COLORS.gold} />
+          </Pressable>
+        )}
+      </Card>
+
+      {/* Vận khí hiện tại */}
+      <Card style={{ gap: 14 }}>
+        <SectionTitle title="Vận khí hiện tại" sub="10 năm · 1 năm · 30 ngày" />
+        {myResult ? (
+          <>
+            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'DaiVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
+              <Eyebrow>{dv ? `Đại vận · ${dv.startAge}–${dv.endAge} tuổi` : 'Đại vận'}</Eyebrow>
+              <Text style={s.tierText}>{dvPalace ? `Cung ${dvPalace}` : 'Xem chi tiết đại vận'}</Text>
+              {dv ? <ProgressBar value={((age - dv.startAge + 1) / (dv.endAge - dv.startAge + 1)) * 100} height={6} /> : null}
+            </Pressable>
+            <View style={s.hr} />
+            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'TieuVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
+              <Eyebrow>{`Tiểu vận · ${y}${tv ? ` ${tv.yearStem} ${tv.yearBranch}` : ''}`}</Eyebrow>
+              <Text style={s.tierText}>Kế hoạch 1 năm theo lá số của bạn</Text>
+            </Pressable>
+            <View style={s.hr} />
+            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'NguyetVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
+              <Eyebrow>{`Nguyệt vận · Tháng ${lunarNow.month} âm`}</Eyebrow>
+              <Text style={s.tierText}>Tháng này kích hoạt phần nào của Đại vận và Tiểu vận</Text>
+            </Pressable>
+            <Pressable style={s.linkRow} onPress={() => navigation.navigate('VanHub')} accessibilityRole="button">
+              <Text style={s.linkTxt}>Xem toàn bộ vận hạn</Text>
+              <Icon name="arrow" size={18} color="#F5E0AE" />
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Body>Thêm hồ sơ để xem Đại vận, Tiểu vận và Nguyệt vận dành riêng cho bạn.</Body>
+            <Pressable style={s.linkRow} onPress={() => promptPersonalize(navigation)} accessibilityRole="button">
+              <Text style={s.linkTxt}>Cá nhân hóa trải nghiệm</Text>
+              <Icon name="arrow" size={18} color="#F5E0AE" />
+            </Pressable>
+          </>
+        )}
+      </Card>
+
+      {/* Thanh Hỏi Tuzi */}
+      <Pressable style={s.askBar} onPress={openAiChat} accessibilityRole="button" accessibilityLabel="Hỏi Tuzi">
+        <View style={s.askIcon}><Icon name="spark" size={20} color="#1E1230" strokeWidth={2} /></View>
+        <Text style={s.askTxt}>Hỏi Tuzi về lá số của bạn…</Text>
+        <Icon name="chev" size={18} color={COLORS.gold} />
+      </Pressable>
+
+      {/* Lối tắt */}
+      <View style={{ gap: 12 }}>
+        <Display size={24}>Lối tắt</Display>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {([
+            { icon: 'chart', label: 'Lập lá số', color: COLORS.gold, go: () => navigation.navigate('Input') },
+            { icon: 'calendar', label: 'Xem ngày', color: COLORS.green, go: openDay },
+            { icon: 'compare', label: 'Tương hợp', color: COLORS.purple, go: () => navigation.navigate('CompareCharts', {}) },
+            { icon: 'note', label: 'Ghi chú', color: COLORS.blue, go: () => navigation.navigate('Notes') },
+          ] as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
+            <Pressable key={t.label} onPress={t.go} style={[s.shortcut, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
+              <View style={[s.shortcutIcon, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={22} color={t.color} /></View>
+              <Text style={s.shortcutTxt}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </Screen>
+  );
+}
+
+const s = StyleSheet.create({
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  profilePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 5, paddingLeft: 6, paddingRight: 12,
+    borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
+  },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.goldDeep, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#1E1230' },
+  pillName: { fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.textPrimary },
+  pillSub: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textMuted },
+  xuChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 999,
+    backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.32)',
+  },
+  xuTxt: { fontFamily: FONTS.bodyBold, fontSize: 13, color: '#F5E0AE' },
+  lunarLine: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
+  miniCard: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
+  miniEyebrow: { fontSize: 10.5, letterSpacing: 1.4 },
+  miniHead: { fontFamily: FONTS.display, fontSize: 21, lineHeight: 23 },
+  eventName: { fontFamily: FONTS.bodySemi, fontSize: 14, lineHeight: 19, color: COLORS.textPrimary },
+  eventDays: { fontFamily: FONTS.displayBold, fontSize: 24, color: COLORS.goldLight },
+  calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  calSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  roundBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.3)' },
+  weekRow: { flexDirection: 'row' },
+  weekTxt: { flex: 1, textAlign: 'center', fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cellWrap: { width: `${100 / 7}%`, padding: 2 },
+  cell: { height: 50, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cellToday: { borderColor: COLORS.gold, borderWidth: 2 },
+  cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary, lineHeight: 16 },
+  cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: COLORS.textSecondary, lineHeight: 12 },
+  eventDot: { position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.goldLight },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 2 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendSw: { width: 10, height: 10, borderRadius: 3 },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+  legendTxt: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textSecondary },
+  specialStrip: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
+    backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: SURFACE.hairlineStrong,
+  },
+  specialIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(226,194,133,0.25)', alignItems: 'center', justifyContent: 'center' },
+  specialTitle: { fontFamily: FONTS.bodySemi, fontSize: 13.5, color: COLORS.textPrimary },
+  specialSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textSecondary },
+  tierText: { fontFamily: FONTS.body, fontSize: 13.5, color: COLORS.textPrimary },
+  hr: { height: 1, backgroundColor: 'rgba(226,194,133,0.14)' },
+  linkRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  linkTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, color: '#F5E0AE' },
+  askBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 30,
+    backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)',
+  },
+  askIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
+  askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
+  shortcut: { flex: 1, minHeight: 100, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
+  shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  shortcutTxt: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary, textAlign: 'center' },
+});

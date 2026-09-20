@@ -13,7 +13,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Modal, TextInput, FlatList,
+  Modal, TextInput, FlatList, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -32,6 +32,9 @@ import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { premiumBadgeNote, costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
+import { Screen, Card, Display, Eyebrow, Body, SectionTitle, Segmented, GoldButton, OutlineButton } from '../ui';
+import Icon from '../ui/Icon';
+import { openAiChat } from '../lib/aiChatBus';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PalaceDetail'>;
 
@@ -85,27 +88,6 @@ function chinhOf(h: TuViHouse): string {
     .map(s => `${s.name}${s.brightness ? `(${brightnessLabel(s.brightness)})` : ''}`)
     .join(', ');
   return c || 'Vô chính diệu';
-}
-
-/** Mục có thể đóng/mở */
-function Collapsible({
-  badge, badgeStyle, note, open, onToggle, children,
-}: {
-  badge: string; badgeStyle: any; note?: string;
-  open: boolean; onToggle: () => void; children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.section}>
-      <TouchableOpacity style={styles.secHeader} onPress={onToggle} activeOpacity={0.7}>
-        <View style={styles.badgeRow}>
-          <Text style={badgeStyle}>{badge}</Text>
-          {note ? <Text style={styles.freeTag}>{note}</Text> : null}
-        </View>
-        <Text style={styles.chevron}>{open ? '▾' : '▸'}</Text>
-      </TouchableOpacity>
-      {open ? <View style={styles.secBody}>{children}</View> : null}
-    </View>
-  );
 }
 
 export default function PalaceDetailScreen({ route, navigation }: Props) {
@@ -240,197 +222,211 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const StarChip = ({ s, big }: { s: StarEntry; big?: boolean }) => {
+  const kindMeta = {
+    chinh: { color: COLORS.goldLight, tag: 'Chính tinh' },
+    cat: { color: COLORS.blue, tag: 'Cát' },
+    hung: { color: COLORS.red, tag: 'Hung' },
+    luu: { color: COLORS.starLuu, tag: 'Lưu' },
+  } as const;
+  type Kind = keyof typeof kindMeta;
+  const BRIGHT_STEPS: { key: string; label: string }[] = [
+    { key: 'miếu', label: 'Miếu' }, { key: 'vượng', label: 'Vượng' }, { key: 'đắc', label: 'Đắc' },
+    { key: 'bình', label: 'Bình' }, { key: 'hãm', label: 'Hãm' },
+  ];
+  const oneLine = (t?: string) => {
+    if (!t) return 'Dữ liệu đang được bổ sung';
+    const first = t.split(/(?<=[.;])\s/)[0];
+    return first.length > 88 ? `${first.slice(0, 85).trim()}…` : first;
+  };
+
+  /** 1 sao = 1 hàng; chạm để mở chi tiết ngay dưới hàng (ý nghĩa sao · tại cung này · sao lưu). */
+  const StarRow = ({ s, kind }: { s: StarEntry; kind: Kind }) => {
     const isSel = selected === s.name;
-    const color = getStarColor(s.name);
+    const meta = kindMeta[kind];
+    const inf = getStarInfo(s.name);
     const b = brightnessLabel(s.brightness);
-    const hasInfo = !!getStarInfo(s.name);
+    const isLuu = kind === 'luu';
     return (
-      <TouchableOpacity
-        onPress={() => { setSelected(s.name); setViewPalace(house.palaceName); setBasicOpen(true); setAdvOpen(true); }}
-        activeOpacity={0.7}
-        style={[styles.starChip, isSel && styles.starChipSel, !hasInfo && { opacity: 0.55 }]}
-      >
-        <Text style={[{ color, fontWeight: big ? '800' : '600' }, big ? styles.starBig : styles.starSmall]}>
-          {s.name}{b ? ` (${b})` : ''}
-        </Text>
-      </TouchableOpacity>
+      <View style={{ gap: 8 }}>
+        <Pressable
+          onPress={() => { setSelected(isSel ? null : s.name); setViewPalace(house.palaceName); }}
+          accessibilityRole="button" accessibilityState={{ expanded: isSel }}
+          style={[ps.row, { borderColor: isSel ? COLORS.gold : meta.color + '4D', backgroundColor: isSel ? 'rgba(226,194,133,0.12)' : 'rgba(255,255,255,0.05)' }, isLuu && { borderStyle: 'dashed' }]}
+        >
+          <View style={[ps.glyph, { backgroundColor: meta.color + '2E' }, isLuu && { borderWidth: 1.5, borderStyle: 'dashed', borderColor: meta.color }]}>
+            {isLuu
+              ? <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 16, color: meta.color }}>L</Text>
+              : <Icon name="spark" size={22} color={meta.color} />}
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[ps.starName, kind === 'chinh' && { fontFamily: FONTS.displayBold, fontSize: 22 }]}>
+              {s.name.replace(/^L\. /, 'Lưu ')}{b ? <Text style={ps.bright}>{`  ${b}`}</Text> : null}
+            </Text>
+            <Text style={ps.oneLine} numberOfLines={2}>{oneLine(inf?.basic)}</Text>
+          </View>
+          <View style={[ps.tag, { backgroundColor: meta.color + '26' }]}><Text style={[ps.tagTxt, { color: meta.color }]}>{meta.tag}</Text></View>
+          <Icon name={isSel ? 'chev' : 'chev'} size={16} color={COLORS.textMuted} />
+        </Pressable>
+        {isSel ? <StarDetail s={s} /> : null}
+      </View>
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.backText} numberOfLines={1}>‹ Quay lại</Text>
-        </TouchableOpacity>
-        <Text style={styles.topTitle} numberOfLines={1}>Cung {house.palaceName}</Text>
-        <View style={styles.backBtn} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* NỬA TRÊN */}
-        <View style={styles.palaceBox}>
-          <View style={styles.palaceHeader}>
-            <Text style={styles.palaceName}>{house.palaceName}</Text>
-            <Text style={styles.palaceMeta}>
-              {house.can} {house.branch}
-              {house.isManh ? ' · MỆNH' : ''}{house.isThan ? ' · THÂN' : ''}
-            </Text>
-          </View>
-
-          <View style={styles.chinhRow}>
-            {chinh.length > 0
-              ? chinh.map((s, i) => <StarChip key={`c${i}`} s={s} big />)
-              : <Text style={styles.voChinhDieu}>(Vô chính diệu)</Text>}
-          </View>
-          {(cat.length > 0 || hung.length > 0) && (
-            <View style={styles.phuCols}>
-              {/* Bên trái: cát tinh */}
-              <View style={styles.phuColLeft}>
-                {cat.map((s, i) => <StarChip key={`pc${i}`} s={s} />)}
-              </View>
-              {/* Bên phải: sát tinh */}
-              <View style={styles.phuColRight}>
-                {hung.map((s, i) => <StarChip key={`ph${i}`} s={s} />)}
-              </View>
-            </View>
-          )}
-          {luu.length > 0 && (
-            <View style={styles.luuWrap}>
-              {luu.map((s, i) => <StarChip key={`l${i}`} s={s} />)}
-            </View>
-          )}
-
-          <View style={styles.miscRow}>
-            {!!house.vongTruongSinh && <Text style={styles.miscTag}>Vòng TS: {house.vongTruongSinh}</Text>}
-            {!!house.monthIndex && <Text style={styles.miscTag}>Tháng {house.monthIndex}</Text>}
-            {!!house.daiVanStartAge && <Text style={styles.miscTag}>Đại vận từ {house.daiVanStartAge} tuổi</Text>}
-            {house.tuanAt && <Text style={[styles.miscTag, styles.tagRed]}>Tuần</Text>}
-            {house.trietAt && <Text style={[styles.miscTag, styles.tagBlue]}>Triệt</Text>}
-          </View>
-
-          <View style={styles.relBox}>
-            <Text style={styles.relLine}>▸ Tam hợp: {relations.tamHop.map(h => h.palaceName).join(' · ') || '—'}</Text>
-            <Text style={styles.relLine}>▸ Xung chiếu: {relations.xung?.palaceName ?? '—'}</Text>
-            <Text style={styles.relLine}>▸ Nhị hợp: {relations.nhiHop?.palaceName ?? '—'}</Text>
-          </View>
-
-          {ttVerdict && (
-            <View style={styles.ttBox}>
-              <Text style={styles.ttTitle}>
-                ⚠ Cung bị {house.trietAt ? 'Triệt Lộ' : ''}{house.trietAt && house.tuanAt ? ' + ' : ''}{house.tuanAt ? 'Tuần Không' : ''}
-              </Text>
-              <Text style={styles.ttBody}>
-                {house.trietAt ? 'Triệt Lộ cắt ngang, chặn đứng hiệu lực của cung (mạnh, dứt khoát). ' : ''}
-                {house.tuanAt ? 'Tuần Không làm chậm, hoãn lại hiệu lực (nhẹ hơn Triệt). ' : ''}
-              </Text>
-              <Text style={styles.ttVerdict}>
-                {ttVerdict.vcd
-                  ? `→ Cung VÔ CHÍNH DIỆU gặp ${house.trietAt && house.tuanAt ? 'cả Tuần và Triệt' : house.trietAt ? 'Triệt' : 'Tuần'}: nương vào sao xung chiếu — đôi khi thành cách "đắc Không" hậu phát, nhưng nửa đầu đời lận đận, định hướng muộn.`
-                  : ttVerdict.good
-                  ? '→ Đây vốn là cung TỐT (chính tinh sáng / nhiều cát tinh), nên Tuần/Triệt làm GIẢM – HOÃN cái tốt: thành tựu của lĩnh vực này đến muộn, dễ gãy giữa chừng rồi mới ổn. Cần kiên nhẫn, đừng nóng vội ở nửa đầu đời.'
-                  : '→ Đây vốn là cung XẤU (chính tinh hãm / nhiều sát tinh), nên Tuần/Triệt lại CHE CHẮN, chặn bớt cái hung: tai họa, trắc trở của lĩnh vực này được hóa giải đáng kể — là điều may.'}
-              </Text>
-              <Text style={styles.ttBody}>
-                Ảnh hưởng mạnh nhất ở nửa đầu đời (trước ~30 tuổi), về sau nhạt dần.
-              </Text>
-            </View>
-          )}
-
-          <Text style={styles.hint}>Chạm vào tên sao để xem ý nghĩa ↓</Text>
-        </View>
-
-        {/* TRA CỨU SAO BẤT KỲ TẠI CUNG BẤT KỲ — học thêm sao không có tại cung này */}
-        <View style={styles.starLookupBox}>
-          <Text style={styles.starLookupLabel}>🔎 Tra cứu thêm sao khác</Text>
-          <Text style={styles.starLookupHint}>
-            Chọn bất kỳ sao nào trong Tử Vi (và chọn cung muốn xem) để hiểu ý nghĩa của sao đó tại cung đó.
-          </Text>
-          <View style={styles.lookupRow}>
-            <TouchableOpacity
-              style={[styles.starLookupBtn, { flex: 1 }]}
-              onPress={() => { setStarSearch(''); setStarPickerOpen(true); }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.starLookupBtnText} numberOfLines={1}>
-                {selected ? `★ ${selected}` : 'Chọn sao…'}
-              </Text>
-              <Text style={styles.pickerArrow}>▾</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.starLookupBtn, { flex: 1 }]}
-              onPress={() => setPalacePickerOpen(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.starLookupBtnText} numberOfLines={1}>
-                Cung {viewPalace}
-              </Text>
-              <Text style={styles.pickerArrow}>▾</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* NỬA DƯỚI — thông tin sao */}
-        {selected ? (
-          <View style={styles.infoBox}>
-            <Text style={[styles.infoStarName, { color: getStarColor(selected) }]}>{selected}</Text>
-
-            {info ? (
-              <>
-                {/* CƠ BẢN — MIỄN PHÍ: ý nghĩa tổng quát + ý nghĩa tại cung + sao lưu năm */}
-                <Collapsible
-                  badge="CƠ BẢN" badgeStyle={styles.badgeBasic} note="Miễn phí"
-                  open={basicOpen} onToggle={() => setBasicOpen(o => !o)}
-                >
-                  <Text style={styles.subHead}>1. Ý nghĩa tổng quát</Text>
-                  <Text style={styles.bodyText}>{info.basic}</Text>
-
-                  <Text style={styles.subHead}>2. Ý nghĩa tại cung {viewPalace}</Text>
-                  <Text style={styles.bodyText}>
-                    {palaceAdvanced ?? `Sao ${selected} tại cung ${viewPalace}: ý nghĩa tương tự phần tổng quát bên trên.`}
-                  </Text>
-
-                  {!!luuText && (
-                    <>
-                      <Text style={styles.subHead}>
-                        3. Sao lưu năm {chart.viewingYear ?? ''} ảnh hưởng tới cung này
-                      </Text>
-                      <SimpleMarkdown content={luuText} />
-                    </>
-                  )}
-                </Collapsible>
-              </>
-            ) : (
-              <Text style={styles.bodyText}>
-                Chưa có dữ liệu cho sao "{selected}". Dữ liệu đang được bổ sung dần.
-              </Text>
-            )}
-          </View>
-        ) : (
-          <View style={styles.infoBox}>
-            <Text style={styles.bodyText}>Chạm vào một sao ở trên để xem chi tiết.</Text>
+  /** Khối chi tiết của sao đang chọn. */
+  const StarDetail = ({ s }: { s?: StarEntry }) => {
+    if (!selected) return null;
+    const isChinh = s?.type === 'chinh';
+    return (
+      <Card hero={isChinh} style={{ gap: 12 }}>
+        {isChinh && (
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {BRIGHT_STEPS.map(st => {
+              const on = s?.brightness === st.key;
+              return (
+                <View key={st.key} style={[ps.step, on && { backgroundColor: COLORS.gold }]}>
+                  <Text style={[ps.stepTxt, on && { color: '#1E1230', fontFamily: FONTS.bodyBold }]}>{st.label}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
+        {info ? (
+          <>
+            <View style={[ps.block, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+              <Text style={[ps.blockLabel, { color: COLORS.blue }]}>Ý NGHĨA CỦA SAO</Text>
+              <Text style={ps.blockBody}>{info.basic}</Text>
+            </View>
+            <View style={[ps.block, { backgroundColor: 'rgba(226,194,133,0.1)', borderColor: 'rgba(226,194,133,0.28)', borderWidth: 1 }]}>
+              <Text style={[ps.blockLabel, { color: COLORS.gold }]}>{`TẠI CUNG ${viewPalace.toUpperCase()}`}</Text>
+              <Text style={ps.blockBody}>
+                {palaceAdvanced ?? `Sao ${selected} tại cung ${viewPalace}: ý nghĩa tương tự phần tổng quát bên trên.`}
+              </Text>
+            </View>
+            {!!luuText && (
+              <View style={[ps.block, { backgroundColor: 'rgba(168,209,104,0.08)', borderColor: 'rgba(168,209,104,0.35)', borderWidth: 1 }]}>
+                <Text style={[ps.blockLabel, { color: COLORS.starLuu }]}>{`SAO LƯU NĂM ${chart.viewingYear ?? ''} ẢNH HƯỞNG CUNG NÀY`}</Text>
+                <SimpleMarkdown content={luuText} />
+              </View>
+            )}
+          </>
+        ) : (
+          <Body>{`Chưa có dữ liệu cho sao "${selected}". Dữ liệu đang được bổ sung dần.`}</Body>
+        )}
+      </Card>
+    );
+  };
 
-        {/* TAB: Nâng cao / Phân tích AI */}
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
-            style={[styles.tab, palaceTab === 'offline' && styles.tabActive]}
-            onPress={() => setPalaceTab('offline')}
-          >
-            <Text style={[styles.tabTxt, palaceTab === 'offline' && styles.tabTxtActive]}>📘 Nâng cao</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, palaceTab === 'ai' && styles.tabActive]}
-            onPress={openAiTab}
-          >
-            <Text style={[styles.tabTxt, palaceTab === 'ai' && styles.tabTxtActive]}>🤖 Phân tích AI</Text>
-          </TouchableOpacity>
+  const groups: { title: string; sub: string; kind: Kind; list: StarEntry[] }[] = [
+    { title: 'Chính tinh', sub: `${chinh.length} sao`, kind: 'chinh', list: chinh },
+    { title: 'Phụ tinh cát', sub: `${cat.length} sao`, kind: 'cat', list: cat },
+    { title: 'Sát tinh và hung', sub: `${hung.length} sao`, kind: 'hung', list: hung },
+    { title: `Sao lưu năm ${chart.viewingYear ?? ''}`, sub: 'Chỉ có hiệu lực trong năm', kind: 'luu', list: luu },
+  ];
+  const selectedInHouse = house.stars.some(s => s.name === selected);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <Screen>
+        {/* Thanh trên */}
+        <View style={ps.topRow}>
+          <Pressable style={ps.roundBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Quay lại">
+            <Icon name="back" size={22} />
+          </Pressable>
+          <Eyebrow>Chi tiết cung</Eyebrow>
+          <View style={{ width: 44 }} />
         </View>
 
+        {/* Hero cung */}
+        <Card hero style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <View style={ps.palaceBadge}><Text style={ps.palaceBadgeTxt}>{`CUNG ${house.palaceName.toUpperCase()}`}</Text></View>
+            <Text style={ps.meta}>
+              {`${house.can} ${house.branch} · hành ${house.element}`}{house.isThan ? ' · THÂN' : ''}
+            </Text>
+          </View>
+          <Display size={34} color={COLORS.goldLight}>
+            {chinh.length ? chinh.map(c => c.name).join(' · ') : 'Vô chính diệu'}
+          </Display>
+          <Body>{`${chinh.length} chính tinh · ${cat.length + hung.length} phụ tinh · ${luu.length} sao lưu`}</Body>
+          <View style={ps.chipRow}>
+            {!!house.vongTruongSinh && <Text style={ps.miscTag}>{`Tràng Sinh: ${house.vongTruongSinh}`}</Text>}
+            {!!house.monthIndex && <Text style={ps.miscTag}>{`Tháng ${house.monthIndex}`}</Text>}
+            {!!house.daiVanStartAge && <Text style={ps.miscTag}>{`Đại vận từ ${house.daiVanStartAge} tuổi`}</Text>}
+            {house.tuanAt && <Text style={[ps.miscTag, ps.tagRed]}>Tuần</Text>}
+            {house.trietAt && <Text style={[ps.miscTag, ps.tagBlue]}>Triệt</Text>}
+          </View>
+        </Card>
+
+        {/* Danh sách sao theo nhóm */}
+        {groups.filter(g => g.list.length > 0 || g.kind === 'chinh').map(g => (
+          <View key={g.kind} style={{ gap: 10 }}>
+            <SectionTitle title={g.title} sub={g.sub} />
+            {g.list.length === 0
+              ? <Body size={13}>Cung vô chính diệu: xem các sao xung chiếu để luận.</Body>
+              : g.list.map((st, i) => <StarRow key={`${g.kind}${i}`} s={st} kind={g.kind} />)}
+          </View>
+        ))}
+
+        {/* Sao tra cứu (không có tại cung này) */}
+        {selected && !selectedInHouse ? (
+          <View style={{ gap: 10 }}>
+            <SectionTitle title={`Tra cứu: ${selected}`} sub={`tại cung ${viewPalace}`} />
+            <StarDetail />
+          </View>
+        ) : null}
+
+        {/* Tam hợp · xung chiếu · nhị hợp */}
+        <Card style={{ gap: 10 }}>
+          <SectionTitle title="Quan hệ giữa các cung" />
+          <Text style={ps.relLine}><Text style={ps.relKey}>Tam hợp: </Text>{relations.tamHop.map(h => h.palaceName).join(' · ') || '—'}</Text>
+          <Text style={ps.relLine}><Text style={ps.relKey}>Xung chiếu: </Text>{relations.xung?.palaceName ?? '—'}</Text>
+          <Text style={ps.relLine}><Text style={ps.relKey}>Nhị hợp: </Text>{relations.nhiHop?.palaceName ?? '—'}</Text>
+        </Card>
+
+        {ttVerdict && (
+          <Card tint={COLORS.red} style={{ gap: 6 }}>
+            <Text style={ps.ttTitle}>
+              {`Cung bị ${house.trietAt ? 'Triệt Lộ' : ''}${house.trietAt && house.tuanAt ? ' + ' : ''}${house.tuanAt ? 'Tuần Không' : ''}`}
+            </Text>
+            <Body size={12.5}>
+              {house.trietAt ? 'Triệt Lộ cắt ngang, chặn đứng hiệu lực của cung (mạnh, dứt khoát). ' : ''}
+              {house.tuanAt ? 'Tuần Không làm chậm, hoãn lại hiệu lực (nhẹ hơn Triệt). ' : ''}
+            </Body>
+            <Text style={ps.ttVerdict}>
+              {ttVerdict.vcd
+                ? `Cung vô chính diệu gặp ${house.trietAt && house.tuanAt ? 'cả Tuần và Triệt' : house.trietAt ? 'Triệt' : 'Tuần'}: nương vào sao xung chiếu; đôi khi thành cách "đắc Không" hậu phát, nhưng nửa đầu đời lận đận, định hướng muộn.`
+                : ttVerdict.good
+                ? 'Đây vốn là cung tốt (chính tinh sáng, nhiều cát tinh), nên Tuần/Triệt làm giảm và hoãn cái tốt: thành tựu của lĩnh vực này đến muộn, cần kiên nhẫn ở nửa đầu đời.'
+                : 'Đây vốn là cung xấu (chính tinh hãm, nhiều sát tinh), nên Tuần/Triệt lại che chắn, chặn bớt cái hung: trắc trở của lĩnh vực này được hóa giải đáng kể.'}
+            </Text>
+            <Body size={12.5}>Ảnh hưởng mạnh nhất ở nửa đầu đời (trước khoảng 30 tuổi), về sau nhạt dần.</Body>
+          </Card>
+        )}
+
+        {/* Tra cứu sao khác */}
+        <Card style={{ gap: 8 }}>
+          <Text style={ps.lookupTitle}>Tra cứu thêm sao khác</Text>
+          <Body size={12.5}>Chọn bất kỳ sao nào và cung muốn xem để hiểu ý nghĩa của sao đó tại cung đó.</Body>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+            <Pressable style={ps.pick} onPress={() => { setStarSearch(''); setStarPickerOpen(true); }} accessibilityRole="button">
+              <Text style={ps.pickTxt} numberOfLines={1}>{selected ? `★ ${selected}` : 'Chọn sao…'}</Text>
+              <Icon name="chev" size={14} color={COLORS.goldLight} />
+            </Pressable>
+            <Pressable style={ps.pick} onPress={() => setPalacePickerOpen(true)} accessibilityRole="button">
+              <Text style={ps.pickTxt} numberOfLines={1}>{`Cung ${viewPalace}`}</Text>
+              <Icon name="chev" size={14} color={COLORS.goldLight} />
+            </Pressable>
+          </View>
+        </Card>
+
+        {/* Nâng cao / Phân tích AI */}
+        <Segmented
+          options={[{ value: 'offline', label: 'Nâng cao' }, { value: 'ai', label: 'Phân tích AI' }]}
+          value={palaceTab}
+          onChange={(v) => (v === 'ai' ? openAiTab() : setPalaceTab('offline'))}
+        />
         {palaceTab === 'offline' ? (
-          <View style={styles.tabContent}>
+          <Card style={{ gap: 8 }}>
             <PaidGate unlockKey={fkey(result, `palace:${branchIndex}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
               preview={cutAtSection(advText, '2. Chính tinh & cách cục')}>
               <SimpleMarkdown content={advText} />
@@ -443,36 +439,26 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
                 getContent={() => advText}
               />
             </PaidGate>
-          </View>
+          </Card>
         ) : (
-          <View style={styles.tabContent}>
+          <Card style={{ gap: 10 }}>
             {aiStatus === 'idle' && (
               <>
-                <Text style={styles.aiValueNote}>{AI_PREVIEW.palace}</Text>
-                <TouchableOpacity style={styles.runAiBtn} onPress={() => runAI()} activeOpacity={0.85}>
-                  <Text style={styles.runAiBtnText}>🤖 Phân tích AI đầy đủ cung {house.palaceName} ({costNote(PREMIUM.COST.ai)})</Text>
-                </TouchableOpacity>
+                <Body>{AI_PREVIEW.palace}</Body>
+                <GoldButton label={`Phân tích AI cung ${house.palaceName} (${costNote(PREMIUM.COST.ai)})`} onPress={() => runAI()} />
               </>
             )}
-            {aiStatus === 'loading' && (
-              <AIProgressBar label={`AI đang luận giải cung ${house.palaceName}…`} />
-            )}
-            {aiStatus === 'locked' && (
-              <Text style={styles.bodyText}>🔒 Mục "Phân tích AI" là tính năng trả phí. Hiện chưa mở khóa cho tài khoản này.</Text>
-            )}
-            {aiStatus === 'offline' && (
-              <Text style={styles.bodyText}>⚠ Cần kết nối mạng để hệ thống phân tích chuyên sâu. Vui lòng kiểm tra Internet rồi thử lại.</Text>
-            )}
-            {aiStatus === 'error' && (
-              <Text style={styles.bodyText}>⚠ {aiErr}</Text>
-            )}
+            {aiStatus === 'loading' && <AIProgressBar label={`AI đang luận giải cung ${house.palaceName}…`} />}
+            {aiStatus === 'locked' && <Body>Mục "Phân tích AI" là tính năng trả phí. Hiện chưa mở khóa cho tài khoản này.</Body>}
+            {aiStatus === 'offline' && <Body>Cần kết nối mạng để hệ thống phân tích chuyên sâu. Vui lòng kiểm tra Internet rồi thử lại.</Body>}
+            {aiStatus === 'error' && <Body>{aiErr}</Body>}
             {aiStatus === 'done' && (
               <>
                 <SimpleMarkdown content={aiShown || aiText} />
                 {aiShown.length < aiText.length && (
-                  <Text style={styles.bodyTextDim}>▌ đang hiển thị… ({Math.round(aiShown.length / Math.max(1, aiText.length) * 100)}%)</Text>
+                  <Body size={12.5}>{`Đang hiển thị… ${Math.round(aiShown.length / Math.max(1, aiText.length) * 100)}%`}</Body>
                 )}
-                <Text style={styles.bodyTextDim}>* Nội dung do AI tạo, mang tính tham khảo; không thay thế luận giải chuyên gia.</Text>
+                <Body size={12.5}>Nội dung do AI tạo, mang tính tham khảo; không thay thế luận giải chuyên gia.</Body>
                 {aiShown.length >= aiText.length && (
                   <ExportPdfButton
                     title={`Phân tích cung ${house.palaceName}`}
@@ -483,31 +469,27 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
                     getContent={() => aiText || aiShown}
                   />
                 )}
-                <TouchableOpacity style={styles.aiRetry} onPress={() => runAI(true)}>
-                  <Text style={styles.aiRetryText}>↻ Phân tích lại (−{PREMIUM.COST.ai} xu)</Text>
-                </TouchableOpacity>
+                <OutlineButton label={`Phân tích lại (−${PREMIUM.COST.ai} xu)`} onPress={() => runAI(true)} />
               </>
             )}
-          </View>
+          </Card>
         )}
 
-        <TouchableOpacity style={styles.bottomBack} onPress={() => navigation.goBack()}>
-          <Text style={styles.bottomBackText}>← Về lá số</Text>
-        </TouchableOpacity>
-      </ScrollView>
+        <GoldButton label="Hỏi Tuzi về cung này" icon={<Icon name="spark" size={20} color="#1E1230" strokeWidth={2} />} onPress={() => openAiChat()} />
+      </Screen>
 
-      {/* MODAL chọn sao để tra cứu — có ô tìm để khỏi kéo nhiều */}
+      {/* Chọn sao để tra cứu */}
       <Modal visible={starPickerOpen} transparent animationType="fade" onRequestClose={() => setStarPickerOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn sao để tra cứu</Text>
-              <TouchableOpacity onPress={() => setStarPickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+        <View style={ps.modalBackdrop}>
+          <View style={ps.modalCard}>
+            <View style={ps.modalHeader}>
+              <Text style={ps.modalTitle}>Chọn sao để tra cứu</Text>
+              <Pressable onPress={() => setStarPickerOpen(false)} style={ps.modalClose} accessibilityRole="button" accessibilityLabel="Đóng">
+                <Icon name="plus" size={20} color={COLORS.textSecondary} />
+              </Pressable>
             </View>
             <TextInput
-              style={styles.modalSearch}
+              style={ps.modalSearch}
               placeholder="Nhập tên sao… (vd: Tử Vi, Văn Xương)"
               placeholderTextColor={COLORS.textMuted}
               value={starSearch}
@@ -518,223 +500,103 @@ export default function PalaceDetailScreen({ route, navigation }: Props) {
               data={filteredStars}
               keyExtractor={(item) => item}
               keyboardShouldPersistTaps="handled"
-              style={styles.modalList}
+              style={{ flexGrow: 0 }}
               initialNumToRender={20}
-              ListEmptyComponent={<Text style={styles.modalEmpty}>Không tìm thấy sao phù hợp.</Text>}
+              ListEmptyComponent={<Text style={ps.modalEmpty}>Không tìm thấy sao phù hợp.</Text>}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.modalItem} onPress={() => pickStar(item)} activeOpacity={0.7}>
-                  <Text style={[styles.modalItemText, { color: getStarColor(item) }]}>{item}</Text>
-                  {selected === item && <Text style={styles.modalItemCheck}>✓</Text>}
-                </TouchableOpacity>
+                <Pressable style={ps.modalItem} onPress={() => pickStar(item)} accessibilityRole="button">
+                  <Text style={[ps.modalItemText, { color: getStarColor(item) }]}>{item}</Text>
+                  {selected === item && <Icon name="check" size={18} color={COLORS.gold} />}
+                </Pressable>
               )}
             />
           </View>
         </View>
       </Modal>
 
-      {/* MODAL chọn cung để xem ý nghĩa sao tại cung đó */}
+      {/* Chọn cung để xem ý nghĩa sao tại cung đó */}
       <Modal visible={palacePickerOpen} transparent animationType="fade" onRequestClose={() => setPalacePickerOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn cung để xem</Text>
-              <TouchableOpacity onPress={() => setPalacePickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+        <View style={ps.modalBackdrop}>
+          <View style={ps.modalCard}>
+            <View style={ps.modalHeader}>
+              <Text style={ps.modalTitle}>Chọn cung để xem</Text>
+              <Pressable onPress={() => setPalacePickerOpen(false)} style={ps.modalClose} accessibilityRole="button" accessibilityLabel="Đóng">
+                <Icon name="plus" size={20} color={COLORS.textSecondary} />
+              </Pressable>
             </View>
             <FlatList
               data={palaceOptions}
               keyExtractor={(item) => item}
-              style={styles.modalList}
+              style={{ flexGrow: 0 }}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
+                <Pressable
+                  style={ps.modalItem}
                   onPress={() => { setViewPalace(item); setPalacePickerOpen(false); }}
-                  activeOpacity={0.7}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.modalItemText}>
-                    Cung {item}{item === house.palaceName ? '  (đang xem)' : ''}
-                  </Text>
-                  {viewPalace === item && <Text style={styles.modalItemCheck}>✓</Text>}
-                </TouchableOpacity>
+                  <Text style={ps.modalItemText}>{`Cung ${item}${item === house.palaceName ? '  (đang xem)' : ''}`}</Text>
+                  {viewPalace === item && <Icon name="check" size={18} color={COLORS.gold} />}
+                </Pressable>
               )}
             />
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+const ps = StyleSheet.create({
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roundBtn: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
   },
-  backBtn: { width: 90 },
-  backText: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700' },
-  topTitle: { color: COLORS.textPrimary, fontSize: FONTS.size.lg, fontWeight: '800', flex: 1, textAlign: 'center' },
-  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xxl },
-
-  palaceBox: {
-    backgroundColor: COLORS.cellBg, borderRadius: 10,
-    borderWidth: 2, borderColor: COLORS.gold, padding: SPACING.md, gap: SPACING.sm,
-  },
-  palaceHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: SPACING.xs,
-  },
-  palaceName: { color: COLORS.gold, fontSize: FONTS.size.xl, fontWeight: '800', textTransform: 'uppercase' },
-  palaceMeta: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontWeight: '700' },
-
-  chinhRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, justifyContent: 'center', paddingVertical: SPACING.xs },
-  voChinhDieu: { color: '#c8d0e8', fontSize: FONTS.size.lg, fontStyle: 'italic' },
-  phuWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
-  // Phụ tinh 2 cột: cát bên trái, sát bên phải (như ô lá số)
-  phuCols: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
-  phuColLeft: { flex: 1, alignItems: 'flex-start', gap: SPACING.xs },
-  phuColRight: { flex: 1, alignItems: 'flex-end', gap: SPACING.xs },
-  luuWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, borderTopWidth: 0.5, borderTopColor: COLORS.border, paddingTop: SPACING.xs },
-
-  starChip: {
-    paddingHorizontal: SPACING.sm, paddingVertical: 4,
-    borderRadius: 6, borderWidth: 1, borderColor: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  starChipSel: { borderColor: COLORS.gold, backgroundColor: 'rgba(245,185,66,0.18)' },
-  starBig: { fontSize: FONTS.size.xl },
-  starSmall: { fontSize: FONTS.size.md },
-
-  miscRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  palaceBadge: { backgroundColor: COLORS.gold, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  palaceBadgeTxt: { fontFamily: FONTS.bodyBold, fontSize: 11, letterSpacing: 1.4, color: '#1E1230' },
+  meta: { fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   miscTag: {
-    color: COLORS.textSecondary, fontSize: FONTS.size.xs,
-    backgroundColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+    fontFamily: FONTS.body, fontSize: 12, color: COLORS.textPrimary, overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
   },
-  tagRed: { color: '#fff', backgroundColor: '#e63946' },
-  tagBlue: { color: '#fff', backgroundColor: '#2563eb' },
-
-  relBox: {
-    backgroundColor: COLORS.background, borderRadius: 6, padding: SPACING.sm, gap: 2,
-    borderWidth: 1, borderColor: COLORS.border,
+  tagRed: { backgroundColor: 'rgba(231,123,107,0.25)', color: '#F3B0A5' },
+  tagBlue: { backgroundColor: 'rgba(127,182,240,0.25)', color: '#9CC4F2' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, padding: 12, borderRadius: 18, borderWidth: 1 },
+  glyph: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  starName: { fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.textPrimary },
+  bright: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
+  oneLine: { fontFamily: FONTS.body, fontSize: 12.5, lineHeight: 17, color: COLORS.textSecondary },
+  tag: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  tagTxt: { fontFamily: FONTS.bodyBold, fontSize: 11 },
+  step: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.07)' },
+  stepTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
+  block: { borderRadius: 14, padding: 12, gap: 5 },
+  blockLabel: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 1.4 },
+  blockBody: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, color: '#F3EBDC' },
+  relLine: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.textPrimary },
+  relKey: { fontFamily: FONTS.bodySemi, color: COLORS.goldLight },
+  ttTitle: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#F3B0A5' },
+  ttVerdict: { fontFamily: FONTS.bodySemi, fontSize: 13.5, lineHeight: 20, color: COLORS.textPrimary },
+  lookupTitle: { fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.gold },
+  pick: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48,
+    paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)',
   },
-  relLine: { color: COLORS.textPrimary, fontSize: FONTS.size.sm },
-  ttBox: {
-    backgroundColor: 'rgba(230,57,70,0.08)', borderRadius: 6, padding: SPACING.sm,
-    borderWidth: 1, borderColor: 'rgba(230,57,70,0.4)', gap: 4,
-  },
-  ttTitle: { color: '#ff7a85', fontSize: FONTS.size.sm, fontWeight: '800' },
-  ttBody: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, lineHeight: 18 },
-  ttVerdict: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20, fontWeight: '600' },
-  hint: { color: COLORS.goldLight, fontSize: FONTS.size.sm, textAlign: 'center', fontStyle: 'italic' },
-
-  // Ô tra cứu sao bất kỳ.
-  starLookupBox: {
-    backgroundColor: COLORS.surface, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4, marginBottom: SPACING.sm,
-  },
-  starLookupLabel: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
-  starLookupHint: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, lineHeight: 17 },
-  lookupRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: 4 },
-  starLookupBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: COLORS.card, borderRadius: 8, borderWidth: 1, borderColor: COLORS.gold,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-  },
-  starLookupBtnText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700', flex: 1 },
-  pickerArrow: { color: COLORS.goldLight, fontSize: FONTS.size.md, fontWeight: '800', marginLeft: 8 },
-
-  // Modal chọn sao.
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: SPACING.lg },
-  modalCard: {
-    backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.gold,
-    maxHeight: '80%', padding: SPACING.md, gap: SPACING.sm,
-  },
+  pickTxt: { flex: 1, fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.textPrimary },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(6,6,20,0.7)', justifyContent: 'center', padding: 16 },
+  modalCard: { backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)', maxHeight: '80%', padding: 16, gap: 10 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
-  modalClose: { color: COLORS.textSecondary, fontSize: FONTS.size.lg, fontWeight: '800' },
+  modalTitle: { fontFamily: FONTS.display, fontSize: 22, color: COLORS.goldLight },
+  modalClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
   modalSearch: {
-    backgroundColor: COLORS.surface, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
-    color: COLORS.textPrimary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontSize: FONTS.size.md,
+    minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(226,194,133,0.28)', backgroundColor: 'rgba(255,255,255,0.06)',
+    color: COLORS.textPrimary, paddingHorizontal: 14, fontFamily: FONTS.body, fontSize: 15,
   },
-  modalList: { flexGrow: 0 },
   modalItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm,
-    borderBottomWidth: 0.5, borderBottomColor: COLORS.border,
+    minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(226,194,133,0.1)',
   },
-  modalItemText: { fontSize: FONTS.size.md, fontWeight: '700' },
-  modalItemCheck: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
-  modalEmpty: { color: COLORS.textSecondary, textAlign: 'center', padding: SPACING.lg, fontStyle: 'italic' },
-
-  tabsRow: {
-    flexDirection: 'row', backgroundColor: COLORS.surface,
-    borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
-    overflow: 'hidden', marginTop: SPACING.xs,
-  },
-  tab: {
-    flex: 1, paddingVertical: SPACING.sm, alignItems: 'center',
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
-  },
-  tabActive: { borderBottomColor: COLORS.gold, backgroundColor: COLORS.gold + '11' },
-  tabTxt: { color: COLORS.textSecondary, fontWeight: '700', fontSize: FONTS.size.sm },
-  tabTxtActive: { color: COLORS.gold },
-  tabContent: {
-    backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md,
-    gap: SPACING.xs, borderWidth: 1, borderColor: COLORS.border, marginTop: 2,
-  },
-  aiValueNote: { color: COLORS.goldLight, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 18 },
-  runAiBtn: {
-    backgroundColor: COLORS.purple, borderRadius: 8,
-    paddingVertical: SPACING.sm, alignItems: 'center', marginTop: SPACING.xs,
-  },
-  runAiBtnText: { color: '#fff', fontWeight: '800', fontSize: FONTS.size.sm, textAlign: 'center' },
-  aiRetry: {
-    alignSelf: 'flex-start', marginTop: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.purple, borderRadius: 6,
-    paddingHorizontal: SPACING.md, paddingVertical: 4,
-  },
-  aiRetryText: { color: COLORS.purple, fontSize: FONTS.size.sm, fontWeight: '700' },
-
-  infoBox: {
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm,
-  },
-  infoStarName: { fontSize: FONTS.size.xxl, fontWeight: '800' },
-  section: {
-    backgroundColor: COLORS.surface, borderRadius: 8,
-    borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
-  },
-  secHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: SPACING.md,
-  },
-  secBody: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.xs },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap', flex: 1 },
-  chevron: { color: COLORS.goldLight, fontSize: FONTS.size.lg, fontWeight: '800' },
-  badgeBasic: {
-    color: '#1a0a00', backgroundColor: COLORS.green, fontWeight: '800',
-    fontSize: FONTS.size.xs, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-  },
-  freeTag: { color: COLORS.green, fontSize: FONTS.size.xs, fontWeight: '700' },
-  subHead: { color: COLORS.goldLight, fontSize: FONTS.size.md, fontWeight: '700', marginTop: SPACING.sm },
-  bodyText: { color: COLORS.textPrimary, fontSize: FONTS.size.md, lineHeight: 22, textAlign: 'justify' },
-  bodyTextDim: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontStyle: 'italic', marginTop: SPACING.xs },
-  relDetail: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20 },
-  relTag: { color: COLORS.goldLight, fontWeight: '800' },
-  relStar: { color: COLORS.gold, fontWeight: '800' },
-  adviceText: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, lineHeight: 20, marginTop: SPACING.sm, backgroundColor: COLORS.gold + '14', borderRadius: 6, padding: SPACING.sm },
-  cachItem: {
-    backgroundColor: COLORS.background, borderRadius: 6, padding: SPACING.sm,
-    gap: 2, borderLeftWidth: 3, borderLeftColor: COLORS.gold, marginTop: 2,
-  },
-  cachName: { fontSize: FONTS.size.md, fontWeight: '800' },
-
-  bottomBack: {
-    alignSelf: 'center', marginTop: SPACING.md,
-    backgroundColor: COLORS.gold, borderRadius: 8,
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm,
-  },
-  bottomBackText: { color: '#1a0a00', fontSize: FONTS.size.md, fontWeight: '800' },
+  modalItemText: { fontFamily: FONTS.bodySemi, fontSize: 15, color: COLORS.textPrimary },
+  modalEmpty: { fontFamily: FONTS.body, color: COLORS.textSecondary, textAlign: 'center', padding: 20 },
 });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, Switch, Platform,
+  View, Text, TextInput, StyleSheet, Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,8 @@ import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t, setLanguage, getCurrentLanguage, Language } from '../i18n';
 import { testApiConnection } from '../api/claudeApi';
+import { Card, Body, Segmented, GoldButton, OutlineButton } from '../ui';
+import Icon from '../ui/Icon';
 
 type AIProvider = 'auto' | 'claude' | 'openai';
 
@@ -90,169 +92,94 @@ export default function SettingsScreen() {
     Alert.alert('✓', 'Đã lưu cài đặt');
   }
 
+  const [showKeys, setShowKeys] = useState(false);
+
+  const keyField = (label: string, hint: string, value: string, set: (v: string) => void, ph: string, onTest: () => void, testLabel: string) => (
+    <View style={{ gap: 8 }}>
+      <Text style={sx.fieldLabel}>{label}</Text>
+      <Text style={sx.hint}>{hint}</Text>
+      <TextInput
+        style={sx.input} value={value} onChangeText={set} placeholder={ph}
+        placeholderTextColor={COLORS.textMuted} secureTextEntry autoCapitalize="none" autoCorrect={false}
+      />
+      <OutlineButton label={testing ? 'Đang kiểm tra…' : testLabel} onPress={onTest} style={testing ? { opacity: 0.5 } : undefined} />
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <ScreenHeader title={t('settingsTitle')} onBack={() => navigation.goBack()} />
-      <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* AI Provider preference */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>⚙ Ưu tiên nhà cung cấp AI</Text>
-          <Text style={styles.desc}>
-            Khi có cả 2 API key, ứng dụng sẽ dùng nhà cung cấp được ưu tiên trước; lỗi mới fallback nhà cung cấp còn lại, cuối cùng đến model miễn phí.
-          </Text>
-          <View style={styles.langRow}>
-            {([
-              { v: 'auto', label: '🎯 Tự động' },
-              { v: 'claude', label: '🟣 Claude' },
-              { v: 'openai', label: '🟢 OpenAI' },
-            ] as { v: AIProvider; label: string }[]).map(opt => (
-              <TouchableOpacity
-                key={opt.v}
-                style={[styles.langBtn, provider === opt.v && styles.langBtnActive]}
-                onPress={() => setProvider(opt.v)}
-              >
-                <Text style={[styles.langBtnText, provider === opt.v && styles.langBtnTextActive]}>{opt.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Claude API Key */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🟣 API Key Claude (Anthropic)</Text>
-          <Text style={styles.desc}>Chất lượng tiếng Việt rất tốt, ổn định. Lấy key tại console.anthropic.com.</Text>
-          <TextInput
-            style={styles.input}
-            value={apiKey}
-            onChangeText={setApiKey}
-            placeholder="sk-ant-..."
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
+      <KeyboardAwareScreen contentContainerStyle={sx.scroll} keyboardShouldPersistTaps="handled">
+        {/* Giao diện */}
+        <Text style={sx.groupTitle}>GIAO DIỆN</Text>
+        <Card style={{ gap: 10 }}>
+          <Text style={sx.fieldLabel}>{t('language')}</Text>
+          <Segmented<Language>
+            options={[{ value: 'vi', label: 'Tiếng Việt' }, { value: 'en', label: 'English' }]}
+            value={lang} onChange={setLang}
           />
-          <TouchableOpacity
-            style={[styles.testBtn, testing && { opacity: 0.5 }]}
-            onPress={handleTest}
-            disabled={testing}
-          >
-            <Text style={styles.testBtnText}>
-              {testing ? '⏳ Đang kiểm tra...' : '🔌 Test Claude'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={sx.hint}>Tuzi được thiết kế cho nền tối nên không có chế độ sáng.</Text>
+        </Card>
 
-        {/* OpenAI API Key */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🟢 API Key OpenAI (ChatGPT)</Text>
-          <Text style={styles.desc}>
-            Dùng GPT-4o-mini (rẻ ~$0.15/M token) hoặc GPT-3.5-turbo. Lấy key tại platform.openai.com/api-keys.
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={openaiKey}
-            onChangeText={setOpenaiKey}
-            placeholder="sk-..."
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
+        {/* Trợ lý AI */}
+        <Text style={sx.groupTitle}>TRỢ LÝ AI</Text>
+        <Card style={{ gap: 12 }}>
+          <Text style={sx.fieldLabel}>Nhà cung cấp ưu tiên</Text>
+          <Segmented<AIProvider>
+            options={[{ value: 'auto', label: 'Tự động' }, { value: 'claude', label: 'Claude' }, { value: 'openai', label: 'OpenAI' }]}
+            value={provider} onChange={setProvider}
           />
-          <TouchableOpacity
-            style={[styles.testBtn, testing && { opacity: 0.5 }]}
-            onPress={handleTestOpenAI}
-            disabled={testing}
-          >
-            <Text style={styles.testBtnText}>
-              {testing ? '⏳ Đang kiểm tra...' : '🔌 Test OpenAI'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.hint}>
-            Key chỉ lưu trên thiết bị của bạn, không gửi đi đâu khác.
+          <Text style={sx.hint}>
+            Tự động: Tuzi chọn nguồn tốt nhất cho câu trả lời. Khi lỗi sẽ chuyển sang nhà cung cấp còn lại, cuối cùng là mô hình miễn phí.
           </Text>
-          {testResult && (
-            <Text style={[styles.testResult, { color: testResult.ok ? '#33aa66' : '#cc4444' }]}>
-              {testResult.ok ? '✓ Kết nối OK — API key hợp lệ' : `✗ ${testResult.error}`}
-            </Text>
-          )}
-        </View>
+        </Card>
 
-        {/* Language */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🌐 {t('language')}</Text>
-          <View style={styles.langRow}>
-            {(['vi', 'en'] as Language[]).map(l => (
-              <TouchableOpacity
-                key={l}
-                style={[styles.langBtn, lang === l && styles.langBtnActive]}
-                onPress={() => setLang(l)}
-              >
-                <Text style={[styles.langBtnText, lang === l && styles.langBtnTextActive]}>
-                  {l === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <Pressable style={sx.advRow} onPress={() => setShowKeys(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: showKeys }}>
+          <View style={{ flex: 1 }}>
+            <Text style={sx.advTitle}>Dùng khóa API riêng</Text>
+            <Text style={sx.hint}>Nâng cao, không bắt buộc. Khóa chỉ lưu trên thiết bị của bạn.</Text>
           </View>
-        </View>
+          <Icon name="chev" size={18} color={COLORS.textMuted} />
+        </Pressable>
+        {showKeys && (
+          <Card style={{ gap: 16 }}>
+            {keyField('API Key Claude (Anthropic)', 'Chất lượng tiếng Việt rất tốt, ổn định. Lấy key tại console.anthropic.com.', apiKey, setApiKey, 'sk-ant-...', handleTest, 'Kiểm tra Claude')}
+            {keyField('API Key OpenAI', 'Dùng GPT-4o-mini hoặc GPT-3.5-turbo. Lấy key tại platform.openai.com/api-keys.', openaiKey, setOpenaiKey, 'sk-...', handleTestOpenAI, 'Kiểm tra OpenAI')}
+            {testResult && (
+              <Text style={[sx.testResult, { color: testResult.ok ? COLORS.green : COLORS.red }]}>
+                {testResult.ok ? 'Kết nối OK — API key hợp lệ' : testResult.error}
+              </Text>
+            )}
+          </Card>
+        )}
 
-        {/* About */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>ℹ️ Về ứng dụng</Text>
-          <Text style={styles.desc}>
-            Tuzi — Trợ lý thông minh của bạn{'\n'}
-            Phương pháp tính theo Tử Vi Nam Phái{'\n'}
-            của thầy Lê Quang Lăng.{'\n\n'}
-            Phân tích AI sử dụng Claude Sonnet 4.5{'\n'}
-            của Anthropic.
-          </Text>
-        </View>
+        {/* Về ứng dụng */}
+        <Text style={sx.groupTitle}>VỀ ỨNG DỤNG</Text>
+        <Card>
+          <Body>
+            {'Tuzi — Trợ lý thông minh của bạn\nPhương pháp tính theo Tử Vi Nam Phái của thầy Lê Quang Lăng.\n\nPhân tích AI sử dụng Claude Sonnet 4.5 của Anthropic.'}
+          </Body>
+        </Card>
 
-        {/* Save button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>{saved ? '✓ Đã lưu' : `💾 ${t('save')}`}</Text>
-        </TouchableOpacity>
+        <GoldButton label={saved ? 'Đã lưu' : t('save')} onPress={handleSave} />
       </KeyboardAwareScreen>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: {
-    padding: SPACING.lg, gap: SPACING.md,
-    paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
-  },
-  card: {
-    backgroundColor: COLORS.card, borderRadius: 12,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-    gap: SPACING.sm,
-  },
-  cardTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '600' },
-  desc: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 20 },
+const sx = StyleSheet.create({
+  scroll: { padding: 16, gap: 12, paddingBottom: 48 },
+  groupTitle: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 1.8, color: COLORS.textMuted, marginTop: 8, paddingHorizontal: 4 },
+  fieldLabel: { fontFamily: FONTS.bodySemi, fontSize: 14.5, color: COLORS.textPrimary },
+  hint: { fontFamily: FONTS.body, fontSize: 12.5, lineHeight: 18, color: COLORS.textSecondary },
   input: {
-    backgroundColor: COLORS.surface, color: COLORS.textPrimary,
-    borderRadius: 8, padding: SPACING.sm, fontSize: FONTS.size.sm,
-    borderWidth: 1, borderColor: COLORS.border, fontFamily: 'monospace',
+    minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(226,194,133,0.28)', backgroundColor: 'rgba(255,255,255,0.06)',
+    color: COLORS.textPrimary, paddingHorizontal: 16, fontFamily: FONTS.body, fontSize: 15,
   },
-  hint: { color: COLORS.textMuted, fontSize: FONTS.size.xs, lineHeight: 18 },
-  langRow: { flexDirection: 'row', gap: SPACING.sm },
-  langBtn: {
-    flex: 1, padding: SPACING.sm, borderRadius: 8,
-    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+  advRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, padding: 14, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)',
   },
-  langBtnActive: { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold },
-  langBtnText: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
-  langBtnTextActive: { color: COLORS.gold, fontWeight: '600' },
-  saveBtn: {
-    backgroundColor: COLORS.gold, borderRadius: 12,
-    padding: SPACING.lg, alignItems: 'center',
-  },
-  saveBtnText: { fontSize: FONTS.size.lg, fontWeight: 'bold', color: '#1a0a00' },
-  testBtn: {
-    backgroundColor: COLORS.surface, borderRadius: 8,
-    padding: SPACING.sm, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  testBtnText: { color: COLORS.gold, fontWeight: '600', fontSize: FONTS.size.sm },
-  testResult: { fontSize: FONTS.size.xs, marginTop: 4, lineHeight: 18 },
+  advTitle: { fontFamily: FONTS.bodySemi, fontSize: 14.5, color: COLORS.textPrimary },
+  testResult: { fontFamily: FONTS.bodySemi, fontSize: 13 },
 });

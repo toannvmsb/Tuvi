@@ -195,6 +195,15 @@ export type RootStackParamList = {
   EventDetail: { event: ResolvedEvent; result?: AstrologyResult };
 };
 
+/** 5 tab chính của thiết kế mới (chứa trong route Home của Stack). */
+export type TabParamList = {
+  Overview: undefined;
+  ChartHub: undefined;
+  VanHub: undefined;
+  DayView: { result?: AstrologyResult } | undefined;
+  Menu: undefined;
+};
+
 export type MainTabParamList = {
   TuViChart: { result: AstrologyResult };
   BatTu: { result: AstrologyResult };
