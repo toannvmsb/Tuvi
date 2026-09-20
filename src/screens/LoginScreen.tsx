@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS, FONTS } from '../constants/theme';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import Icon from '../ui/Icon';
+import { WelcomeBackground, WelcomeOrbits } from '../components/WelcomeBackdrop';
 import { Segmented } from '../ui';
 import { PRIVACY_CONTENT, TERMS_CONTENT } from '../data/legalContent';
 
@@ -122,9 +123,10 @@ export default function LoginScreen() {
   if (stage === 'welcome') {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={bgColors} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+        <WelcomeBackground />
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.welcomeTop}>
+            <WelcomeOrbits />
             <Image source={require('../../assets/logo.jpg')} style={styles.welcomeLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
           </View>
           <View style={styles.welcomeBottom}>
@@ -327,8 +329,11 @@ const GOLD_LINE = 'rgba(226,194,133,0.28)';
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   // Welcome
-  welcomeTop: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  welcomeLogo: { width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)' },
+  welcomeTop: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  welcomeLogo: {
+    width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)',
+    shadowColor: '#E2C285', shadowOpacity: 0.35, shadowRadius: 30, shadowOffset: { width: 0, height: 0 }, elevation: 12,
+  },
   welcomeBottom: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center', gap: 14 },
   eyebrow: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 2.4, color: COLORS.gold },
   welcomeQuote: { fontFamily: FONTS.displayItalic, fontSize: 28, lineHeight: 33, textAlign: 'center', color: COLORS.textPrimary },
