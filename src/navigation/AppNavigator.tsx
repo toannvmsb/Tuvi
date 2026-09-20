@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef, StackActions, CommonActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList, MainTabParamList, AstrologyResult } from '../types';
 import AppTabs from './AppTabs';
+import { TuziTabBarView } from './TuziTabBar';
 import InputScreen from '../screens/InputScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AccountScreen from '../screens/AccountScreen';
@@ -53,6 +54,28 @@ function usePushNotificationTap() {
   }, []);
 }
 
+/** Quay lại màn trước trong Stack (không bị Tab lồng bên trong "nuốt" thao tác back). */
+export function popStack() {
+  if (!navigationRef.isReady()) return;
+  if (navigationRef.canGoBack()) navigationRef.dispatch(StackActions.pop());
+  else navigationRef.navigate('Home');
+}
+
+/** Thanh menu chung cho các màn chi tiết (MainTabs): cùng 5 mục với thanh tab chính. */
+function SharedTabBar({ state }: BottomTabBarProps) {
+  const cur = state.routes[state.index]?.name;
+  const activeName = cur === 'TuViChart' || cur === 'BatTu' || cur === 'Analysis' ? 'ChartHub' : 'VanHub';
+  return (
+    <TuziTabBarView
+      activeName={activeName}
+      onSelect={(name) => {
+        if (!navigationRef.isReady()) return;
+        navigationRef.dispatch(CommonActions.navigate({ name: 'Home', params: { screen: name } }));
+      }}
+    />
+  );
+}
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -72,24 +95,8 @@ function MainTabs({ route }: any) {
   const result: AstrologyResult = route.params.result;
   return (
     <Tab.Navigator
-      screenOptions={({ route: tabRoute }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
-          height: 70 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: 10 + insets.bottom,
-        },
-        tabBarLabelStyle: {
-          fontSize: 14,
-          fontWeight: '600',
-          marginTop: 2,
-        },
-        tabBarActiveTintColor: COLORS.gold,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarIcon: ({ focused }) => <TabIcon name={tabRoute.name} focused={focused} />,
-      })}
+      tabBar={(p) => <SharedTabBar {...p} />}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="TuViChart" component={TuViChartScreen}
         initialParams={{ result }} options={{ tabBarLabel: t('tabTuVi') }} />

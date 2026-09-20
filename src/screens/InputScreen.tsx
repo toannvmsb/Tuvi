@@ -12,6 +12,8 @@ import { t } from '../i18n';
 import { buildResult } from '../core/buildResult';
 import { saveChart } from '../lib/charts';
 import ScreenHeader from '../components/ScreenHeader';
+import PlacePicker from '../components/PlacePicker';
+import { savePlaceForChart, type Place } from '../lib/weather';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -42,6 +44,7 @@ export default function InputScreen({ navigation }: Props) {
   const [hour, setHour] = useState(12);
   const [isLeapMonth, setIsLeapMonth] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [place, setPlace] = useState<Place | null>(null);
   const [pickerOpen, setPickerOpen] = useState<null | 'day' | 'month' | 'year' | 'viewingYear'>(null);
 
   const currentYear = new Date().getFullYear();
@@ -112,7 +115,7 @@ export default function InputScreen({ navigation }: Props) {
       try { oaiKey = (await SecureStore.getItemAsync('openaiApiKey')) ?? ''; } catch {}
       const aiProv = (await AsyncStorage.getItem('aiProvider') ?? 'auto') as 'auto' | 'claude' | 'openai';
       const birthInfo: BirthInfo = {
-        name: name.trim(), gender, birthplace: '',
+        name: name.trim(), gender, birthplace: place?.name ?? '',
         calendarType, year: y, month: m, day: d,
         hour, minute: 0, isLeapMonth,
         language: 'vi',
@@ -129,6 +132,8 @@ export default function InputScreen({ navigation }: Props) {
         const id = await saveChart(result);
         if (id) result.birthInfo.chartId = id;
       } catch {}
+      // Nơi ở/nơi sinh → dùng lấy thời tiết khi gắn lá số này (lưu cục bộ theo chartId).
+      if (place) await savePlaceForChart(result.birthInfo.chartId, place);
 
       navigation.navigate('MainTabs', { result });
     } catch (e: any) {
@@ -254,6 +259,11 @@ export default function InputScreen({ navigation }: Props) {
               </TouchableOpacity>
             ))}
           </View>
+        </Section>
+
+        {/* Nơi ở / nơi sinh — căn cứ lấy thời tiết */}
+        <Section title="📍 Nơi ở / nơi sinh">
+          <PlacePicker value={place} onChange={setPlace} />
         </Section>
 
         {/* Calculate button */}

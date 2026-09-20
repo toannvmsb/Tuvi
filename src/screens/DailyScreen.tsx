@@ -29,6 +29,7 @@ import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
+import { WeatherForDate } from '../components/WeatherCards';
 import ScreenHeader from '../components/ScreenHeader';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { fkey } from '../lib/featureKey';
@@ -158,6 +159,9 @@ export default function DailyScreen({ route, navigation }: Props) {
             {rating}
           </Text>
         </View>
+
+        {/* Thời tiết ngày đang chọn (dự báo tối đa 16 ngày tới) */}
+        <WeatherForDate date={date} />
 
         {result && sc ? (
           <>

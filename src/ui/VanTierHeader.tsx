@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { AstrologyResult } from '../types';
 import { Display, Segmented } from './primitives';
 import Icon from './Icon';
-import { navigationRef } from '../navigation/AppNavigator';
+import { navigationRef, popStack } from '../navigation/AppNavigator';
 
 type Tier = 'dai' | 'tieu' | 'nguyet' | 'nhat';
 
@@ -22,7 +22,7 @@ export default function VanTierHeader({ active, result }: { active: Tier; result
   return (
     <View style={s.wrap}>
       <View style={s.row}>
-        <Pressable style={s.round} onPress={() => navigationRef.navigate('Home')} accessibilityRole="button" accessibilityLabel="Quay lại">
+        <Pressable style={s.round} onPress={() => popStack()} accessibilityRole="button" accessibilityLabel="Quay lại">
           <Icon name="back" size={22} />
         </Pressable>
         <Display size={34}>Vận hạn</Display>

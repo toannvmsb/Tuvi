@@ -25,6 +25,7 @@ import { PREMIUM, costNote } from '../constants/premium';
 import { runWithConcurrency } from '../lib/concurrency';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import { Card, ScoreRing, GoldButton } from '../ui';
 
 // So sánh có 12 tầng — bắn hết cùng lúc từng làm chạm rate limit key AI dùng chung
 // phía server. Giới hạn 3 lượt cùng lúc.
@@ -61,7 +62,8 @@ function PersonCard({ result, placeholder, onPress }: {
     <TouchableOpacity style={styles.personCard} onPress={onPress} activeOpacity={0.8}>
       {result ? (
         <>
-          <Text style={styles.personName}>{b?.name || 'Không tên'}</Text>
+          <View style={styles.avatar}><Text style={styles.avatarTxt}>{(b?.name || '?').trim().charAt(0).toUpperCase()}</Text></View>
+          <Text style={styles.personName} numberOfLines={1}>{b?.name || 'Không tên'}</Text>
           <Text style={styles.personSub}>
             {b?.gender === 'nam' ? '♂' : '♀'} · {b?.day}/{b?.month}/{b?.year}
           </Text>
@@ -499,18 +501,13 @@ export default function CompareChartsScreen() {
         {result && (
           <>
             {/* ── Overall score (nổi bật) ── */}
-            <View style={[styles.overallBadge, {
-              backgroundColor: scoreBg(result.scores.overall),
-              borderColor: scoreFg(result.scores.overall) + '55',
-            }]}>
-              <Text style={[styles.overallScore, { color: scoreFg(result.scores.overall) }]}>
-                {result.scores.overall}
-                <Text style={[styles.overallScoreMax, { color: scoreFg(result.scores.overall) }]}>/100</Text>
-              </Text>
-              <Text style={[styles.overallLabel, { color: scoreFg(result.scores.overall) }]}>
-                Điểm tương hợp tổng thể
-              </Text>
-            </View>
+            <Card hero style={styles.overallCard}>
+              <ScoreRing score={result.scores.overall} size={96} stroke={8} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.overallLabel}>Điểm tương hợp tổng thể</Text>
+                <Text style={styles.overallSub}>{result.scores.overall >= 75 ? 'Rất hợp nhau' : result.scores.overall >= 55 ? 'Khá hợp, cần điều hòa vài điểm' : 'Nhiều khác biệt, cần thấu hiểu nhau'}</Text>
+              </View>
+            </Card>
 
             {/* ── Sub scores ── */}
             <View style={styles.scoreRow}>
@@ -564,9 +561,7 @@ export default function CompareChartsScreen() {
             {/* ── AI upgrade bar ── */}
             <View style={styles.aiBar}>
               {!aiDone && !aiRunning && (
-                <TouchableOpacity style={styles.aiStartBtn} onPress={handleStartAI} activeOpacity={0.85}>
-                  <Text style={styles.aiStartTxt}>✨ Phân tích AI ({costNote(PREMIUM.COST.aiCompare)})</Text>
-                </TouchableOpacity>
+                <GoldButton label={`Phân tích AI (${costNote(PREMIUM.COST.aiCompare)})`} onPress={handleStartAI} />
               )}
               {aiRunning && (
                 <View style={styles.aiProgressRow}>
@@ -658,10 +653,12 @@ const styles = StyleSheet.create({
   // Person cards
   personsRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   personCard: {
-    flex: 1, backgroundColor: COLORS.card, borderRadius: 12, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border, minHeight: 90,
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: SPACING.md, alignItems: 'center', gap: 2,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.24)', minHeight: 130, justifyContent: 'center',
   },
-  personName: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
+  personName: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontFamily: FONTS.bodyBold, maxWidth: '100%' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  avatarTxt: { color: '#1E1230', fontFamily: FONTS.bodyBold, fontSize: 18 },
   personSub: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, marginTop: 2 },
   personEmpty: { color: COLORS.purple, fontSize: 28, textAlign: 'center' },
   vsCircle: {
@@ -672,13 +669,11 @@ const styles = StyleSheet.create({
   hint: { color: COLORS.textSecondary, textAlign: 'center', fontSize: FONTS.size.sm, lineHeight: 20 },
 
   // Overall score badge
-  overallBadge: {
-    borderRadius: 12, padding: SPACING.md, borderWidth: 1.5,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
-  },
+  overallCard: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  overallSub: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 19 },
   overallScore: { fontSize: 48, fontWeight: '900', lineHeight: 56 },
   overallScoreMax: { fontSize: 20, fontWeight: '600' },
-  overallLabel: { fontSize: FONTS.size.sm, fontWeight: '700', flexShrink: 1 },
+  overallLabel: { fontFamily: FONTS.display, fontSize: 22, color: COLORS.goldLight, flexShrink: 1 },
 
   // Sub scores
   scoreRow: { flexDirection: 'row', gap: SPACING.xs },
@@ -688,22 +683,22 @@ const styles = StyleSheet.create({
 
   // Info box
   infoBox: {
-    backgroundColor: COLORS.surface, borderRadius: 10, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border, gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: SPACING.md,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)', gap: 4,
   },
   infoLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, lineHeight: 18 },
 
   // Tabs
   tabRow: { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 10, padding: 4, gap: 2 },
   tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
-  tabBtnActive: { backgroundColor: COLORS.purple + '44' },
+  tabBtnActive: { backgroundColor: COLORS.gold + '2E' },
   tabTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, fontWeight: '600' },
-  tabTxtActive: { color: COLORS.purple },
+  tabTxtActive: { color: COLORS.goldLight },
 
   // Advice box
   adviceBox: {
-    backgroundColor: COLORS.surface, borderRadius: 12, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.purple + '44', gap: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: SPACING.md,
+    borderWidth: 1, borderColor: 'rgba(226,194,133,0.28)', gap: SPACING.sm,
   },
   adviceTitle: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
   tipRow: { flexDirection: 'row', gap: SPACING.sm },
@@ -762,13 +757,13 @@ const styles = StyleSheet.create({
   viewModeBtn: {
     flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 8,
   },
-  viewModeBtnActive: { backgroundColor: COLORS.purple + '44' },
+  viewModeBtnActive: { backgroundColor: COLORS.gold + '2E' },
   viewModeTxt: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, fontWeight: '600' },
-  viewModeTxtActive: { color: COLORS.purple, fontWeight: '800' },
+  viewModeTxtActive: { color: COLORS.goldLight, fontWeight: '800' },
 
   // Layer accordion
   layerCard: {
-    backgroundColor: COLORS.card, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(226,194,133,0.18)',
     overflow: 'hidden',
   },
   layerHeader: {

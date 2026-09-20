@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList } from '../types';
 import ScreenHeader from '../components/ScreenHeader';
-import { navigationRef } from '../navigation/AppNavigator';
+import { navigationRef, popStack } from '../navigation/AppNavigator';
 import BatTuChartComponent from '../components/BatTuChart';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
@@ -57,7 +57,7 @@ export default function BatTuScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={hx.header}>
         <View style={hx.headRow}>
-          <TouchableOpacity style={hx.roundBtn} onPress={() => navigationRef.navigate('Home')} accessibilityRole="button" accessibilityLabel="Quay lại">
+          <TouchableOpacity style={hx.roundBtn} onPress={() => popStack()} accessibilityRole="button" accessibilityLabel="Quay lại">
             <Icon name="back" size={22} />
           </TouchableOpacity>
           <Display size={34}>Lá số</Display>

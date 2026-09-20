@@ -22,7 +22,7 @@ import { getMyChartId } from '../lib/myChart';
 import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
 import { scoreNhatVan } from '../core/nhatVan';
 import { genericDayScore, buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
-import { buildMonthHeatmap, type DayTone } from '../core/dailyPeriodService';
+import { buildMonthHeatmap, TONE_COLOR, type DayTone } from '../core/dailyPeriodService';
 import { solarToLunar } from '../core/lunarCalendar';
 import { currentAgeOf } from '../core/ageUtil';
 import { buildTodaySummary } from '../core/todaySummary';
@@ -35,6 +35,7 @@ import { pickUpcomingEvent, type ResolvedEvent, type EventPackage, type UserEven
 import { buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
+import { WeatherCard } from '../components/WeatherCards';
 
 const WEEKDAY_LONG = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const TONE_TIER: Record<DayTone, string> = {
@@ -42,8 +43,8 @@ const TONE_TIER: Record<DayTone, string> = {
   'thận trọng': TIER_COLORS.caution, 'xấu': TIER_COLORS.bad,
 };
 const LEGEND: { c: string; t: string }[] = [
-  { c: TIER_COLORS.great, t: 'Rất tốt' }, { c: TIER_COLORS.good, t: 'Tốt' }, { c: TIER_COLORS.normal, t: 'Bình thường' },
-  { c: TIER_COLORS.caution, t: 'Thận trọng' }, { c: TIER_COLORS.bad, t: 'Xấu' },
+  { c: TONE_COLOR['tốt'], t: 'Tốt' }, { c: TONE_COLOR['khá'], t: 'Khá' }, { c: TONE_COLOR['trung bình'], t: 'Trung bình' },
+  { c: TONE_COLOR['thận trọng'], t: 'Thận trọng' }, { c: TONE_COLOR['xấu'], t: 'Xấu' },
 ];
 
 function ratingLabel(score: number): { label: string; color: string } {
@@ -197,6 +198,9 @@ export default function OverviewScreen() {
         </Card>
       </View>
 
+      {/* Thời tiết (địa điểm của lá số, mặc định Hà Nội) */}
+      <WeatherCard />
+
       {/* Lịch tháng */}
       <Card style={{ gap: 12, paddingHorizontal: 14 }}>
         <View style={s.calHead}>
@@ -216,7 +220,7 @@ export default function OverviewScreen() {
         <View style={s.grid}>
           {Array.from({ length: lead }).map((_, i) => <View key={`b${i}`} style={s.cellWrap} />)}
           {hm.days.map(d => {
-            const c = TONE_TIER[d.tone];
+            const c = TONE_COLOR[d.tone];
             const isToday = d.day === now.getDate();
             const isEvent = !!event && event.occursOn.getFullYear() === y && event.occursOn.getMonth() + 1 === m && event.occursOn.getDate() === d.day;
             const l = solarToLunar(d.day, m, y);
@@ -224,12 +228,12 @@ export default function OverviewScreen() {
               <View key={d.day} style={s.cellWrap}>
                 <Pressable
                   onPress={openDay}
-                  style={[s.cell, { backgroundColor: c + (d.tone === 'tốt' ? '38' : '24'), borderColor: c + '66' }, isToday && s.cellToday]}
+                  style={[s.cell, { backgroundColor: c }, isToday && s.cellToday]}
                   accessibilityRole="button" accessibilityLabel={`Ngày ${d.day}, ${d.rating}`}
                 >
                   {isEvent && <View style={s.eventDot} />}
-                  <Text style={[s.cellNum, isToday && { color: COLORS.goldLight }]}>{d.day}</Text>
-                  <Text style={[s.cellLunar, (l.day === 1 || l.day === 15) && { color: COLORS.gold, fontFamily: FONTS.bodyBold }]}>
+                  <Text style={s.cellNum}>{d.day}</Text>
+                  <Text style={[s.cellLunar, (l.day === 1 || l.day === 15) && { color: '#0a0a0a', fontFamily: FONTS.bodyBold }]}>
                     {l.day === 1 ? `1/${l.month}` : l.day}
                   </Text>
                 </Pressable>
@@ -240,7 +244,7 @@ export default function OverviewScreen() {
         <View style={s.legend}>
           {LEGEND.map(l => (
             <View key={l.t} style={s.legendItem}>
-              <View style={[s.legendSw, { backgroundColor: l.c + 'AA' }]} />
+              <View style={[s.legendSw, { backgroundColor: l.c }]} />
               <Text style={s.legendTxt}>{l.t}</Text>
             </View>
           ))}
@@ -356,10 +360,10 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cellWrap: { width: `${100 / 7}%`, padding: 2 },
   cell: { height: 50, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  cellToday: { borderColor: COLORS.gold, borderWidth: 2 },
-  cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary, lineHeight: 16 },
-  cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: COLORS.textSecondary, lineHeight: 12 },
-  eventDot: { position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.goldLight },
+  cellToday: { borderColor: '#ffffff', borderWidth: 2 },
+  cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#0a0a0a', lineHeight: 16 },
+  cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: 'rgba(10,10,10,0.65)', lineHeight: 12 },
+  eventDot: { position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 2 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSw: { width: 10, height: 10, borderRadius: 3 },

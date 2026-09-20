@@ -85,9 +85,7 @@ export default function MenuScreen() {
         { icon: 'gift', label: 'Ưu đãi', sub: 'Mã quà tặng, khuyến mãi', color: COLORS.red, onPress: go('Promotions') },
         { icon: 'bell', label: 'Thông báo', sub: 'Nhắc nhở, tin từ Tuzi', color: COLORS.blue, onPress: go('Notifications') },
       ]} />
-      <Group title="Ứng dụng" items={[
-        { icon: 'gear', label: 'Cài đặt', sub: 'Giao diện, nhắc nhở, AI', onPress: go('Settings') },
-      ]} />
+      {/* Tạm ẩn nhóm "Ứng dụng" (Cài đặt) — chưa bổ sung chức năng chi tiết. Route Settings vẫn còn. */}
       <Group title="Hỗ trợ" items={[
         { icon: 'info', label: 'Về Tuzi', sub: `Phiên bản ${APP_VERSION}`, onPress: go('About') },
         { icon: 'doc', label: 'Điều khoản sử dụng', onPress: go('Terms') },

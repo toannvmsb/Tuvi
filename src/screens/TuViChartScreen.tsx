@@ -12,7 +12,7 @@ import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
 import { exportChartAsImage, shareImageFile, saveImageToGallery } from '../utils/exportChart';
 import { buildResult } from '../core/buildResult';
-import { navigationRef } from '../navigation/AppNavigator';
+import { navigationRef, popStack } from '../navigation/AppNavigator';
 import { isWeb, useContentWidth } from '../lib/platform';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
@@ -182,7 +182,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
       {/* Tiêu đề + chuyển Tử Vi | Bát Tự (thiết kế mới) */}
       <View style={nx.header}>
         <View style={nx.headRow}>
-          <TouchableOpacity style={nx.roundBtn} onPress={() => navigationRef.navigate('Home')} accessibilityRole="button" accessibilityLabel="Quay lại">
+          <TouchableOpacity style={nx.roundBtn} onPress={() => popStack()} accessibilityRole="button" accessibilityLabel="Quay lại">
             <Icon name="back" size={22} />
           </TouchableOpacity>
           <Display size={34}>Lá số</Display>

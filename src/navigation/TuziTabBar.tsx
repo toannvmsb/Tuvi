@@ -19,25 +19,20 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
   Menu: { label: 'Menu', icon: 'menu' },
 };
 
-export default function TuziTabBar({ state, navigation }: BottomTabBarProps) {
+/** Thanh tab thuần hiển thị — dùng cho cả 5 tab chính lẫn các màn chi tiết (MainTabs). */
+export function TuziTabBarView({ activeName, onSelect }: { activeName: string; onSelect: (name: string) => void }) {
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient
       colors={['rgba(16,16,38,0.92)', 'rgba(10,11,26,0.99)']}
       style={[styles.bar, { height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom }]}
     >
-      {state.routes.map((route, index) => {
-        const meta = TABS[route.name];
-        if (!meta) return null;
-        const focused = state.index === index;
+      {Object.entries(TABS).map(([name, meta]) => {
+        const focused = activeName === name;
         const color = focused ? COLORS.gold : '#8F8CA8';
-        const onPress = () => {
-          const ev = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!focused && !ev.defaultPrevented) navigation.navigate(route.name as never);
-        };
         return (
           <Pressable
-            key={route.key} onPress={onPress} style={styles.item}
+            key={name} onPress={() => onSelect(name)} style={styles.item}
             accessibilityRole="button" accessibilityState={{ selected: focused }} accessibilityLabel={meta.label}
           >
             <View style={[styles.indicator, { opacity: focused ? 1 : 0 }]} />
@@ -47,6 +42,21 @@ export default function TuziTabBar({ state, navigation }: BottomTabBarProps) {
         );
       })}
     </LinearGradient>
+  );
+}
+
+export default function TuziTabBar({ state, navigation }: BottomTabBarProps) {
+  const activeName = state.routes[state.index]?.name;
+  return (
+    <TuziTabBarView
+      activeName={activeName}
+      onSelect={(name) => {
+        const route = state.routes.find(r => r.name === name);
+        if (!route) return;
+        const ev = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+        if (activeName !== name && !ev.defaultPrevented) navigation.navigate(name as never);
+      }}
+    />
   );
 }
 

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { WeatherForDate } from '../components/WeatherCards';
 import ScreenHeader from '../components/ScreenHeader';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
@@ -439,6 +440,9 @@ export default function EventDetailScreen({ route, navigation }: Props) {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Thời tiết ngày sự kiện (nếu nằm trong 16 ngày tới) */}
+        <View style={{ marginBottom: 12 }}><WeatherForDate date={occursOn} /></View>
 
         {/* 2. Ý nghĩa */}
         <Section title="📖 Ý nghĩa">
