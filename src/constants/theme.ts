@@ -75,6 +75,15 @@ export const FONTS = {
   },
 };
 
+/** Màu ô lịch theo mức ngày (kiểu bản thiết kế, sáng hơn): nền mờ + viền + màu chấm chú giải. */
+export const CAL_TONE: Record<'tốt' | 'khá' | 'trung bình' | 'thận trọng' | 'xấu', { bg: string; border: string; dot: string }> = {
+  'tốt':        { bg: TIER_COLORS.great   + '66', border: TIER_COLORS.great   + 'DD', dot: TIER_COLORS.great },
+  'khá':        { bg: TIER_COLORS.good    + '55', border: TIER_COLORS.good    + 'CC', dot: TIER_COLORS.good },
+  'trung bình': { bg: TIER_COLORS.normal  + '40', border: TIER_COLORS.normal  + 'AA', dot: TIER_COLORS.normal },
+  'thận trọng': { bg: TIER_COLORS.caution + '5A', border: TIER_COLORS.caution + 'DD', dot: TIER_COLORS.caution },
+  'xấu':        { bg: TIER_COLORS.bad     + '5A', border: TIER_COLORS.bad     + 'DD', dot: TIER_COLORS.bad },
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,

@@ -186,6 +186,7 @@ export type RootStackParamList = {
   Notes: undefined;
   MyCharts: undefined;
   CompareCharts: { preSelectedResult?: AstrologyResult };
+  Portrait: { result?: AstrologyResult } | undefined;
   Wallet: undefined;
   Privacy: undefined;
   Terms: undefined;

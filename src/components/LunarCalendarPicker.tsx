@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { solarToLunar } from '../core/lunarCalendar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { CAL_TONE } from '../constants/theme';
 import { TONE_COLOR, type DayTone, type MonthHeatmap } from '../core/dailyPeriodService';
 
 export interface DayInfo { tone: DayTone; hasWarning: boolean }
@@ -150,7 +151,7 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
                 key={ci}
                 style={[
                   styles.cell,
-                  info && { backgroundColor: TONE_COLOR[info.tone] },
+                  info && { backgroundColor: CAL_TONE[info.tone].bg, borderWidth: 1, borderColor: CAL_TONE[info.tone].border },
                   // Hôm nay VÀ ngày đang chọn KHÔNG đổi màu nền — chỉ viền trắng nổi bật.
                   isHighlight && styles.cellHighlight,
                 ]}
@@ -181,13 +182,17 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
           <View style={styles.legendRow}>
             {LEGEND_ITEMS.map(item => (
               <View key={item.tone} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: TONE_COLOR[item.tone] }]} />
+                <View style={[styles.legendDot, { backgroundColor: CAL_TONE[item.tone].dot }]} />
                 <Text style={styles.legendTxt}>{item.label}</Text>
               </View>
             ))}
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: 'transparent', borderWidth: 2, borderColor: COLORS.gold }]} />
+              <Text style={styles.legendTxt}>Hôm nay</Text>
+            </View>
           </View>
           <Text style={styles.legendNote}>
-            Màu ô = mức thuận lợi của ngày (điểm Nhật Vận). Chấm trắng = ngày có cảnh báo (xung tuổi/Tam Nương/Nguyệt Kỵ…). Viền trắng = hôm nay/ngày đang chọn.
+            Màu ô = mức thuận lợi của ngày (điểm Nhật Vận). Chấm trắng = ngày có cảnh báo (xung tuổi/Tam Nương/Nguyệt Kỵ…). Viền vàng = hôm nay/ngày đang chọn.
           </Text>
         </>
       )}
@@ -263,15 +268,15 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     minHeight: 44, borderRadius: 8, paddingVertical: 3, gap: 1, position: 'relative',
   },
-  cellHighlight: { borderWidth: 2, borderColor: '#ffffff' },
+  cellHighlight: { borderWidth: 2, borderColor: COLORS.gold },
 
   solar: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '800' },
   sunTxt:      { color: '#ef4444' },
   todayNumTxt: { color: COLORS.gold },
-  tonedTxt:    { color: '#0a0a0a' },
+  tonedTxt:    { color: COLORS.textPrimary },
 
   lunar:        { color: COLORS.textSecondary, fontSize: 9, fontWeight: '600' },
-  tonedLunarTxt: { color: 'rgba(10,10,10,0.65)' },
+  tonedLunarTxt: { color: COLORS.textSecondary },
   warnDot: {
     position: 'absolute', top: 2, right: 2, width: 5, height: 5,
     borderRadius: 2.5, backgroundColor: '#ffffff',

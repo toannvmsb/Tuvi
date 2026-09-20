@@ -34,6 +34,7 @@ export const PREMIUM = {
     aiMedium: 50,       // AI vừa: Bát Tự / Tài Lộc / mỗi năm Tiểu vận
     aiLarge: 100,       // AI lớn: Toàn lá số / mỗi Đại vận
     aiCompare: 30,      // AI So sánh lá số (12 tầng song song)
+    portrait: 30,       // Vẽ chân dung người tương hợp (mỗi lần vẽ)
     aiChat: 1,          // Chat AI nổi — 1 lượt hỏi vượt quota miễn phí/ngày
   },
 };

@@ -5,8 +5,8 @@
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { TONE_COLOR, type DayTone } from '../core/dailyPeriodService';
+import { COLORS, FONTS, SPACING, CAL_TONE } from '../constants/theme';
+import { type DayTone } from '../core/dailyPeriodService';
 
 export interface HeatmapDayCell {
   lunarDay: number;
@@ -41,7 +41,7 @@ export default function MonthDayHeatmapPanel({
         {days.map(d => {
           const isToday = d.lunarDay === todayLunarDay;
           return (
-            <View key={d.lunarDay} style={[styles.dayCell, { backgroundColor: TONE_COLOR[d.tone] }, isToday && styles.dayCellToday]}>
+            <View key={d.lunarDay} style={[styles.dayCell, { backgroundColor: CAL_TONE[d.tone].bg, borderWidth: 1, borderColor: CAL_TONE[d.tone].border }, isToday && styles.dayCellToday]}>
               <Text style={[styles.dayCellTxt, isToday && styles.dayCellTxtToday]}>{d.lunarDay}</Text>
               {d.hasWarning && <View style={styles.dayWarnDot} />}
               {isToday && <View style={styles.todayDot} />}
@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 5, alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   },
-  dayCellTxt: { color: '#0a0a0a', fontSize: 10, fontWeight: '800' },
+  dayCellTxt: { color: COLORS.textPrimary, fontSize: 10, fontWeight: '800' },
   dayWarnDot: {
     position: 'absolute', top: 1, right: 1, width: 5, height: 5,
     borderRadius: 2.5, backgroundColor: '#ffffff',
   },
   dayCellToday: {
-    borderWidth: 3, borderColor: '#ffffff',
+    borderWidth: 2, borderColor: COLORS.gold,
   },
   dayCellTxtToday: { fontSize: 11 },
   todayDot: {

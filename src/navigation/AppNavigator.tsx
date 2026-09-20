@@ -25,6 +25,7 @@ import TermsScreen from '../screens/TermsScreen';
 import WalletScreen from '../screens/WalletScreen';
 import MyChartsScreen from '../screens/MyChartsScreen';
 import CompareChartsScreen from '../screens/CompareChartsScreen';
+import PortraitScreen from '../screens/PortraitScreen';
 import AboutScreen from '../screens/AboutScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PromotionsScreen from '../screens/PromotionsScreen';
@@ -132,6 +133,7 @@ const ROUTE_TITLES: Record<string, string> = {
   Notes: 'Ghi chú nhanh',
   EventDetail: 'Sự kiện sắp tới',
   MyCharts: 'Hồ sơ/Lá số đã lưu',
+  Portrait: 'Chân dung tương hợp',
   CompareCharts: 'So sánh lá số',
   Wallet: 'Nạp xu',
   Account: 'Tài khoản',
@@ -184,6 +186,7 @@ export default function AppNavigator() {
         <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyCharts" component={MyChartsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CompareCharts" component={CompareChartsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Portrait" component={PortraitScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />

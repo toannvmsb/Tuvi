@@ -81,6 +81,8 @@ export default function ChartHubScreen() {
           onPress={() => navigation.navigate('WealthChart', { result: r })} />
         <Row icon="compare" color={COLORS.blue} title="So sánh với lá số khác" sub="Tương hợp Bát Tự và Tử Vi"
           onPress={() => navigation.navigate('CompareCharts', { preSelectedResult: r })} />
+        <Row icon="user" color={COLORS.red} title="Chân dung người tương hợp" sub="AI vẽ từ cung Phu Thê của bạn"
+          onPress={() => navigation.navigate('Portrait', { result: r })} />
       </View>
     </Screen>
   );
