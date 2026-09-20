@@ -239,8 +239,8 @@ const nt = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
   chipDot: { width: 7, height: 7, borderRadius: 4 },
   chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11.5 },
-  // Hộp ôm vừa nội dung: ngắn thì gọn, dài thì rộng/cao dần (tối đa bằng chiều ngang màn).
-  itemCard: { alignSelf: 'flex-start', maxWidth: '100%', gap: 8, paddingVertical: 10, paddingHorizontal: 14 },
+  // Hộp rộng đủ chiều ngang màn hình; chỉ co/giãn theo chiều cao của nội dung.
+  itemCard: { gap: 8, paddingVertical: 10, paddingHorizontal: 14 },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   itemDate: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textSecondary },
   itemContent: { fontFamily: FONTS.body, fontSize: 14.5, lineHeight: 23, color: COLORS.textPrimary },

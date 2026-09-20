@@ -326,7 +326,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 5, paddingLeft: 6, paddingRight: 12,
     borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
   },
-  avatar: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.5)', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#1E1230' },
   pillName: { fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.textPrimary },
   pillSub: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textMuted },
