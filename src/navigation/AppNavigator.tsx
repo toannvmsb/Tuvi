@@ -120,7 +120,7 @@ function MainTabs({ route }: any) {
 // Mặc định React Navigation lấy tên route (vd "BatTu") → map sang tên đẹp.
 const ROUTE_TITLES: Record<string, string> = {
   Home: 'Trang chủ',
-  Input: 'Tạo mới Hồ sơ/Lá số',
+  Input: 'Tạo mới Lá số',
   MainTabs: 'Lá số Tử Vi',
   TuViChart: 'Lá số Tử Vi',
   BatTu: 'Bát Tự',

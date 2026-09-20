@@ -20,7 +20,7 @@ export function promptPersonalize(navigation: NavLike, onContinueDefault?: () =>
     'Cá nhân hóa trải nghiệm',
     'Bạn vẫn có thể sử dụng các tính năng cơ bản của Tuzi mà không cần tạo hoặc liên kết hồ sơ. Thêm hồ sơ giúp Tuzi cung cấp những gợi ý phù hợp hơn với bạn.',
     [
-      { text: 'Tạo mới Hồ sơ', onPress: () => navigation.navigate('Input') },
+      { text: 'Tạo mới Lá số', onPress: () => navigation.navigate('Input') },
       { text: 'Gắn Hồ sơ đã lưu', onPress: () => navigation.navigate('MyCharts') },
       { text: 'Tiếp tục ở chế độ cơ bản', style: 'cancel', onPress: onContinueDefault },
     ],

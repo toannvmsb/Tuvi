@@ -46,7 +46,7 @@ export function NoChartState({ title = 'Chưa có lá số của bạn' }: { tit
       <Card hero style={{ gap: 12, marginTop: 24 }}>
         <Display size={28} color={COLORS.goldLight}>{title}</Display>
         <Body>Thêm hồ sơ để Tuzi lập lá số và đưa ra những gợi ý phù hợp với riêng bạn.</Body>
-        <GoldButton label="Tạo mới Hồ sơ" onPress={() => navigation.navigate('Input')} />
+        <GoldButton label="Tạo mới Lá số" onPress={() => navigation.navigate('Input')} />
         <OutlineButton label="Gắn Hồ sơ đã lưu" onPress={() => navigation.navigate('MyCharts')} />
       </Card>
     </Screen>

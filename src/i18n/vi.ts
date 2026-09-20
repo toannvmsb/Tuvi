@@ -20,7 +20,7 @@ export default {
   homeCredit: 'Tuzi — Trợ lý thông minh của bạn',
 
   // Input Form
-  inputTitle: 'Tạo mới Hồ sơ/Lá số',
+  inputTitle: 'Tạo mới Lá số',
   name: 'Họ và tên',
   namePlaceholder: 'Nhập họ và tên',
   gender: 'Giới tính',

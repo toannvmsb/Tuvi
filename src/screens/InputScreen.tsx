@@ -20,18 +20,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 type Props = NativeStackScreenProps<RootStackParamList, 'Input'>;
 
 const HOUR_OPTIONS = [
-  { label: '23:00 - 00:59 (Tý)', value: 0 },
-  { label: '01:00 - 02:59 (Sửu)', value: 2 },
-  { label: '03:00 - 04:59 (Dần)', value: 4 },
-  { label: '05:00 - 06:59 (Mão)', value: 6 },
-  { label: '07:00 - 08:59 (Thìn)', value: 8 },
-  { label: '09:00 - 10:59 (Tị)', value: 10 },
-  { label: '11:00 - 12:59 (Ngọ)', value: 12 },
-  { label: '13:00 - 14:59 (Mùi)', value: 14 },
-  { label: '15:00 - 16:59 (Thân)', value: 16 },
-  { label: '17:00 - 18:59 (Dậu)', value: 18 },
-  { label: '19:00 - 20:59 (Tuất)', value: 20 },
-  { label: '21:00 - 22:59 (Hợi)', value: 22 },
+  { name: 'Tý', range: '23-01', value: 0 },
+  { name: 'Sửu', range: '01-03', value: 2 },
+  { name: 'Dần', range: '03-05', value: 4 },
+  { name: 'Mão', range: '05-07', value: 6 },
+  { name: 'Thìn', range: '07-09', value: 8 },
+  { name: 'Tị', range: '09-11', value: 10 },
+  { name: 'Ngọ', range: '11-13', value: 12 },
+  { name: 'Mùi', range: '13-15', value: 14 },
+  { name: 'Thân', range: '15-17', value: 16 },
+  { name: 'Dậu', range: '17-19', value: 18 },
+  { name: 'Tuất', range: '19-21', value: 20 },
+  { name: 'Hợi', range: '21-23', value: 22 },
 ];
 
 export default function InputScreen({ navigation }: Props) {
@@ -245,24 +245,36 @@ export default function InputScreen({ navigation }: Props) {
         </Section>
 
         {/* Birth hour */}
-        <Section title="⏰ Giờ sinh">
-          <View style={styles.hourGrid}>
-            {HOUR_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.hourChip, hour === opt.value && styles.hourChipActive]}
-                onPress={() => setHour(opt.value)}
-              >
-                <Text style={[styles.hourChipText, hour === opt.value && styles.hourChipTextActive]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
+        <View style={styles.section}>
+          <View style={styles.hourHead}>
+            <Text style={styles.sectionTitle}>Giờ sinh</Text>
+            <Text style={styles.hourHeadSub}>12 canh giờ</Text>
+          </View>
+          <View style={{ gap: 8 }}>
+            {[0, 1, 2].map(r => (
+              <View key={r} style={styles.hourRow}>
+                {HOUR_OPTIONS.slice(r * 4, r * 4 + 4).map(opt => {
+                  const on = hour === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value} activeOpacity={0.8}
+                      style={[styles.hourBtn, on && styles.hourBtnOn]}
+                      onPress={() => setHour(opt.value)}
+                      accessibilityRole="button" accessibilityState={{ selected: on }}
+                      accessibilityLabel={`Giờ ${opt.name}, ${opt.range}`}
+                    >
+                      <Text style={[styles.hourName, on && { color: COLORS.goldLight }]}>{opt.name}</Text>
+                      <Text style={[styles.hourRange, on && { color: '#E9D9B5' }]}>{opt.range}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             ))}
           </View>
-        </Section>
+        </View>
 
         {/* Nơi ở / nơi sinh — căn cứ lấy thời tiết */}
-        <Section title="📍 Nơi ở / nơi sinh">
+        <Section title="📍 Nơi ở / nơi sinh (tỉnh/thành)">
           <PlacePicker value={place} onChange={setPlace} />
         </Section>
 
@@ -420,7 +432,16 @@ const styles = StyleSheet.create({
   dateField: { flex: 1 },
   dateLabel: { color: COLORS.textSecondary, fontSize: FONTS.size.sm, marginBottom: 4 },
   dateInput: { justifyContent: 'center' },
-  hourGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  hourHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  hourHeadSub: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
+  hourRow: { flexDirection: 'row', gap: 8 },
+  hourBtn: {
+    flex: 1, minHeight: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+  },
+  hourBtnOn: { borderWidth: 2, borderColor: COLORS.gold, backgroundColor: 'rgba(226,194,133,0.16)' },
+  hourName: { fontFamily: FONTS.bodyBold, fontSize: 16, color: COLORS.textPrimary },
+  hourRange: { fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
   hourChip: {
     paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md,
     borderRadius: 6, borderWidth: 1, borderColor: COLORS.border,
