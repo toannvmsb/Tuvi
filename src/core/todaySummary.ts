@@ -37,6 +37,34 @@ const ENCOURAGE: string[] = [
   'Giữ thiện tâm và sự điềm tĩnh — đó là lá bùa hộ mệnh tốt nhất cho mọi ngày.',
 ];
 const pickEncourage = () => ENCOURAGE[Math.floor(Math.random() * ENCOURAGE.length)];
+/** Câu khuyên khi ngày thuận lợi — luôn kèm nhắc cân nhắc/chuẩn bị (không hứa chắc kết quả). */
+const ENCOURAGE_GOOD: string[] = [
+  'Ngày thuận lợi — hãy dành giờ tốt cho việc quan trọng nhất, và vẫn cân nhắc kỹ trước khi quyết.',
+  'Nhịp ngày đang ủng hộ bạn: chủ động một chút, nhưng đừng bỏ qua bước kiểm tra lại.',
+  'Thuận lợi chỉ là gợi ý, không phải bảo chứng — sự chuẩn bị chu đáo mới tạo nên kết quả.',
+  'Hôm nay hợp để bắt đầu việc bạn đã suy nghĩ kỹ; chọn một việc và làm cho trọn.',
+  'Ngày tốt để kết nối và hợp tác — một lời hỏi thăm chân thành có thể mở ra điều hay.',
+  'Tận dụng đà thuận lợi để hoàn thành việc còn dang dở trước khi mở thêm việc mới.',
+];
+
+/** Câu khuyên khi ngày bình thường. */
+const ENCOURAGE_NORMAL: string[] = [
+  'Ngày bình ổn — hợp làm đều tay, hoàn thiện việc đang có và giữ nhịp đều.',
+  'Không quá thuận cũng không trở ngại: chọn việc nhỏ, làm chắc từng bước.',
+  'Một ngày để sắp xếp lại: dọn việc tồn đọng, chuẩn bị cho những ngày thuận lợi hơn.',
+  'Ngày bình thường là dịp rèn thói quen tốt — sự đều đặn bền hơn những cú bứt phá.',
+];
+
+/**
+ * Câu động viên/khuyên nhủ của NGÀY theo điểm vận khí (0–100), dùng cho lời chào ở Tổng quan.
+ * Cố định theo ngày (không đổi mỗi lần vẽ lại); giọng theo rule của app: xu hướng + hành động, không phán tuyệt đối.
+ */
+export function dailyMessage(score100: number, date: Date = new Date()): string {
+  const list = score100 >= 65 ? ENCOURAGE_GOOD : score100 >= 50 ? ENCOURAGE_NORMAL : ENCOURAGE;
+  const dayOfYear = Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
+  return list[dayOfYear % list.length];
+}
+
 const isRough = (rating: string) => rating === 'Cần thận trọng' || rating === 'Xấu';
 
 const WEEKDAY = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];

@@ -25,7 +25,7 @@ import { genericDayScore, buildGenericMonthHeatmapForMonth } from '../core/gener
 import { buildMonthHeatmap, type DayTone } from '../core/dailyPeriodService';
 import { solarToLunar } from '../core/lunarCalendar';
 import { currentAgeOf } from '../core/ageUtil';
-import { buildTodaySummary } from '../core/todaySummary';
+import { buildTodaySummary, dailyMessage } from '../core/todaySummary';
 import { syncEventNotifications, planScheduledReminders } from '../lib/notificationEvents';
 import { syncBroadcasts } from '../lib/broadcasts';
 import { openAiChat } from '../lib/aiChatBus';
@@ -172,6 +172,7 @@ export default function OverviewScreen() {
       <View style={{ gap: 6 }}>
         <Eyebrow>{`${WEEKDAY_LONG[now.getDay()]} - ${now.getDate()}/${m}/${y} (${lunarNow.day}/${lunarNow.month}${lunarNow.isLeapMonth ? ' nhuận' : ''} âm lịch)`}</Eyebrow>
         <Display size={36}>Xin chào, {displayName}</Display>
+        <Text style={s.dailyMsg}>{dailyMessage(todayScore, now)}</Text>
       </View>
 
       {/* Vận khí hôm nay + Thời tiết hôm nay */}
@@ -337,6 +338,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.32)',
   },
   xuTxt: { fontFamily: FONTS.bodyBold, fontSize: 13, color: '#F5E0AE' },
+  dailyMsg: { fontFamily: FONTS.displayItalic, fontSize: 19, lineHeight: 25, color: '#E9D9B5', marginTop: 2 },
   lunarLine: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   miniCard: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
   miniEyebrow: { fontSize: 10.5, letterSpacing: 1.4 },
