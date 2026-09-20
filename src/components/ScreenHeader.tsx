@@ -3,13 +3,12 @@
  *  - Safe-area top (không bị che bởi đồng hồ/notch).
  *  - Nút quay lại tròn, viền vàng mảnh (bên trái) — chỉ hiện khi có `onBack`.
  *  - Tiêu đề chữ serif (Cormorant Garamond) ở giữa.
- *  - Nút Menu bên phải — HeaderMenuButton dùng chung.
+ *  - Không còn nút Menu bên phải (đã có thanh tab dưới cùng); giữ ô trống để tiêu đề luôn cân giữa.
  */
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import HeaderMenuButton from './HeaderMenuButton';
 import Icon from '../ui/Icon';
 
 export default function ScreenHeader({
@@ -31,9 +30,7 @@ export default function ScreenHeader({
         ) : null}
       </View>
       <Text style={styles.title} numberOfLines={1}>{title}</Text>
-      <View style={styles.rightSlot}>
-        <HeaderMenuButton />
-      </View>
+      <View style={styles.rightSlot} />
     </View>
   );
 }
