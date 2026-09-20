@@ -31,7 +31,7 @@ update public.profiles set is_admin = false;
 update public.profiles p set is_admin = true
 from auth.users u
 where p.id = u.id
-  and lower(u.email) in ('admin@gmail.com', 'toannv.msb@gmail.com');
+  and lower(u.email) in ('vantoan10@gmail.com', 'toannv.msb@gmail.com');
 
 -- 4) Kiểm tra: ai còn là admin?
 select u.email,

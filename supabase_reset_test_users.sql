@@ -1,13 +1,13 @@
 -- ════════════════════════════════════════════════════════════════
 --  RESET USER CHO ĐỢT TEST
 --  - Hạ TẤT CẢ user về NGƯỜI DÙNG THƯỜNG và đặt 1000 xu.
---  - GIỮ admin + GIỮ NGUYÊN xu cho: admin@gmail.com, toannv.msb@gmail.com
+--  - GIỮ admin + GIỮ NGUYÊN xu cho: vantoan10@gmail.com, toannv.msb@gmail.com
 --  Cách dùng: Supabase Dashboard → SQL Editor → New query → dán toàn bộ → Run.
 -- ════════════════════════════════════════════════════════════════
 
 -- Danh sách email admin (so sánh không phân biệt hoa/thường).
 -- Sửa tại đây nếu muốn thêm/bớt admin.
---   ('admin@gmail.com', 'toannv.msb@gmail.com')
+--   ('vantoan10@gmail.com', 'toannv.msb@gmail.com')
 
 -- 1) Hạ tất cả về user thường + đặt 1000 xu, TRỪ các admin.
 update public.profiles p
@@ -15,14 +15,14 @@ set    is_admin = false,
        xu = 1000
 from   auth.users u
 where  p.id = u.id
-  and  lower(u.email) not in ('admin@gmail.com', 'toannv.msb@gmail.com');
+  and  lower(u.email) not in ('vantoan10@gmail.com', 'toannv.msb@gmail.com');
 
 -- 2) Đảm bảo 2 tài khoản admin vẫn là admin (KHÔNG đụng tới xu của họ).
 update public.profiles p
 set    is_admin = true
 from   auth.users u
 where  p.id = u.id
-  and  lower(u.email) in ('admin@gmail.com', 'toannv.msb@gmail.com');
+  and  lower(u.email) in ('vantoan10@gmail.com', 'toannv.msb@gmail.com');
 
 -- 3) KIỂM TRA kết quả.
 select u.email,
