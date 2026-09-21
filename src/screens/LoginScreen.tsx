@@ -330,10 +330,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   // Welcome
   welcomeTop: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-  welcomeLogo: {
-    width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)',
-    shadowColor: '#E2C285', shadowOpacity: 0.35, shadowRadius: 30, shadowOffset: { width: 0, height: 0 }, elevation: 12,
-  },
+  // Không gắn shadow/elevation lên chính <Image>: iOS/Android dựng bóng theo khung VUÔNG của ảnh (không theo borderRadius)
+  // nên lộ viền chữ nhật quanh logo. Quầng sáng vàng đã có sẵn trong WelcomeOrbits (SVG).
+  welcomeLogo: { width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)' },
   welcomeBottom: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center', gap: 14 },
   eyebrow: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 2.4, color: COLORS.gold },
   welcomeQuote: { fontFamily: FONTS.displayItalic, fontSize: 28, lineHeight: 33, textAlign: 'center', color: COLORS.textPrimary },
