@@ -127,7 +127,7 @@ export default function LoginScreen() {
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.welcomeTop}>
             <WelcomeOrbits />
-            <Image source={require('../../assets/logo.jpg')} style={styles.welcomeLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
+            <Image source={require('../../assets/logo-circle.png')} style={styles.welcomeLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
           </View>
           <View style={styles.welcomeBottom}>
             <Text style={styles.eyebrow}>TỬ VI · BÁT TỰ</Text>
@@ -190,7 +190,7 @@ export default function LoginScreen() {
               <TouchableOpacity onPress={() => setStage('welcome')} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Quay lại">
                 <Icon name="back" size={22} />
               </TouchableOpacity>
-              <Image source={require('../../assets/logo.jpg')} style={styles.smallLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
+              <Image source={require('../../assets/logo-circle.png')} style={styles.smallLogo} resizeMode="cover" accessibilityLabel="Logo Tuzi.vn" />
               <View style={{ width: 44 }} />
             </View>
 
@@ -330,9 +330,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   // Welcome
   welcomeTop: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-  // Không gắn shadow/elevation lên chính <Image>: iOS/Android dựng bóng theo khung VUÔNG của ảnh (không theo borderRadius)
-  // nên lộ viền chữ nhật quanh logo. Quầng sáng vàng đã có sẵn trong WelcomeOrbits (SVG).
-  welcomeLogo: { width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(226,194,133,0.7)' },
+  // Logo dùng ảnh PNG đã cắt tròn sẵn (nền trong suốt): không phụ thuộc border-radius/overflow của trình duyệt
+  // (Safari iOS không bo tròn ảnh nền → lộ khung vuông). Quầng sáng vàng đã có trong WelcomeOrbits (SVG).
+  welcomeLogo: { width: 200, height: 200 },
   welcomeBottom: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center', gap: 14 },
   eyebrow: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 2.4, color: COLORS.gold },
   welcomeQuote: { fontFamily: FONTS.displayItalic, fontSize: 28, lineHeight: 33, textAlign: 'center', color: COLORS.textPrimary },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.2)',
   },
-  smallLogo: { width: 64, height: 64, borderRadius: 32, borderWidth: 1.5, borderColor: 'rgba(226,194,133,0.7)' },
+  smallLogo: { width: 64, height: 64 },
   title: { fontFamily: FONTS.display, fontSize: 38, lineHeight: 42, color: COLORS.textPrimary, textAlign: 'center' },
   sub: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, color: COLORS.textSecondary, textAlign: 'center', maxWidth: 310 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
