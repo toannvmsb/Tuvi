@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Bạn là chuyên gia Tử Vi Nam Phái. Dữ liệu đầu vào là các sao tọa thủ cung Phu Thê + khí chất/dụng thần của NGƯỜI XEM. " +
-              "Dựa trên ý nghĩa của các sao Phu Thê (mô tả người bạn đời/đối tác tương hợp: dáng vẻ, thần thái, tính cách) và nguyên lý bổ trợ ngũ hành, hãy suy ra đặc điểm KHUÔN MẶT của một NGƯỜI KHÁC — người tương hợp với người xem. Đây chỉ là gợi ý mang tính tham khảo, giải trí. " +
+              "Bạn là chuyên gia Tử Vi Nam Phái. Dữ liệu đầu vào gồm: (1) các sao cung Phu Thê + gợi ý diện mạo/hình dáng người tương hợp suy từ các sao đó; (2) ngoại hình CHỦ LÁ SỐ suy từ sao cung Mệnh và ngũ hành; (3) khí chất/dụng thần. " +
+              "Hãy suy ra NGOẠI HÌNH cụ thể của một NGƯỜI KHÁC — người bạn đời/đối tác tương hợp: bám sát gợi ý diện mạo của các sao Phu Thê (dáng người, khuôn mặt), đồng thời theo nguyên lý BỔ TRỢ/HÀI HÒA với chủ lá số (không sao chép ngoại hình của chủ lá số). Mỗi lá số khác nhau phải cho ra bộ đặc điểm khác nhau rõ rệt; tránh chọn lại những lựa chọn phổ biến/an toàn nhất. Đây chỉ là gợi ý tham khảo, giải trí. " +
               "Trả về DUY NHẤT 1 JSON hợp lệ (không markdown, không giải thích) đúng cấu trúc: " +
-              '{"faceShape":"hình dáng khuôn mặt, tiếng Anh, vd oval/heart-shaped/round/square","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}' +
+              '{"faceShape":"hình dáng khuôn mặt, tiếng Anh","build":"vóc dáng/thể hình, tiếng Anh, vd slender, athletic, broad-shouldered, petite, full-figured","skin":"tông da, tiếng Anh","hair":"màu và kiểu tóc chi tiết phù hợp độ dài đã chọn, tiếng Anh","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","lipsAndSmile":"môi và nụ cười, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}' +
               " " +
               "Không nhắc tên riêng, không phán đoán tuyệt đối. Nếu thiếu dữ liệu, tự chọn một bộ đặc điểm hài hoà, dễ mến.",
           },
@@ -123,8 +123,8 @@ Deno.serve(async (req) => {
               contextBlock,
           },
         ],
-        temperature: 0.8,
-        max_tokens: 250,
+        temperature: 1.0,
+        max_tokens: 400,
       }),
     });
 
@@ -137,8 +137,8 @@ Deno.serve(async (req) => {
     if (!rawContent) throw new Error("OpenAI không trả về nội dung.");
 
     let face: {
-      faceShape?: string; eyes?: string; nose?: string;
-      eyebrows?: string; cheekbonesAndJaw?: string; mood?: string;
+      faceShape?: string; build?: string; skin?: string; hair?: string; eyes?: string; nose?: string;
+      eyebrows?: string; lipsAndSmile?: string; cheekbonesAndJaw?: string; mood?: string;
     };
     try {
       face = JSON.parse(rawContent);
@@ -150,16 +150,39 @@ Deno.serve(async (req) => {
     // ---- template cố định, không có chỗ cho việc "sáng tạo" trôi dạt. ----
     const faceBits = [
       face.faceShape && `a ${face.faceShape} face`,
+      face.skin && `${face.skin} skin`,
       face.eyes,
       face.nose,
       face.eyebrows,
+      face.lipsAndSmile,
       face.cheekbonesAndJaw,
     ].filter(Boolean).join(", ");
 
+    // Đa dạng hóa: ngay cả cùng 1 lá số, mỗi lần vẽ chọn ngẫu nhiên bối cảnh/trang phục/góc chụp/ánh sáng
+    // để ảnh không trùng lặp (phần khuôn mặt/vóc dáng vẫn bám theo lá số).
+    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    const outfit = pick([
+      "a crisp white shirt", "a soft knit sweater", "a tailored blazer", "a casual denim jacket", "a simple linen shirt",
+      "an elegant dark turtleneck", "a light cardigan over a plain tee", "a traditional-inspired modern collar top",
+    ]);
+    const backdrop = pick([
+      "a softly blurred cafe interior", "a neutral warm-grey studio backdrop", "a sunlit window with sheer curtains",
+      "a green garden bokeh", "a modern office with soft blur", "a golden-hour city street bokeh", "a calm bookshelf background",
+    ]);
+    const lighting = pick([
+      "soft window light", "warm golden-hour light", "gentle studio key light with subtle rim light", "diffused overcast daylight",
+    ]);
+    const angle = pick([
+      "a slight three-quarter angle", "a straight-on framing", "a gentle head tilt", "a relaxed candid pose",
+    ]);
+    const extra = pick(["", "", "", "wearing thin-framed glasses", "with a subtle earring", "with a light stubble", "with a small beauty mark"]);
+
     const imagePrompt =
-      `Photorealistic studio portrait photography of a ${ageWanted}-year-old ${genderLabel} with ${hairLabel}, ` +
-      `featuring ${faceBits || "a warm, harmonious face"}, with a ${face.mood || "warm and friendly"} expression. ` +
-      `Warm studio lighting, half-body composition, friendly demeanor.` +
+      `Photorealistic portrait photograph of a ${ageWanted}-year-old ${genderLabel}, ${face.build ? `${face.build} build, ` : ""}` +
+      `with ${face.hair || hairLabel} (${hairLabel}), ` +
+      `featuring ${faceBits || "a warm, harmonious face"}, with a ${face.mood || "warm and friendly"} expression` +
+      `${extra ? `, ${extra}` : ""}. ` +
+      `Wearing ${outfit}, ${angle}, ${lighting}, against ${backdrop}. Half-body composition, natural skin texture, sharp focus.` +
       (note?.trim() ? ` ${note.trim()}` : "");
 
     // ---- Bước 2: Cloudflare Workers AI vẽ ảnh (FLUX.2 klein 4B) ----

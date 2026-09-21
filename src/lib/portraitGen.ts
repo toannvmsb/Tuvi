@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabase';
 import type { AstrologyResult } from '../types';
+import { describeLook } from '../data/starAppearance';
 
 export interface PortraitParams {
   sessionId?: string;
@@ -30,6 +31,15 @@ export function buildPortraitContext(r: AstrologyResult): string {
   if (menh) {
     const chinh = menh.stars.filter(s => s.type === 'chinh');
     lines.push(`Cung Mệnh của người xem: ${chinh.length ? fmt(chinh) : 'vô chính diệu'}; bản mệnh ${c.napAmMenh}.`);
+  }
+  // Diện mạo/hình dáng gợi từ sao (nguồn dữ liệu: data/starAppearance.ts) — giúp ảnh khác nhau theo từng lá số.
+  if (phuThe) {
+    const look = describeLook(phuThe.stars);
+    if (look) lines.push(`Gợi ý diện mạo/hình dáng NGƯỜI TƯƠNG HỢP (suy từ sao cung Phu Thê): ${look}.`);
+  }
+  if (menh) {
+    const look = describeLook(menh.stars, c.menhElement);
+    if (look) lines.push(`Ngoại hình CHỦ LÁ SỐ (suy từ sao cung Mệnh + ngũ hành bản mệnh): ${look}.`);
   }
   const fav = r.batTuChart.favorableElements;
   if (fav.length) lines.push(`Ngũ hành dụng thần của người xem: ${fav.join(', ')}.`);
