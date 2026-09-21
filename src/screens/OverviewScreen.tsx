@@ -306,7 +306,7 @@ export default function OverviewScreen() {
         <Display size={24}>Lối tắt</Display>
         {[
           [
-            { icon: 'user', label: 'Lá số của tôi', color: COLORS.gold, go: () => navigation.navigate('ChartHub') },
+            { icon: 'user', label: 'Lá số của tôi', color: COLORS.gold, go: () => (myResult ? navigation.navigate('MainTabs', { result: myResult, screen: 'TuViChart', params: { result: myResult } }) : promptPersonalize(navigation)) },
             { icon: 'chart', label: 'Lập lá số', color: COLORS.green, go: () => navigation.navigate('Input') },
             { icon: 'doc', label: 'Lá số đã lưu', color: COLORS.blue, go: () => navigation.navigate('MyCharts') },
             { icon: 'calendar', label: 'Xem ngày', color: COLORS.purple, go: openDay },
@@ -348,7 +348,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.32)',
   },
   xuTxt: { fontFamily: FONTS.bodyBold, fontSize: 13, color: '#F5E0AE' },
-  dailyMsg: { fontFamily: FONTS.displayItalic, fontSize: 19, lineHeight: 25, color: '#E9D9B5', marginTop: 2 },
+  dailyMsg: { fontFamily: FONTS.displayItalic, fontSize: 16, lineHeight: 21, color: '#E9D9B5', marginTop: 2 },
   lunarLine: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   miniCard: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
   miniEyebrow: { fontSize: 10.5, letterSpacing: 1.4 },

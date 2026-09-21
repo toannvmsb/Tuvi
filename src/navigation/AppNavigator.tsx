@@ -138,6 +138,7 @@ const ROUTE_TITLES: Record<string, string> = {
   EventDetail: 'Sự kiện sắp tới',
   MyCharts: 'Lá số đã lưu',
   Portrait: 'Chân dung tương hợp',
+  EditChart: 'Sửa lá số',
   CompareCharts: 'So sánh lá số',
   Wallet: 'Nạp xu',
   Account: 'Tài khoản',
@@ -177,6 +178,7 @@ export default function AppNavigator() {
             sau khi điều hướng qua menu. */}
         <Stack.Screen name="Home" component={AppTabs} options={{ headerShown: false }} />
         <Stack.Screen name="Input" component={InputScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EditChart" component={InputScreen as any} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Account" component={AccountScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />

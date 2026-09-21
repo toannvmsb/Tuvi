@@ -10,14 +10,14 @@ import type { RootStackParamList, BirthInfo, AstrologyResult, Gender, CalendarTy
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
 import { buildResult } from '../core/buildResult';
-import { saveChart } from '../lib/charts';
+import { saveChart, updateChart, type SavedChartRow } from '../lib/charts';
 import ScreenHeader from '../components/ScreenHeader';
 import PlacePicker from '../components/PlacePicker';
-import { savePlaceForChart, type Place } from '../lib/weather';
+import { savePlaceForChart, getPlaceForChart, type Place } from '../lib/weather';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Input'>;
+type Props = Omit<NativeStackScreenProps<RootStackParamList, 'Input'>, 'route'> & { route?: { params?: { row?: SavedChartRow } } };
 
 const HOUR_OPTIONS = [
   { name: 'Tý', range: '23-01', value: 0 },
@@ -34,21 +34,24 @@ const HOUR_OPTIONS = [
   { name: 'Hợi', range: '21-23', value: 22 },
 ];
 
-export default function InputScreen({ navigation }: Props) {
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState<Gender>('nam');
-  const [calendarType, setCalendarType] = useState<CalendarType>('solar');
-  const [year, setYear] = useState('1990');
-  const [month, setMonth] = useState('1');
-  const [day, setDay] = useState('1');
-  const [hour, setHour] = useState(12);
-  const [isLeapMonth, setIsLeapMonth] = useState(false);
+export default function InputScreen({ navigation, route }: Props) {
+  // Chế độ SỬA: màn "EditChart" truyền dòng lá số cần sửa; các ô nhập khởi tạo từ dòng đó.
+  const editRow = route?.params?.row;
+  const [name, setName] = useState(editRow?.name ?? '');
+  const [gender, setGender] = useState<Gender>((editRow?.gender as Gender) ?? 'nam');
+  const [calendarType, setCalendarType] = useState<CalendarType>((editRow?.calendar as CalendarType) ?? 'solar');
+  const [year, setYear] = useState(editRow ? String(editRow.birth_year) : '1990');
+  const [month, setMonth] = useState(editRow ? String(editRow.birth_month) : '1');
+  const [day, setDay] = useState(editRow ? String(editRow.birth_day) : '1');
+  const [hour, setHour] = useState(editRow ? editRow.birth_hour : 12);
+  const [isLeapMonth, setIsLeapMonth] = useState(editRow?.is_leap ?? false);
   const [loading, setLoading] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
   const [pickerOpen, setPickerOpen] = useState<null | 'day' | 'month' | 'year' | 'viewingYear'>(null);
 
   const currentYear = new Date().getFullYear();
-  const [viewingYear, setViewingYear] = useState(String(currentYear));
+  const [viewingYear, setViewingYear] = useState(String(editRow?.viewing_year ?? currentYear));
+  useEffect(() => { if (editRow) getPlaceForChart(editRow.id).then(p => { if (p) setPlace(p); }); }, [editRow?.id]);
   const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => currentYear - i);
@@ -125,6 +128,16 @@ export default function InputScreen({ navigation }: Props) {
         viewingYear: parseInt(viewingYear) || undefined,
       };
 
+      // SỬA lá số đã lưu: cập nhật server + nơi ở, rồi quay lại màn trước.
+      if (editRow) {
+        buildResult(birthInfo, birthInfo.viewingYear); // kiểm tra dữ liệu tính được trước khi lưu
+        const ok = await updateChart(editRow.id, birthInfo);
+        if (!ok) { Alert.alert('Chưa lưu được', 'Không cập nhật được lá số. Kiểm tra kết nối mạng và đăng nhập rồi thử lại.'); return; }
+        await savePlaceForChart(editRow.id, place);
+        navigation.goBack();
+        return;
+      }
+
       const result = buildResult(birthInfo, birthInfo.viewingYear);
 
       // Đăng nhập rồi → lưu lá số lên server (đọc lại sau không phải nhập lại).
@@ -145,7 +158,7 @@ export default function InputScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title={t('inputTitle')} onBack={() => navigation.goBack()} />
+      <ScreenHeader title={editRow ? 'Sửa lá số' : t('inputTitle')} onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Name */}
         <Section title="👤 Họ và tên">
@@ -286,7 +299,7 @@ export default function InputScreen({ navigation }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#1a0a00" />
-            : <Text style={styles.calcBtnText}>☯  {t('calculate')}</Text>
+            : <Text style={styles.calcBtnText}>{editRow ? 'Lưu thay đổi' : `☯  ${t('calculate')}`}</Text>
           }
         </TouchableOpacity>
       </ScrollView>

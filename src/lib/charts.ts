@@ -86,6 +86,27 @@ export async function listCharts(force = false): Promise<SavedChartRow[]> {
   return chartsCache;
 }
 
+/** Cập nhật thông tin lá số đã lưu (sửa lá số). Trả về true nếu thành công. */
+export async function updateChart(id: string, b: BirthInfo): Promise<boolean> {
+  if (!isOnlineMode()) return false;
+  const { data: ures } = await supabase.auth.getUser();
+  const uid = ures.user?.id;
+  if (!uid) return false;
+  const { error } = await supabase
+    .from('charts')
+    .update({
+      name: b.name || null,
+      gender: b.gender,
+      birth_day: b.day, birth_month: b.month, birth_year: b.year, birth_hour: b.hour,
+      calendar: b.calendarType, is_leap: b.isLeapMonth ?? false,
+      viewing_year: b.viewingYear ?? null,
+    })
+    .eq('id', id).eq('user_id', uid);
+  if (error) return false;
+  invalidateChartsCache();   // danh sách/Home/Lá số của tôi tải lại dữ liệu mới
+  return true;
+}
+
 /** Dựng lại AstrologyResult từ 1 dòng đã lưu (gắn chartId để unlock theo lá số). */
 export function rowToResult(row: SavedChartRow): AstrologyResult {
   const birthInfo: BirthInfo = {

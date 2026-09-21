@@ -84,9 +84,14 @@ export default function MyChartsScreen() {
                 <Text style={[styles.checkTxt, myId === r.id && styles.checkTxtOn]}>{myId === r.id ? '☑' : '☐'}</Text>
                 <Text style={styles.checkLabel}>Của tôi</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => remove(r)} style={styles.delBtn}>
-                <Text style={styles.delTxt}>🗑</Text>
-              </TouchableOpacity>
+              <View style={styles.actionCol}>
+                <TouchableOpacity onPress={() => remove(r)} style={styles.delBtn} accessibilityRole="button" accessibilityLabel="Xóa lá số">
+                  <Text style={styles.delTxt}>🗑</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('EditChart', { row: r })} style={styles.editBtn} accessibilityRole="button" accessibilityLabel="Sửa lá số">
+                  <Text style={styles.delTxt}>✏️</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}
@@ -124,6 +129,8 @@ const styles = StyleSheet.create({
   checkLabel: { fontSize: 9, color: COLORS.textSecondary },
   delBtn: { padding: SPACING.xs, borderRadius: 8, backgroundColor: '#ff6b6b22', borderWidth: 1, borderColor: '#ff8a8a' },
   delTxt: { fontSize: 22 },
+  actionCol: { gap: SPACING.xs },
+  editBtn: { padding: SPACING.xs, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.gold + '22', borderWidth: 1, borderColor: COLORS.gold },
   newBtn: {
     backgroundColor: COLORS.gold, borderRadius: 10, paddingVertical: SPACING.md,
     alignItems: 'center', marginTop: SPACING.sm,

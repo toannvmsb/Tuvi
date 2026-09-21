@@ -101,6 +101,11 @@ function parsePlace(raw: string | null): Place | null {
   return null;
 }
 
+/** Địa điểm đã lưu của 1 lá số cụ thể (null nếu chưa chọn). */
+export async function getPlaceForChart(chartId: string): Promise<Place | null> {
+  try { return parsePlace(await AsyncStorage.getItem(PLACE_KEY(chartId))); } catch { return null; }
+}
+
 /** Địa điểm của lá số "của tôi"; không có → Hà Nội. */
 export async function getMyPlace(): Promise<Place> {
   try {
