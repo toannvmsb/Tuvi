@@ -170,8 +170,8 @@ export default function OverviewScreen() {
 
       {/* Lời chào */}
       <View style={{ gap: 6 }}>
-        <Eyebrow>{`${WEEKDAY_LONG[now.getDay()]} - ${now.getDate()}/${m}/${y} (${lunarNow.day}/${lunarNow.month}${lunarNow.isLeapMonth ? ' nhuận' : ''} âm lịch)`}</Eyebrow>
-        <Display size={36}>Xin chào, {displayName}</Display>
+        <Eyebrow style={{ fontSize: 14, letterSpacing: 1.2 }}>{`${WEEKDAY_LONG[now.getDay()]} - ${now.getDate()}/${m}/${y} (${lunarNow.day}/${lunarNow.month}${lunarNow.isLeapMonth ? ' nhuận' : ''} âm lịch)`}</Eyebrow>
+        <Display size={30}>Xin chào, {displayName}</Display>
         <Text style={s.dailyMsg}>{dailyMessage(todayScore, now)}</Text>
       </View>
 
@@ -301,22 +301,32 @@ export default function OverviewScreen() {
       {/* Ghi chú: 5 ghi chú gần nhất + nhập nhanh */}
       <HomeNotesBox />
 
-      {/* Lối tắt */}
+      {/* Lối tắt: 2 hàng × 4 nút */}
       <View style={{ gap: 12 }}>
         <Display size={24}>Lối tắt</Display>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {([
-            { icon: 'chart', label: 'Lập lá số', color: COLORS.gold, go: () => navigation.navigate('Input') },
-            { icon: 'calendar', label: 'Xem ngày', color: COLORS.green, go: openDay },
-            { icon: 'compare', label: 'Tương hợp', color: COLORS.purple, go: () => navigation.navigate('CompareCharts', {}) },
-            { icon: 'user', label: 'Lá số đã lưu', color: COLORS.blue, go: () => navigation.navigate('MyCharts') },
-          ] as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
-            <Pressable key={t.label} onPress={t.go} style={[s.shortcut, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
-              <View style={[s.shortcutIcon, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={22} color={t.color} /></View>
-              <Text style={s.shortcutTxt}>{t.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {[
+          [
+            { icon: 'user', label: 'Lá số của tôi', color: COLORS.gold, go: () => navigation.navigate('ChartHub') },
+            { icon: 'chart', label: 'Lập lá số', color: COLORS.green, go: () => navigation.navigate('Input') },
+            { icon: 'doc', label: 'Lá số đã lưu', color: COLORS.blue, go: () => navigation.navigate('MyCharts') },
+            { icon: 'calendar', label: 'Xem ngày', color: COLORS.purple, go: openDay },
+          ],
+          [
+            { icon: 'event', label: 'Ngày sự kiện', color: COLORS.gold, go: () => navigation.navigate('DayPicker', { result: myResult ?? undefined }) },
+            { icon: 'coin', label: 'Tài lộc', color: COLORS.green, go: () => (myResult ? navigation.navigate('WealthChart', { result: myResult }) : promptPersonalize(navigation)) },
+            { icon: 'compare', label: 'Tương hợp', color: COLORS.blue, go: () => navigation.navigate('CompareCharts', { preSelectedResult: myResult ?? undefined }) },
+            { icon: 'spark', label: 'Ảnh tương hợp', color: COLORS.purple, go: () => navigation.navigate('Portrait', { result: myResult ?? undefined }) },
+          ],
+        ].map((row, ri) => (
+          <View key={ri} style={{ flexDirection: 'row', gap: 10 }}>
+            {(row as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
+              <Pressable key={t.label} onPress={t.go} style={[s.shortcut, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
+                <View style={[s.shortcutIcon, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={22} color={t.color} /></View>
+                <Text style={s.shortcutTxt} numberOfLines={2}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ))}
       </View>
     </Screen>
   );
@@ -379,7 +389,7 @@ const s = StyleSheet.create({
   },
   askIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
-  shortcut: { flex: 1, minHeight: 100, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
+  shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
   shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  shortcutTxt: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary, textAlign: 'center' },
+  shortcutTxt: { fontFamily: FONTS.bodySemi, fontSize: 12, lineHeight: 15, paddingHorizontal: 2, color: COLORS.textPrimary, textAlign: 'center' },
 });

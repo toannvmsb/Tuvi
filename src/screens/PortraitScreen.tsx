@@ -3,7 +3,7 @@
  * Trừ xu SAU khi vẽ thành công (lỗi dịch vụ thì không mất xu).
  */
 import React, { useState } from 'react';
-import { View, Text, TextInput, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Image, ActivityIndicator, Pressable, Modal, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
@@ -14,6 +14,7 @@ import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { generatePortrait, buildPortraitContext } from '../lib/portraitGen';
 import { saveImageOrDownload } from '../lib/platform';
 import { webAlert } from '../lib/webAlert';
+import { addPortrait, listPortraits, galleryKeyOf, type SavedPortrait } from '../lib/portraitStore';
 import type { AstrologyResult } from '../types';
 
 type PGender = 'male' | 'female';
@@ -32,6 +33,10 @@ export default function PortraitScreen() {
   const [busy, setBusy] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<SavedPortrait[]>([]);
+  const [viewing, setViewing] = useState<SavedPortrait | null>(null);
+  const galleryKey = galleryKeyOf(result?.birthInfo.chartId);
+  React.useEffect(() => { if (result) listPortraits(galleryKey).then(setGallery); }, [result, galleryKey]);
 
   // Mặc định giới tính người tương hợp = khác giới với chủ lá số (vẫn đổi được).
   const defaulted = React.useRef(false);
@@ -75,7 +80,10 @@ export default function PortraitScreen() {
         gender, hairLength: hair, note: note.trim() || undefined,
       });
       chargeAgain(`portrait:${Date.now()}`, 'ai', cost);
-      setImageUrl(url);
+      // Tự lưu offline vào máy (mobile) + ghi vào kho "Chân dung đã vẽ" của lá số này.
+      const saved = await addPortrait(galleryKey, url);
+      setImageUrl(saved.uri);
+      setGallery(await listPortraits(galleryKey));
     } catch (e: any) {
       setError(e?.message || 'Không vẽ được chân dung, vui lòng thử lại.');
     } finally {
@@ -83,10 +91,10 @@ export default function PortraitScreen() {
     }
   };
 
-  const save = async () => {
-    if (!imageUrl) return;
+  const save = async (uri: string | null = imageUrl) => {
+    if (!uri) return;
     try {
-      await saveImageOrDownload(imageUrl, 'tuzi-chan-dung.png');
+      await saveImageOrDownload(uri, 'tuzi-chan-dung.png');
       webAlert.alert('Đã lưu', 'Ảnh đã được lưu.');
     } catch (e: any) {
       webAlert.alert('Chưa lưu được', e?.message || 'Vui lòng thử lại.');
@@ -123,10 +131,52 @@ export default function PortraitScreen() {
         {imageUrl && (
           <Card style={{ gap: 12, padding: 12 }}>
             <Image source={{ uri: imageUrl }} style={s.img} resizeMode="cover" accessibilityLabel="Chân dung người tương hợp" />
-            <OutlineButton label="Lưu ảnh" onPress={save} />
+            <OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(imageUrl)} />
           </Card>
         )}
+
+        {/* Chân dung đã vẽ — lưu offline trên máy này, 3 ảnh mỗi hàng */}
+        <Card style={{ gap: 12 }}>
+          <View style={s.galHead}>
+            <Text style={s.galTitle}>Chân dung đã vẽ</Text>
+            <Text style={s.galCount}>{gallery.length} ảnh</Text>
+          </View>
+          {gallery.length === 0 ? (
+            <Body size={13}>Chưa có ảnh nào. Mỗi ảnh vẽ xong sẽ tự lưu tại đây trên máy này.</Body>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {Array.from({ length: Math.ceil(gallery.length / 3) }, (_, r) => (
+                <View key={r} style={s.galRow}>
+                  {[0, 1, 2].map(c => {
+                    const it = gallery[r * 3 + c];
+                    return it ? (
+                      <Pressable key={it.id} style={s.thumbWrap} onPress={() => setViewing(it)} accessibilityRole="button" accessibilityLabel="Xem ảnh chân dung đã vẽ">
+                        <Image source={{ uri: it.uri }} style={s.thumb} resizeMode="cover" />
+                      </Pressable>
+                    ) : <View key={`e${c}`} style={s.thumbWrap} />;
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
+          <Text style={s.galNote}>Ảnh chỉ lưu trên máy đã vẽ. Đổi máy hoặc xóa dữ liệu ứng dụng sẽ không còn ảnh.</Text>
+        </Card>
       </KeyboardAwareScreen>
+
+      <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <View style={s.viewerBack}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setViewing(null)} accessibilityLabel="Đóng" />
+          {viewing && (
+            <View style={s.viewerBox}>
+              <Image source={{ uri: viewing.uri }} style={s.viewerImg} resizeMode="contain" />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}><OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(viewing.uri)} /></View>
+                <View style={{ flex: 1 }}><GoldButton label="Đóng" onPress={() => setViewing(null)} /></View>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -142,4 +192,14 @@ const s = StyleSheet.create({
   busyTxt: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   error: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.red, textAlign: 'center' },
   img: { width: '100%', aspectRatio: 1, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)' },
+  galHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  galTitle: { fontFamily: FONTS.display, fontSize: 24, color: COLORS.textPrimary },
+  galCount: { fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
+  galRow: { flexDirection: 'row', gap: 8 },
+  thumbWrap: { flex: 1, aspectRatio: 1 },
+  thumb: { width: '100%', height: '100%', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.24)' },
+  galNote: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 17, color: COLORS.textMuted },
+  viewerBack: { flex: 1, backgroundColor: 'rgba(6,6,20,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  viewerBox: { width: '100%', maxWidth: 460, gap: 14 },
+  viewerImg: { width: '100%', aspectRatio: 1, borderRadius: 16 },
 });
