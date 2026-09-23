@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AstrologySignal",
+  "type": "object",
+  "required": [
+    "source",
+    "family",
+    "palace",
+    "signalType",
+    "intensity",
+    "polarity"
+  ],
+  "properties": {
+    "source": {
+      "enum": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL",
+        "MONTHLY"
+      ]
+    },
+    "family": {
+      "type": "string"
+    },
+    "palace": {
+      "enum": [
+        "MENH",
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH",
+        "QUAN_LOC",
+        "NO_BOC",
+        "THIEN_DI",
+        "TAT_ACH",
+        "TAI_BACH",
+        "TU_TUC",
+        "PHU_THE",
+        "HUYNH_DE"
+      ]
+    },
+    "signalType": {
+      "type": "string"
+    },
+    "targetAxis": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "intensity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "polarity": {
+      "enum": [
+        "POSITIVE",
+        "NEGATIVE",
+        "ACTIVATING",
+        "NEUTRAL"
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+- id: C001_FINANCE_LOC_KY
+  when:
+    category: FINANCE
+    positiveFamiliesMin: 1
+    negativeFamiliesMin: 1
+  action:
+    setDirection: MIXED_IF_DELTA_LT_25
+    addTheme: CASHFLOW_VOLATILITY
+- id: C002_PROPERTY_CHANGE_HAO
+  when:
+    category: PROPERTY
+    signalsAny:
+    - THIEN_MA
+    - THAI_TUE
+    negativeSignalsAny:
+    - DAI_HAO
+    - TIEU_HAO
+    - HOA_KY
+  action:
+    preferEvents:
+    - PROPERTY_RELOCATION
+    - PROPERTY_RENOVATION
+    - PROPERTY_LARGE_EXPENSE
+    suppressAbsoluteLossLanguage: true
+- id: C003_RELATIONSHIP_POS_NEG
+  when:
+    category: RELATIONSHIP
+    positiveFamiliesMin: 1
+    negativeFamiliesMin: 1
+  action:
+    setDirection: MIXED_IF_DELTA_LT_25
+    avoid: binary_breakup_or_marriage_without_specific_gate

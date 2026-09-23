@@ -1,0 +1,99 @@
+{
+  "tests": [
+    {
+      "id": "T001_DAHAN_SUPPRESSION",
+      "given": {
+        "natalCareer": 60,
+        "daHanCareer": 20,
+        "annualCareer": 90
+      },
+      "expect": {
+        "careerMajorEventMaxIntensity": "MODERATE",
+        "finalScoreMax": 59
+      }
+    },
+    {
+      "id": "T002_MONTHLY_CAP",
+      "given": {
+        "annualEventScore": 40,
+        "rawMonthlyScore": 91
+      },
+      "expect": {
+        "monthlyScoreMax": 55
+      }
+    },
+    {
+      "id": "T003_MONTHLY_CAP_LOW",
+      "given": {
+        "annualEventScore": 30,
+        "rawMonthlyScore": 90
+      },
+      "expect": {
+        "monthlyScoreMax": 45
+      }
+    },
+    {
+      "id": "T004_DOUBLE_COUNT_LOC_SYSTEM",
+      "given": {
+        "signals": [
+          "LOC_TON",
+          "KINH_DUONG",
+          "DA_LA"
+        ]
+      },
+      "expect": {
+        "independentEvidenceFamilies": 1
+      }
+    },
+    {
+      "id": "T005_ADVERSITY_DOUBLE_COUNT",
+      "given": {
+        "signals": [
+          "TANG_MON",
+          "BACH_HO",
+          "THIEN_KHOC",
+          "THIEN_HU"
+        ]
+      },
+      "expect": {
+        "independentEvidenceFamilies": 1
+      }
+    },
+    {
+      "id": "T006_FINANCE_CONFLICT",
+      "given": {
+        "positiveScore": 72,
+        "negativeScore": 69
+      },
+      "expect": {
+        "direction": "MIXED"
+      }
+    },
+    {
+      "id": "T007_HEALTH_SAFETY",
+      "given": {
+        "event": "HEALTH_ACCIDENT_SIGNAL"
+      },
+      "expect": {
+        "forbiddenNarratives": [
+          "chắc chắn tai nạn",
+          "sẽ chết",
+          "ung thư",
+          "đột quỵ"
+        ]
+      }
+    },
+    {
+      "id": "T008_MARRIAGE_SINGLE_STAR",
+      "given": {
+        "signals": [
+          "HONG_LOAN"
+        ],
+        "independentFamilies": 1
+      },
+      "expect": {
+        "RELATIONSHIP_MARRIAGE": "NOT_HIGH"
+      }
+    }
+  ]
+}

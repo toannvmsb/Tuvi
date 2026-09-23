@@ -188,6 +188,7 @@ export type RootStackParamList = {
   CompareCharts: { preSelectedResult?: AstrologyResult };
   Portrait: { result?: AstrologyResult } | undefined;
   EditChart: { row: import('../lib/charts').SavedChartRow };
+  AnnualEvents: { result: AstrologyResult; year?: number };
   Wallet: undefined;
   Privacy: undefined;
   Terms: undefined;

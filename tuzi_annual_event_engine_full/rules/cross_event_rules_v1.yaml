@@ -1,0 +1,39 @@
+- id: X001_PROPERTY_RELATED_CASH_OUTFLOW
+  requires:
+    FINANCE_LARGE_EXPENSE: 65
+    PROPERTY_PURCHASE: 65
+  result: PROPERTY_RELATED_CASH_OUTFLOW
+  narrativeHint: Dòng tiền ra lớn có thể liên quan đến việc hình thành hoặc thay đổi
+    tài sản.
+- id: X002_CAREER_TRANSITION_CASHFLOW
+  requires:
+    CAREER_JOB_CHANGE: 70
+    FINANCE_CASHFLOW_PRESSURE: 60
+  result: CAREER_TRANSITION_WITH_CASHFLOW_VOLATILITY
+  narrativeHint: Biến động nghề nghiệp có thể đi cùng biến động thu nhập ngắn hạn.
+- id: X003_RELATIONSHIP_HOUSEHOLD
+  requires:
+    RELATIONSHIP_MARRIAGE: 70
+    PROPERTY_RELOCATION: 60
+  result: RELATIONSHIP_AND_HOUSEHOLD_FORMATION
+  narrativeHint: Quan hệ và môi trường sống có xu hướng thay đổi đồng thời.
+- id: X004_BUSINESS_EXPANSION_INVESTMENT
+  requires:
+    CAREER_BUSINESS_EXPANSION: 65
+    FINANCE_INVESTMENT: 60
+  result: BUSINESS_EXPANSION_WITH_CAPITAL_DEPLOYMENT
+  narrativeHint: Mở rộng công việc/kinh doanh có thể kéo theo nhu cầu vốn hoặc đầu
+    tư.
+- id: X005_PROPERTY_SALE_INFLOW
+  requires:
+    PROPERTY_SALE: 65
+    FINANCE_LARGE_INFLOW: 55
+  result: PROPERTY_LIQUIDITY_EVENT
+  narrativeHint: Hoạt động tài sản có thể đi cùng dòng tiền vào đáng kể.
+- id: X006_OVERSEAS_CAREER
+  requires:
+    MOBILITY_OVERSEAS: 65
+    CAREER_JOB_CHANGE: 55
+  result: CAREER_RELOCATION_OR_OVERSEAS_CHANGE
+  narrativeHint: Biến động công việc có thể gắn với thay đổi địa bàn hoặc môi trường
+    quốc tế.

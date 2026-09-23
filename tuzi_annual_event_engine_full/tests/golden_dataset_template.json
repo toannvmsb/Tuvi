@@ -1,0 +1,19 @@
+{
+  "profileId": "PERSON_001",
+  "birthInput": {},
+  "actualEvents": [
+    {
+      "year": 2023,
+      "lunarMonth": null,
+      "eventType": "CAREER_JOB_CHANGE",
+      "severity": "MAJOR",
+      "evidenceSource": "user_verified"
+    }
+  ],
+  "predictionSnapshot": {},
+  "evaluation": {
+    "eventHit": null,
+    "timingHit": null,
+    "falsePositiveNotes": ""
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnnualPredictionInput",
+  "type": "object",
+  "required": [
+    "birth",
+    "targetYear",
+    "schoolProfile"
+  ],
+  "properties": {
+    "birth": {
+      "type": "object",
+      "required": [
+        "solarDate",
+        "birthTime",
+        "birthHourBranch",
+        "gender"
+      ],
+      "properties": {
+        "solarDate": {
+          "type": "string"
+        },
+        "lunarDate": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "birthTime": {
+          "type": "string"
+        },
+        "birthHourBranch": {
+          "type": "string"
+        },
+        "gender": {
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ]
+        },
+        "birthPlace": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "targetYear": {
+      "type": "integer"
+    },
+    "schoolProfile": {
+      "type": "string"
+    },
+    "options": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

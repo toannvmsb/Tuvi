@@ -35,6 +35,8 @@ export const PREMIUM = {
     aiLarge: 100,       // AI lớn: Toàn lá số / mỗi Đại vận
     aiCompare: 30,      // AI So sánh lá số (12 tầng song song)
     portrait: 30,       // Vẽ chân dung người tương hợp (mỗi lần vẽ)
+    annualEvents: 20,   // Nâng cao Luận sự kiện trong năm (bản offline, không AI)
+    aiAnnualEvents: 100, // Phân tích AI Luận sự kiện trong năm (85 sự kiện + thời điểm tháng)
     aiChat: 1,          // Chat AI nổi — 1 lượt hỏi vượt quota miễn phí/ngày
   },
 };

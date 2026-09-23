@@ -1,0 +1,94 @@
+{
+  "version": "1.0.0",
+  "eventBaseWeights": {
+    "natal": 0.15,
+    "daHan": 0.25,
+    "annualAxis": 0.2,
+    "annualTuHoa": 0.15,
+    "tieuHan": 0.08,
+    "luuNienDaHan": 0.07,
+    "movingStars": 0.05,
+    "structuralSupport": 0.05
+  },
+  "convergenceMultiplier": {
+    "1": 1.0,
+    "2": 1.08,
+    "3": 1.17,
+    "4": 1.28,
+    "5": 1.4,
+    "6+": 1.55,
+    "cap": 1.6
+  },
+  "intensityBands": [
+    {
+      "min": 0,
+      "max": 19,
+      "level": "VERY_LOW"
+    },
+    {
+      "min": 20,
+      "max": 39,
+      "level": "LOW"
+    },
+    {
+      "min": 40,
+      "max": 59,
+      "level": "MODERATE"
+    },
+    {
+      "min": 60,
+      "max": 79,
+      "level": "HIGH"
+    },
+    {
+      "min": 80,
+      "max": 100,
+      "level": "VERY_HIGH"
+    }
+  ],
+  "directionRule": {
+    "positiveMinusNegativeAtLeast": 25,
+    "negativeMinusPositiveAtLeast": 25,
+    "otherwise": "MIXED"
+  },
+  "suppressionRules": [
+    {
+      "if": {
+        "daHanScoreLt": 25
+      },
+      "capFinalScore": 59
+    },
+    {
+      "if": {
+        "natalPotentialLt": 25,
+        "daHanScoreLt": 30
+      },
+      "majorEventAllowed": false
+    },
+    {
+      "if": {
+        "annualEventScoreLt": 50
+      },
+      "monthlyCap": 55
+    },
+    {
+      "if": {
+        "annualEventScoreLt": 35
+      },
+      "monthlyCap": 45
+    }
+  ],
+  "monthlyWeights": {
+    "annualEventBaseline": 0.4,
+    "monthlyAxisHit": 0.2,
+    "monthlyFourTransform": 0.25,
+    "douJunInteraction": 0.1,
+    "otherMonthlySignals": 0.05
+  },
+  "confidenceWeights": {
+    "layerCoverage": 0.35,
+    "evidenceIndependence": 0.3,
+    "ruleConsistency": 0.2,
+    "timingConsistency": 0.15
+  }
+}

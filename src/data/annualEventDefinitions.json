@@ -1,0 +1,3201 @@
+{
+  "CAREER_PROMOTION": {
+    "id": "CAREER_PROMOTION",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Requires positive career direction plus authority/recognition signals; do not infer solely from Hóa Quyền."
+    ]
+  },
+  "CAREER_RESPONSIBILITY_INCREASE": {
+    "id": "CAREER_RESPONSIBILITY_INCREASE",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_JOB_CHANGE": {
+    "id": "CAREER_JOB_CHANGE",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Requires career activity; change signals should dominate stability signals."
+    ]
+  },
+  "CAREER_JOB_LOSS": {
+    "id": "CAREER_JOB_LOSS",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "High-risk wording only; requires strong negative career activity, annual+dahan confirmation, and counter-evidence check."
+    ]
+  },
+  "CAREER_ROLE_CHANGE": {
+    "id": "CAREER_ROLE_CHANGE",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_INTERNAL_TRANSFER": {
+    "id": "CAREER_INTERNAL_TRANSFER",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_NEW_PROJECT": {
+    "id": "CAREER_NEW_PROJECT",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_LEADERSHIP": {
+    "id": "CAREER_LEADERSHIP",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_BUSINESS_START": {
+    "id": "CAREER_BUSINESS_START",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_BUSINESS_EXPANSION": {
+    "id": "CAREER_BUSINESS_EXPANSION",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_WORK_CONFLICT": {
+    "id": "CAREER_WORK_CONFLICT",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_WORK_PRESSURE": {
+    "id": "CAREER_WORK_PRESSURE",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_RECOGNITION": {
+    "id": "CAREER_RECOGNITION",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CAREER_STAGNATION": {
+    "id": "CAREER_STAGNATION",
+    "category": "CAREER",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "TAI_BACH",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.75,
+        "TAI_BACH": 0.65,
+        "THIEN_DI": 0.6
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_INCOME_GROWTH": {
+    "id": "FINANCE_INCOME_GROWTH",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_BONUS": {
+    "id": "FINANCE_BONUS",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_WINDFALL": {
+    "id": "FINANCE_WINDFALL",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_LARGE_INFLOW": {
+    "id": "FINANCE_LARGE_INFLOW",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_LARGE_EXPENSE": {
+    "id": "FINANCE_LARGE_EXPENSE",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_CASHFLOW_PRESSURE": {
+    "id": "FINANCE_CASHFLOW_PRESSURE",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_INVESTMENT": {
+    "id": "FINANCE_INVESTMENT",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_INVESTMENT_GAIN": {
+    "id": "FINANCE_INVESTMENT_GAIN",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_INVESTMENT_LOSS": {
+    "id": "FINANCE_INVESTMENT_LOSS",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_DEBT_INCREASE": {
+    "id": "FINANCE_DEBT_INCREASE",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_DEBT_REDUCTION": {
+    "id": "FINANCE_DEBT_REDUCTION",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_ASSET_ACCUMULATION": {
+    "id": "FINANCE_ASSET_ACCUMULATION",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FINANCE_FINANCIAL_DISPUTE": {
+    "id": "FINANCE_FINANCIAL_DISPUTE",
+    "category": "FINANCE",
+    "axis": {
+      "primary": [
+        "TAI_BACH"
+      ],
+      "secondary": [
+        "QUAN_LOC",
+        "DIEN_TRACH",
+        "MENH"
+      ],
+      "weights": {
+        "TAI_BACH": 1.0,
+        "QUAN_LOC": 0.7,
+        "DIEN_TRACH": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_PURCHASE": {
+    "id": "PROPERTY_PURCHASE",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Prefer when property activity + finance outflow + positive/neutral property direction converge."
+    ]
+  },
+  "PROPERTY_SALE": {
+    "id": "PROPERTY_SALE",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Prefer when property activity + liquidity/inflow or separation/change signals converge."
+    ]
+  },
+  "PROPERTY_RELOCATION": {
+    "id": "PROPERTY_RELOCATION",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_RENOVATION": {
+    "id": "PROPERTY_RENOVATION",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_LARGE_EXPENSE": {
+    "id": "PROPERTY_LARGE_EXPENSE",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_INVESTMENT": {
+    "id": "PROPERTY_INVESTMENT",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_FAMILY_ASSET": {
+    "id": "PROPERTY_FAMILY_ASSET",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_INHERITANCE": {
+    "id": "PROPERTY_INHERITANCE",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "PROPERTY_DISPUTE": {
+    "id": "PROPERTY_DISPUTE",
+    "category": "PROPERTY",
+    "axis": {
+      "primary": [
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "TAI_BACH",
+        "PHUC_DUC",
+        "MENH"
+      ],
+      "weights": {
+        "DIEN_TRACH": 1.0,
+        "TAI_BACH": 0.7,
+        "PHUC_DUC": 0.6,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_NEW": {
+    "id": "RELATIONSHIP_NEW",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_DEEPENING": {
+    "id": "RELATIONSHIP_DEEPENING",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_ENGAGEMENT": {
+    "id": "RELATIONSHIP_ENGAGEMENT",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_MARRIAGE": {
+    "id": "RELATIONSHIP_MARRIAGE",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Requires relationship activity and supportive union/celebration signals; never infer from a single Đào/Hồng/Hỷ star."
+    ]
+  },
+  "RELATIONSHIP_CONFLICT": {
+    "id": "RELATIONSHIP_CONFLICT",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_DISTANCE": {
+    "id": "RELATIONSHIP_DISTANCE",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_SEPARATION": {
+    "id": "RELATIONSHIP_SEPARATION",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Requires strong relationship conflict/distance plus cross-layer confirmation; use cautious wording."
+    ]
+  },
+  "RELATIONSHIP_RECONCILIATION": {
+    "id": "RELATIONSHIP_RECONCILIATION",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "RELATIONSHIP_SOCIAL_EXPANSION": {
+    "id": "RELATIONSHIP_SOCIAL_EXPANSION",
+    "category": "RELATIONSHIP",
+    "axis": {
+      "primary": [
+        "PHU_THE"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI",
+        "NO_BOC"
+      ],
+      "weights": {
+        "PHU_THE": 1.0,
+        "MENH": 0.65,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5,
+        "NO_BOC": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CHILD_PREGNANCY_SIGNAL": {
+    "id": "CHILD_PREGNANCY_SIGNAL",
+    "category": "CHILDREN",
+    "axis": {
+      "primary": [
+        "TU_TUC"
+      ],
+      "secondary": [
+        "PHU_THE",
+        "DIEN_TRACH",
+        "PHUC_DUC"
+      ],
+      "weights": {
+        "TU_TUC": 1.0,
+        "PHU_THE": 0.65,
+        "DIEN_TRACH": 0.5,
+        "PHUC_DUC": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Signal only, never medical certainty. Requires child axis activation and supportive relationship/family context."
+    ]
+  },
+  "CHILD_BIRTH_SIGNAL": {
+    "id": "CHILD_BIRTH_SIGNAL",
+    "category": "CHILDREN",
+    "axis": {
+      "primary": [
+        "TU_TUC"
+      ],
+      "secondary": [
+        "PHU_THE",
+        "DIEN_TRACH",
+        "PHUC_DUC"
+      ],
+      "weights": {
+        "TU_TUC": 1.0,
+        "PHU_THE": 0.65,
+        "DIEN_TRACH": 0.5,
+        "PHUC_DUC": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Signal only, never certainty. Prefer only if pregnancy/birth context exists in user data or multiple child/family layers converge."
+    ]
+  },
+  "CHILD_EDUCATION_EVENT": {
+    "id": "CHILD_EDUCATION_EVENT",
+    "category": "CHILDREN",
+    "axis": {
+      "primary": [
+        "TU_TUC"
+      ],
+      "secondary": [
+        "PHU_THE",
+        "DIEN_TRACH",
+        "PHUC_DUC"
+      ],
+      "weights": {
+        "TU_TUC": 1.0,
+        "PHU_THE": 0.65,
+        "DIEN_TRACH": 0.5,
+        "PHUC_DUC": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CHILD_HEALTH_EVENT": {
+    "id": "CHILD_HEALTH_EVENT",
+    "category": "CHILDREN",
+    "axis": {
+      "primary": [
+        "TU_TUC"
+      ],
+      "secondary": [
+        "PHU_THE",
+        "DIEN_TRACH",
+        "PHUC_DUC"
+      ],
+      "weights": {
+        "TU_TUC": 1.0,
+        "PHU_THE": 0.65,
+        "DIEN_TRACH": 0.5,
+        "PHUC_DUC": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "CHILD_MAJOR_CHANGE": {
+    "id": "CHILD_MAJOR_CHANGE",
+    "category": "CHILDREN",
+    "axis": {
+      "primary": [
+        "TU_TUC"
+      ],
+      "secondary": [
+        "PHU_THE",
+        "DIEN_TRACH",
+        "PHUC_DUC"
+      ],
+      "weights": {
+        "TU_TUC": 1.0,
+        "PHU_THE": 0.65,
+        "DIEN_TRACH": 0.5,
+        "PHUC_DUC": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_ATTENTION": {
+    "id": "HEALTH_ATTENTION",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_RECOVERY": {
+    "id": "HEALTH_RECOVERY",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_TREATMENT": {
+    "id": "HEALTH_TREATMENT",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_MEDICAL_CHECK": {
+    "id": "HEALTH_MEDICAL_CHECK",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_SURGERY_SIGNAL": {
+    "id": "HEALTH_SURGERY_SIGNAL",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Use only as 'medical intervention/surgery signal'; no diagnosis. Requires health axis + multiple independent adverse/medical indicators."
+    ]
+  },
+  "HEALTH_ACCIDENT_SIGNAL": {
+    "id": "HEALTH_ACCIDENT_SIGNAL",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Use only as risk/attention signal. Requires health/di axis + direct-force/adversity signals and cross-layer confirmation."
+    ]
+  },
+  "HEALTH_INJURY_SIGNAL": {
+    "id": "HEALTH_INJURY_SIGNAL",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_STRESS": {
+    "id": "HEALTH_STRESS",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "HEALTH_FATIGUE": {
+    "id": "HEALTH_FATIGUE",
+    "category": "HEALTH",
+    "axis": {
+      "primary": [
+        "TAT_ACH"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "THIEN_DI"
+      ],
+      "weights": {
+        "TAT_ACH": 1.0,
+        "MENH": 0.7,
+        "PHUC_DUC": 0.55,
+        "THIEN_DI": 0.5
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_TRAVEL": {
+    "id": "MOBILITY_TRAVEL",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_FREQUENT_TRAVEL": {
+    "id": "MOBILITY_FREQUENT_TRAVEL",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_RELOCATION": {
+    "id": "MOBILITY_RELOCATION",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_OVERSEAS": {
+    "id": "MOBILITY_OVERSEAS",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_WORK_TRAVEL": {
+    "id": "MOBILITY_WORK_TRAVEL",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "MOBILITY_ENVIRONMENT_CHANGE": {
+    "id": "MOBILITY_ENVIRONMENT_CHANGE",
+    "category": "MOBILITY",
+    "axis": {
+      "primary": [
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "MENH",
+        "QUAN_LOC",
+        "DIEN_TRACH"
+      ],
+      "weights": {
+        "THIEN_DI": 1.0,
+        "MENH": 0.6,
+        "QUAN_LOC": 0.55,
+        "DIEN_TRACH": 0.5
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "EDUCATION_STUDY": {
+    "id": "EDUCATION_STUDY",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "EDUCATION_EXAM": {
+    "id": "EDUCATION_EXAM",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "EDUCATION_CERTIFICATION": {
+    "id": "EDUCATION_CERTIFICATION",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "EDUCATION_RESEARCH": {
+    "id": "EDUCATION_RESEARCH",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "EDUCATION_ADVANCED_LEARNING": {
+    "id": "EDUCATION_ADVANCED_LEARNING",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "REPUTATION_RECOGNITION": {
+    "id": "REPUTATION_RECOGNITION",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "REPUTATION_PUBLIC_VISIBILITY": {
+    "id": "REPUTATION_PUBLIC_VISIBILITY",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "REPUTATION_CHALLENGE": {
+    "id": "REPUTATION_CHALLENGE",
+    "category": "EDUCATION_REPUTATION",
+    "axis": {
+      "primary": [
+        "QUAN_LOC"
+      ],
+      "secondary": [
+        "MENH",
+        "PHUC_DUC",
+        "PHU_MAU"
+      ],
+      "weights": {
+        "QUAN_LOC": 1.0,
+        "MENH": 0.6,
+        "PHUC_DUC": 0.55,
+        "PHU_MAU": 0.45
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_PARENT_EVENT": {
+    "id": "FAMILY_PARENT_EVENT",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_PARENT_HEALTH_ATTENTION": {
+    "id": "FAMILY_PARENT_HEALTH_ATTENTION",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_SIBLING_EVENT": {
+    "id": "FAMILY_SIBLING_EVENT",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_HOME_EVENT": {
+    "id": "FAMILY_HOME_EVENT",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_CELEBRATION": {
+    "id": "FAMILY_CELEBRATION",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "POSITIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "FAMILY_CONFLICT": {
+    "id": "FAMILY_CONFLICT",
+    "category": "FAMILY",
+    "axis": {
+      "primary": [
+        "PHU_MAU",
+        "PHUC_DUC",
+        "DIEN_TRACH"
+      ],
+      "secondary": [
+        "HUYNH_DE",
+        "TU_TUC"
+      ],
+      "weights": {
+        "PHU_MAU": 0.9,
+        "PHUC_DUC": 0.85,
+        "DIEN_TRACH": 0.8,
+        "HUYNH_DE": 0.55,
+        "TU_TUC": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "LEGAL_CONTRACT": {
+    "id": "LEGAL_CONTRACT",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "ACTIVATING",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "LEGAL_CONTRACT_PROBLEM": {
+    "id": "LEGAL_CONTRACT_PROBLEM",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "LEGAL_DISPUTE": {
+    "id": "LEGAL_DISPUTE",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "LEGAL_LITIGATION_SIGNAL": {
+    "id": "LEGAL_LITIGATION_SIGNAL",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": [
+      "Use only as dispute/litigation signal, not certainty."
+    ]
+  },
+  "LEGAL_REGULATORY_ISSUE": {
+    "id": "LEGAL_REGULATORY_ISSUE",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  },
+  "LEGAL_DOCUMENT_ERROR": {
+    "id": "LEGAL_DOCUMENT_ERROR",
+    "category": "LEGAL",
+    "axis": {
+      "primary": [
+        "QUAN_LOC",
+        "THIEN_DI"
+      ],
+      "secondary": [
+        "NO_BOC",
+        "MENH"
+      ],
+      "weights": {
+        "QUAN_LOC": 0.9,
+        "THIEN_DI": 0.9,
+        "NO_BOC": 0.65,
+        "MENH": 0.55
+      }
+    },
+    "intent": "NEGATIVE",
+    "minAnnualScoreForMonthlyTiming": 55,
+    "majorEventGate": {
+      "minNatal": 30,
+      "minDaHan": 45,
+      "minAnnual": 55,
+      "minIndependentFamilies": 3
+    },
+    "veryHighGate": {
+      "minIndependentFamilies": 5,
+      "requiredLayers": [
+        "NATAL",
+        "DA_HAN",
+        "ANNUAL"
+      ]
+    },
+    "notes": []
+  }
+}

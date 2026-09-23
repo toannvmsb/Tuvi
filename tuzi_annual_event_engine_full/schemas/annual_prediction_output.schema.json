@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnnualPrediction",
+  "type": "object",
+  "required": [
+    "targetYear",
+    "annualTheme",
+    "events",
+    "engineVersion",
+    "schoolProfile"
+  ],
+  "properties": {
+    "targetYear": {
+      "type": "integer"
+    },
+    "annualTheme": {
+      "type": "array"
+    },
+    "overallIntensity": {
+      "type": "string"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "periods": {
+      "type": "object"
+    },
+    "evidenceSummary": {
+      "type": "object"
+    },
+    "engineVersion": {
+      "type": "string"
+    },
+    "schoolProfile": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,117 @@
+/** Tên hiển thị tiếng Việt cho 85 sự kiện + 10 nhóm — KHÔNG dùng để tính điểm, chỉ để hiển thị. */
+export const CATEGORY_VN: Record<string, string> = {
+  CAREER: 'Sự nghiệp',
+  FINANCE: 'Tài chính',
+  PROPERTY: 'Tài sản',
+  RELATIONSHIP: 'Tình cảm',
+  CHILDREN: 'Con cái',
+  HEALTH: 'Sức khỏe',
+  MOBILITY: 'Di chuyển',
+  EDUCATION_REPUTATION: 'Học vấn & Danh tiếng',
+  FAMILY: 'Gia đạo',
+  LEGAL: 'Giấy tờ & Pháp lý',
+};
+
+export const EVENT_TITLE_VN: Record<string, string> = {
+  CAREER_PROMOTION: 'Thăng chức, tăng vị trí',
+  CAREER_RESPONSIBILITY_INCREASE: 'Tăng trách nhiệm công việc',
+  CAREER_JOB_CHANGE: 'Đổi việc, chuyển nơi làm',
+  CAREER_JOB_LOSS: 'Mất việc, gián đoạn công việc',
+  CAREER_ROLE_CHANGE: 'Đổi vai trò công việc',
+  CAREER_INTERNAL_TRANSFER: 'Chuyển bộ phận nội bộ',
+  CAREER_NEW_PROJECT: 'Dự án mới, việc mới',
+  CAREER_LEADERSHIP: 'Vai trò lãnh đạo, quản lý',
+  CAREER_BUSINESS_START: 'Khởi nghiệp, mở việc kinh doanh riêng',
+  CAREER_BUSINESS_EXPANSION: 'Mở rộng kinh doanh',
+  CAREER_WORK_CONFLICT: 'Mâu thuẫn nơi làm việc',
+  CAREER_WORK_PRESSURE: 'Áp lực công việc',
+  CAREER_RECOGNITION: 'Được ghi nhận trong công việc',
+  CAREER_STAGNATION: 'Sự nghiệp chững lại',
+
+  FINANCE_INCOME_GROWTH: 'Thu nhập tăng',
+  FINANCE_BONUS: 'Thưởng, khoản thu bất thường',
+  FINANCE_WINDFALL: 'Tài lộc bất ngờ',
+  FINANCE_LARGE_INFLOW: 'Dòng tiền vào lớn',
+  FINANCE_LARGE_EXPENSE: 'Khoản chi lớn',
+  FINANCE_CASHFLOW_PRESSURE: 'Áp lực dòng tiền',
+  FINANCE_INVESTMENT: 'Hoạt động đầu tư',
+  FINANCE_INVESTMENT_GAIN: 'Đầu tư có lãi',
+  FINANCE_INVESTMENT_LOSS: 'Đầu tư thua lỗ',
+  FINANCE_DEBT_INCREASE: 'Nợ/vay tăng',
+  FINANCE_DEBT_REDUCTION: 'Giảm nợ, trả nợ',
+  FINANCE_ASSET_ACCUMULATION: 'Tích lũy tài sản',
+  FINANCE_FINANCIAL_DISPUTE: 'Tranh chấp tiền bạc',
+
+  PROPERTY_PURCHASE: 'Mua nhà đất/tài sản lớn',
+  PROPERTY_SALE: 'Bán nhà đất/tài sản lớn',
+  PROPERTY_RELOCATION: 'Chuyển chỗ ở',
+  PROPERTY_RENOVATION: 'Sửa chữa, cải tạo nhà',
+  PROPERTY_LARGE_EXPENSE: 'Chi lớn cho tài sản/nhà cửa',
+  PROPERTY_INVESTMENT: 'Đầu tư bất động sản',
+  PROPERTY_FAMILY_ASSET: 'Tài sản chung gia đình biến động',
+  PROPERTY_INHERITANCE: 'Thừa kế tài sản',
+  PROPERTY_DISPUTE: 'Tranh chấp tài sản',
+
+  RELATIONSHIP_NEW: 'Mối quan hệ mới',
+  RELATIONSHIP_DEEPENING: 'Tình cảm thêm gắn bó',
+  RELATIONSHIP_ENGAGEMENT: 'Đính hôn',
+  RELATIONSHIP_MARRIAGE: 'Kết hôn, lập gia đình',
+  RELATIONSHIP_CONFLICT: 'Mâu thuẫn tình cảm',
+  RELATIONSHIP_DISTANCE: 'Tình cảm xa cách',
+  RELATIONSHIP_SEPARATION: 'Chia tay, ly thân',
+  RELATIONSHIP_RECONCILIATION: 'Hàn gắn tình cảm',
+  RELATIONSHIP_SOCIAL_EXPANSION: 'Mở rộng quan hệ xã hội',
+
+  CHILD_PREGNANCY_SIGNAL: 'Tín hiệu tin vui con cái',
+  CHILD_BIRTH_SIGNAL: 'Tín hiệu sinh nở',
+  CHILD_EDUCATION_EVENT: 'Việc học của con',
+  CHILD_HEALTH_EVENT: 'Sức khỏe con cái cần chú ý',
+  CHILD_MAJOR_CHANGE: 'Thay đổi lớn liên quan con cái',
+
+  HEALTH_ATTENTION: 'Sức khỏe cần chú ý',
+  HEALTH_RECOVERY: 'Hồi phục sức khỏe',
+  HEALTH_TREATMENT: 'Điều trị y tế',
+  HEALTH_MEDICAL_CHECK: 'Nên kiểm tra sức khỏe',
+  HEALTH_SURGERY_SIGNAL: 'Tín hiệu can thiệp y tế/phẫu thuật',
+  HEALTH_ACCIDENT_SIGNAL: 'Tín hiệu rủi ro va chạm/tai nạn',
+  HEALTH_INJURY_SIGNAL: 'Tín hiệu dễ va vấp, thương tích nhẹ',
+  HEALTH_STRESS: 'Căng thẳng, áp lực tinh thần',
+  HEALTH_FATIGUE: 'Mệt mỏi, hao tổn thể lực',
+
+  MOBILITY_TRAVEL: 'Đi xa, du lịch',
+  MOBILITY_FREQUENT_TRAVEL: 'Di chuyển nhiều nơi',
+  MOBILITY_RELOCATION: 'Chuyển nơi sinh sống',
+  MOBILITY_OVERSEAS: 'Ra nước ngoài',
+  MOBILITY_WORK_TRAVEL: 'Công tác xa',
+  MOBILITY_ENVIRONMENT_CHANGE: 'Thay đổi môi trường sống/làm việc',
+
+  EDUCATION_STUDY: 'Học tập, trau dồi',
+  EDUCATION_EXAM: 'Thi cử',
+  EDUCATION_CERTIFICATION: 'Thi lấy chứng chỉ/bằng cấp',
+  EDUCATION_RESEARCH: 'Nghiên cứu, học thuật',
+  EDUCATION_ADVANCED_LEARNING: 'Học lên cao',
+  REPUTATION_RECOGNITION: 'Được ghi nhận, nổi bật',
+  REPUTATION_PUBLIC_VISIBILITY: 'Xuất hiện trước công chúng/truyền thông',
+  REPUTATION_CHALLENGE: 'Danh tiếng bị thử thách',
+
+  FAMILY_PARENT_EVENT: 'Việc liên quan cha mẹ',
+  FAMILY_PARENT_HEALTH_ATTENTION: 'Sức khỏe cha mẹ cần chú ý',
+  FAMILY_SIBLING_EVENT: 'Việc liên quan anh chị em',
+  FAMILY_HOME_EVENT: 'Việc trong gia đình/nhà cửa',
+  FAMILY_CELEBRATION: 'Việc vui, hiếu hỷ trong nhà',
+  FAMILY_CONFLICT: 'Mâu thuẫn gia đình',
+
+  LEGAL_CONTRACT: 'Ký kết hợp đồng/giấy tờ',
+  LEGAL_CONTRACT_PROBLEM: 'Trục trặc hợp đồng',
+  LEGAL_DISPUTE: 'Tranh chấp cần xử lý',
+  LEGAL_LITIGATION_SIGNAL: 'Tín hiệu vướng kiện tụng',
+  LEGAL_REGULATORY_ISSUE: 'Vướng thủ tục/quy định',
+  LEGAL_DOCUMENT_ERROR: 'Sai sót giấy tờ cần rà soát',
+};
+
+export function eventTitleOf(eventId: string): string {
+  return EVENT_TITLE_VN[eventId] ?? eventId;
+}
+export function categoryTitleOf(category: string): string {
+  return CATEGORY_VN[category] ?? category;
+}

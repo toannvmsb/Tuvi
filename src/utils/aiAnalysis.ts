@@ -721,6 +721,15 @@ async function requestAI(prompt: string, keysOrLegacy?: string | AIKeys): Promis
 }
 
 /**
+ * Gọi AI với 1 prompt đã soạn sẵn ở NƠI KHÁC (hiện dùng cho Luận sự kiện trong năm —
+ * core/annualEvents/narrativePrompt.ts). Chỉ là lối vào mỏng tới `requestAI` — không thêm/đổi
+ * prompt nào có sẵn trong file này.
+ */
+export async function requestAnnualEventsNarrative(prompt: string, keys?: AIKeys): Promise<string> {
+  return requestAI(prompt, keys);
+}
+
+/**
  * (Phase 14) Gọi AI rồi KIỂM CHỨNG chống bịa cách cục dựa trên facts engine.
  *  - Nếu phát hiện cách cục AI bịa: gắn ghi chú đính chính vào cuối (mặc định).
  *  - `allowRetry`: thử lại 1 lần với chỉ dẫn sửa (TỐN thêm 1 lượt gọi AI — mặc

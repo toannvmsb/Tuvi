@@ -1,0 +1,90 @@
+{
+  "id": "NAM_PHAI_TAM_HOP_V1",
+  "displayName": "Nam Phái / Tam Hợp + Tứ Hóa activation",
+  "primaryFramework": "NAM_PHAI_TAM_HOP",
+  "features": {
+    "useTamHop": true,
+    "useTuHoa": true,
+    "useTieuHan": true,
+    "useLuuNienDaiHan": true,
+    "useLuuTinh": true,
+    "useDauQuan": true
+  },
+  "weights": {
+    "natal": 0.15,
+    "daHan": 0.25,
+    "annualAxis": 0.2,
+    "annualTuHoa": 0.15,
+    "tieuHan": 0.08,
+    "luuNienDaHan": 0.07,
+    "movingStars": 0.05,
+    "structuralSupport": 0.05
+  },
+  "fourTransformations": {
+    "GIAP": {
+      "LOC": "LIEM_TRINH",
+      "QUYEN": "PHA_QUAN",
+      "KHOA": "VU_KHUC",
+      "KY": "THAI_DUONG"
+    },
+    "AT": {
+      "LOC": "THIEN_CO",
+      "QUYEN": "THIEN_LUONG",
+      "KHOA": "TU_VI",
+      "KY": "THAI_AM"
+    },
+    "BINH": {
+      "LOC": "THIEN_DONG",
+      "QUYEN": "THIEN_CO",
+      "KHOA": "VAN_XUONG",
+      "KY": "LIEM_TRINH"
+    },
+    "DINH": {
+      "LOC": "THAI_AM",
+      "QUYEN": "THIEN_DONG",
+      "KHOA": "THIEN_CO",
+      "KY": "CU_MON"
+    },
+    "MAU": {
+      "LOC": "THAM_LANG",
+      "QUYEN": "THAI_AM",
+      "KHOA": "HUU_BAT",
+      "KY": "THIEN_CO"
+    },
+    "KY": {
+      "LOC": "VU_KHUC",
+      "QUYEN": "THAM_LANG",
+      "KHOA": "THIEN_LUONG",
+      "KY": "VAN_KHUC"
+    },
+    "CANH": {
+      "LOC": "THAI_DUONG",
+      "QUYEN": "VU_KHUC",
+      "KHOA": "THAI_AM",
+      "KY": "THIEN_DONG"
+    },
+    "TAN": {
+      "LOC": "CU_MON",
+      "QUYEN": "THAI_DUONG",
+      "KHOA": "VAN_KHUC",
+      "KY": "VAN_XUONG"
+    },
+    "NHAM": {
+      "LOC": "THIEN_LUONG",
+      "QUYEN": "TU_VI",
+      "KHOA": "TA_PHU",
+      "KY": "VU_KHUC"
+    },
+    "QUY": {
+      "LOC": "PHA_QUAN",
+      "QUYEN": "CU_MON",
+      "KHOA": "THAI_AM",
+      "KY": "THAM_LANG"
+    }
+  },
+  "notes": [
+    "Four-transformation tables differ among schools for selected stems. Keep this table versioned and swappable.",
+    "Tiểu Hạn is a confirmation layer, not the sole annual truth source.",
+    "All event scoring weights are engineering heuristics v1, not classical canonical probabilities."
+  ]
+}

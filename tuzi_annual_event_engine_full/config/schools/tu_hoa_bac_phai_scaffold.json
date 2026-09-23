@@ -1,0 +1,28 @@
+{
+  "id": "TU_HOA_BAC_PHAI_SCAFFOLD",
+  "displayName": "Tứ Hóa / Phi Tinh scaffold",
+  "primaryFramework": "TU_HOA_BAC_PHAI",
+  "features": {
+    "useTamHop": false,
+    "useTuHoa": true,
+    "useTieuHan": false,
+    "useLuuNienDaiHan": false,
+    "useLuuTinh": true,
+    "useDauQuan": true
+  },
+  "weights": {
+    "natal": 0.15,
+    "daHan": 0.3,
+    "annualAxis": 0.15,
+    "annualTuHoa": 0.25,
+    "tieuHan": 0.0,
+    "luuNienDaHan": 0.0,
+    "movingStars": 0.05,
+    "structuralSupport": 0.1
+  },
+  "fourTransformations": "MUST_CONFIGURE_PER_SCHOOL",
+  "status": "scaffold_only",
+  "notes": [
+    "Do not enable in production until its exact flying-transformation conventions are locked."
+  ]
+}

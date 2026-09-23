@@ -58,6 +58,20 @@ export default function VanHubScreen() {
         <Body>Bốn tầng thời gian lồng vào nhau. Chọn một tầng để xem chi tiết.</Body>
       </View>
 
+      <Pressable
+        onPress={() => navigation.navigate('AnnualEvents', { result, year: now.getFullYear() })}
+        accessibilityRole="button" accessibilityLabel={`Vận hạn diễn ra trong năm ${now.getFullYear()}`}
+      >
+        <Card hero style={s.annualBox}>
+          <View style={s.annualIcon}><Icon name="spark" size={26} color="#1E1230" /></View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Eyebrow>Vận hạn diễn ra trong năm {now.getFullYear()}</Eyebrow>
+            <Display size={20} numberOfLines={2}>Luận sự kiện: tháng nào kích hoạt, việc gì nên lưu ý</Display>
+          </View>
+          <Icon name="arrow" size={20} color={COLORS.goldLight} />
+        </Card>
+      </Pressable>
+
       <Tier color={COLORS.gold} eyebrow="Đại vận · 10 năm"
         head={palace ? `Cung ${palace}` : 'Đại vận hiện tại'}
         sub={dv ? `${dv.startAge}–${dv.endAge} tuổi · ${dv.stem} ${dv.branch}` : 'Xem các đại vận của bạn'}
@@ -99,6 +113,8 @@ export default function VanHubScreen() {
 }
 
 const s = StyleSheet.create({
+  annualBox: { flexDirection: 'row', alignItems: 'center', gap: 14, borderColor: 'rgba(226,194,133,0.55)', borderWidth: 1.5 },
+  annualIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.gold },
   dot: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   nest: { height: 30, borderRadius: 10, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 12 },
   nestTxt: { fontFamily: FONTS.bodySemi, fontSize: 12, color: COLORS.textPrimary },
