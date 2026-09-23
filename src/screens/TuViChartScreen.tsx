@@ -291,7 +291,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
               onPress={() => navigationRef.navigate('CompareCharts', { preSelectedResult: fullChartResult })}
               activeOpacity={0.85}
             >
-              <Text style={styles.compareChartBtnText}>⚖️ So sánh lá số</Text>
+              <Text style={styles.compareChartBtnText}>⚖️ So sánh tương hợp</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.exportBtn, exporting && { opacity: 0.5 }]}

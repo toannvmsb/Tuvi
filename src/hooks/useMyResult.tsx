@@ -25,6 +25,7 @@ export function useMyResult(): { result: AstrologyResult | null; loading: boolea
         const charts = online ? await listCharts() : (getCachedCharts() ?? []);
         const id = await getMyChartId();
         const row = id ? charts.find(r => r.id === id) : undefined;
+        // rowToResult() tự đồng bộ cache Nơi ở/Nơi sinh cục bộ theo giá trị mới nhất trên server.
         if (!cancelled) setResult(row ? rowToResult(row) : null);
       } catch {
         if (!cancelled) setResult(null);

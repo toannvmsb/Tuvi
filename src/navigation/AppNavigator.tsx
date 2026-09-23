@@ -139,7 +139,7 @@ const ROUTE_TITLES: Record<string, string> = {
   MyCharts: 'Lá số đã lưu',
   Portrait: 'Chân dung tương hợp',
   EditChart: 'Sửa lá số',
-  CompareCharts: 'So sánh lá số',
+  CompareCharts: 'So sánh tương hợp',
   Wallet: 'Nạp xu',
   Account: 'Tài khoản',
   Settings: 'Cài đặt',

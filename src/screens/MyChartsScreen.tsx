@@ -56,7 +56,7 @@ export default function MyChartsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.topActions}>
           <TouchableOpacity style={styles.compareBtn} onPress={() => navigation.navigate('CompareCharts', {})} activeOpacity={0.8}>
-            <Text style={styles.compareTxt}>⚖️ So sánh lá số</Text>
+            <Text style={styles.compareTxt}>⚖️ So sánh tương hợp</Text>
           </TouchableOpacity>
           {isOnlineMode() && (
             <TouchableOpacity style={styles.refreshBtn} onPress={() => load(true)} activeOpacity={0.7}>

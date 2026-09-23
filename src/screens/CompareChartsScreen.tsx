@@ -474,7 +474,7 @@ export default function CompareChartsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="So sánh lá số" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="So sánh tương hợp" onBack={() => navigation.goBack()} />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scroll}

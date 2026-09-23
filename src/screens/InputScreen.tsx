@@ -10,10 +10,10 @@ import type { RootStackParamList, BirthInfo, AstrologyResult, Gender, CalendarTy
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { t } from '../i18n';
 import { buildResult } from '../core/buildResult';
-import { saveChart, updateChart, type SavedChartRow } from '../lib/charts';
+import { saveChart, updateChart, placeOfRow, type SavedChartRow } from '../lib/charts';
 import ScreenHeader from '../components/ScreenHeader';
 import PlacePicker from '../components/PlacePicker';
-import { savePlaceForChart, getPlaceForChart, type Place } from '../lib/weather';
+import { savePlaceForChart, type Place } from '../lib/weather';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -46,12 +46,13 @@ export default function InputScreen({ navigation, route }: Props) {
   const [hour, setHour] = useState(editRow ? editRow.birth_hour : 12);
   const [isLeapMonth, setIsLeapMonth] = useState(editRow?.is_leap ?? false);
   const [loading, setLoading] = useState(false);
-  const [place, setPlace] = useState<Place | null>(null);
+  // Nơi ở/Nơi sinh đọc thẳng từ dòng lá số (server) — không phụ thuộc máy đang mở, nên sửa ở
+  // máy nào cũng thấy đúng giá trị đã lưu trước đó (kể cả lưu từ máy khác).
+  const [place, setPlace] = useState<Place | null>(editRow ? placeOfRow(editRow) : null);
   const [pickerOpen, setPickerOpen] = useState<null | 'day' | 'month' | 'year' | 'viewingYear'>(null);
 
   const currentYear = new Date().getFullYear();
   const [viewingYear, setViewingYear] = useState(String(editRow?.viewing_year ?? currentYear));
-  useEffect(() => { if (editRow) getPlaceForChart(editRow.id).then(p => { if (p) setPlace(p); }); }, [editRow?.id]);
   const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => currentYear - i);
@@ -128,24 +129,25 @@ export default function InputScreen({ navigation, route }: Props) {
         viewingYear: parseInt(viewingYear) || undefined,
       };
 
-      // SỬA lá số đã lưu: cập nhật server + nơi ở, rồi quay lại màn trước.
+      // SỬA lá số đã lưu: cập nhật server (kể cả Nơi ở/Nơi sinh) rồi quay lại màn trước.
       if (editRow) {
         buildResult(birthInfo, birthInfo.viewingYear); // kiểm tra dữ liệu tính được trước khi lưu
-        const ok = await updateChart(editRow.id, birthInfo);
+        const ok = await updateChart(editRow.id, birthInfo, place);
         if (!ok) { Alert.alert('Chưa lưu được', 'Không cập nhật được lá số. Kiểm tra kết nối mạng và đăng nhập rồi thử lại.'); return; }
-        await savePlaceForChart(editRow.id, place);
+        await savePlaceForChart(editRow.id, place); // đồng bộ cache cục bộ cho máy đang dùng
         navigation.goBack();
         return;
       }
 
       const result = buildResult(birthInfo, birthInfo.viewingYear);
 
-      // Đăng nhập rồi → lưu lá số lên server (đọc lại sau không phải nhập lại).
+      // Đăng nhập rồi → lưu lá số + Nơi ở/Nơi sinh lên server (đọc lại sau không phải nhập lại,
+      // và mở trên máy khác vẫn thấy đúng nơi ở đã chọn).
       try {
-        const id = await saveChart(result);
+        const id = await saveChart(result, place);
         if (id) result.birthInfo.chartId = id;
       } catch {}
-      // Nơi ở/nơi sinh → dùng lấy thời tiết khi gắn lá số này (lưu cục bộ theo chartId).
+      // Cũng lưu cục bộ cho máy đang dùng — thời tiết trên Home/Xem ngày đọc nhanh từ đây.
       if (place) await savePlaceForChart(result.birthInfo.chartId, place);
 
       navigation.navigate('MainTabs', { result });
