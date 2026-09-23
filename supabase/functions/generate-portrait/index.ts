@@ -111,9 +111,9 @@ Deno.serve(async (req) => {
               "Bạn là chuyên gia Tử Vi Nam Phái. Dữ liệu đầu vào gồm: (1) các sao cung Phu Thê + gợi ý diện mạo/hình dáng người tương hợp suy từ các sao đó; (2) ngoại hình CHỦ LÁ SỐ suy từ sao cung Mệnh và ngũ hành; (3) khí chất/dụng thần. " +
               "Hãy suy ra NGOẠI HÌNH cụ thể của một NGƯỜI KHÁC — người bạn đời/đối tác tương hợp: bám sát gợi ý diện mạo của các sao Phu Thê (dáng người, khuôn mặt), đồng thời theo nguyên lý BỔ TRỢ/HÀI HÒA với chủ lá số (không sao chép ngoại hình của chủ lá số). Mỗi lá số khác nhau phải cho ra bộ đặc điểm khác nhau rõ rệt; tránh chọn lại những lựa chọn phổ biến/an toàn nhất. Đây chỉ là gợi ý tham khảo, giải trí. " +
               "Trả về DUY NHẤT 1 JSON hợp lệ (không markdown, không giải thích) đúng cấu trúc: " +
-              '{"faceShape":"hình dáng khuôn mặt, tiếng Anh","build":"vóc dáng/thể hình, tiếng Anh, vd slender, athletic, broad-shouldered, petite, full-figured","skin":"tông da, tiếng Anh","hair":"màu và kiểu tóc chi tiết phù hợp độ dài đã chọn, tiếng Anh","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","lipsAndSmile":"môi và nụ cười, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}' +
+              '{"ethnicity":"quốc tịch/sắc tộc của người trong ảnh, tiếng Anh — MẶC ĐỊNH \'Vietnamese\' trừ khi ghi chú của người dùng nêu RÕ một quốc tịch/sắc tộc khác (vd \'Korean\',\'Japanese\',\'Western\'); một địa danh Việt Nam trong ghi chú (Hà Nội, Sài Gòn, Huế…) vẫn trả \'Vietnamese\'","faceShape":"hình dáng khuôn mặt, tiếng Anh","build":"vóc dáng/thể hình, tiếng Anh, vd slender, athletic, broad-shouldered, petite, full-figured","skin":"tông da, tiếng Anh, phù hợp với ethnicity đã chọn","hair":"màu và kiểu tóc chi tiết phù hợp độ dài đã chọn, tiếng Anh","eyes":"mô tả ngắn đôi mắt, tiếng Anh","nose":"mô tả ngắn mũi, tiếng Anh","eyebrows":"mô tả ngắn lông mày, tiếng Anh","lipsAndSmile":"môi và nụ cười, tiếng Anh","cheekbonesAndJaw":"mô tả ngắn gò má và hàm, tiếng Anh","mood":"khí chất tổng thể, 2-4 từ tiếng Anh"}' +
               " " +
-              "Không nhắc tên riêng, không phán đoán tuyệt đối. Nếu thiếu dữ liệu, tự chọn một bộ đặc điểm hài hoà, dễ mến.",
+              "Không nhắc tên riêng, không phán đoán tuyệt đối. Nếu thiếu dữ liệu, tự chọn một bộ đặc điểm hài hoà, dễ mến (vẫn mặc định ethnicity Vietnamese).",
           },
           {
             role: "user",
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     if (!rawContent) throw new Error("OpenAI không trả về nội dung.");
 
     let face: {
-      faceShape?: string; build?: string; skin?: string; hair?: string; eyes?: string; nose?: string;
+      ethnicity?: string; faceShape?: string; build?: string; skin?: string; hair?: string; eyes?: string; nose?: string;
       eyebrows?: string; lipsAndSmile?: string; cheekbonesAndJaw?: string; mood?: string;
     };
     try {
@@ -177,8 +177,12 @@ Deno.serve(async (req) => {
     ]);
     const extra = pick(["", "", "", "wearing thin-framed glasses", "with a subtle earring", "with a light stubble", "with a small beauty mark"]);
 
+    // Mặc định "Vietnamese" nếu OpenAI không trả (hoặc trả rỗng) — ethnicity là đòn bẩy quan trọng
+    // nhất để FLUX vẽ đúng vùng miền thay vì mặc định ra khuôn mặt phương Tây.
+    const ethnicity = face.ethnicity?.trim() || "Vietnamese";
+
     const imagePrompt =
-      `Photorealistic portrait photograph of a ${ageWanted}-year-old ${genderLabel}, ${face.build ? `${face.build} build, ` : ""}` +
+      `Photorealistic portrait photograph of a ${ageWanted}-year-old ${ethnicity} ${genderLabel}, ${face.build ? `${face.build} build, ` : ""}` +
       `with ${face.hair || hairLabel} (${hairLabel}), ` +
       `featuring ${faceBits || "a warm, harmonious face"}, with a ${face.mood || "warm and friendly"} expression` +
       `${extra ? `, ${extra}` : ""}. ` +

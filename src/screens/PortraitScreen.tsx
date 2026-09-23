@@ -39,11 +39,14 @@ export default function PortraitScreen() {
   React.useEffect(() => { if (result) listPortraits(galleryKey).then(setGallery); }, [result, galleryKey]);
 
   // Mặc định giới tính người tương hợp = khác giới với chủ lá số (vẫn đổi được).
+  // Ghi chú mặc định = "người [nơi sinh]" (nơi ở/nơi sinh đã gắn cho lá số, không có thì Hà Nội) —
+  // giúp AI vẽ đúng vùng miền/ngoại hình thay vì ra ảnh người nước ngoài như mặc định trước đây.
   const defaulted = React.useRef(false);
   React.useEffect(() => {
     if (result && !defaulted.current) {
       defaulted.current = true;
       setGender(result.birthInfo.gender === 'nu' ? 'male' : 'female');
+      setNote(`người ${result.birthInfo.birthplace?.trim() || 'Hà Nội'}`);
     }
   }, [result]);
 
@@ -120,6 +123,7 @@ export default function PortraitScreen() {
           <Text style={s.label}>Ghi chú thêm (không bắt buộc)</Text>
           <TextInput style={[s.input, { minHeight: 64 }]} value={note} onChangeText={setNote} multiline maxLength={200}
             placeholder="Ví dụ: đeo kính, nụ cười hiền…" placeholderTextColor={COLORS.textMuted} />
+          <Text style={s.hint}>Đã điền sẵn nơi sinh để AI vẽ đúng vùng miền — anh/chị có thể sửa hoặc xóa.</Text>
         </Card>
 
         <GoldButton label={busy ? 'Đang vẽ…' : imageUrl ? `Vẽ lại (${cost} xu)` : `Vẽ chân dung (${cost} xu)`} onPress={busy ? undefined : run} disabled={busy} />
@@ -188,6 +192,7 @@ const s = StyleSheet.create({
     minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(226,194,133,0.28)', backgroundColor: 'rgba(255,255,255,0.06)',
     color: COLORS.textPrimary, paddingHorizontal: 14, paddingVertical: 10, fontFamily: FONTS.body, fontSize: 15,
   },
+  hint: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 16, color: COLORS.textMuted, marginTop: -4 },
   busy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   busyTxt: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   error: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.red, textAlign: 'center' },

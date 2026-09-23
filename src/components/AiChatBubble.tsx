@@ -4,10 +4,11 @@
  * kéo) mở modal chat chiếm nửa dưới màn hình.
  *
  * Giới hạn 500 từ/câu hỏi + 500 từ/câu trả lời (server ép ở Edge Function
- * ai-chat, client cũng chặn sớm để phản hồi tức thì). Lịch sử chat CHỈ tồn tại
- * trong bộ nhớ phiên (mất khi đóng app) — không lưu lên server, nhưng VẪN được
- * gửi kèm (`turns`) trong mỗi lượt hỏi để AI hiểu mạch hội thoại đang mở, thay
- * vì xử lý từng câu hỏi độc lập như trước.
+ * ai-chat, client cũng chặn sớm để phản hồi tức thì). Lịch sử chat lưu OFFLINE
+ * trên máy (AsyncStorage, xem lib/aiChatHistory.ts) — KHÔNG lưu lên server —
+ * và tự dọn các lượt cũ hơn 30 ngày. Lịch sử còn hạn cũng được gửi kèm
+ * (`turns`) trong mỗi lượt hỏi để AI hiểu mạch hội thoại đang mở, thay vì xử
+ * lý từng câu hỏi độc lập.
  *
  * Quota: 5 lượt/ngày miễn phí. Vượt quota → hỏi trừ 1 xu/lượt, trừ khi người
  * dùng đã tích "Không hỏi lại lần sau" (aiChatPrefs.ts) thì tự động trừ luôn.
@@ -39,6 +40,7 @@ import {
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { sendChatMessage, chargeAndSend, countWords, AI_CHAT_MAX_WORDS } from '../lib/aiChat';
 import { getSkipChargeConfirm, setSkipChargeConfirm, consumeDailyBannerFlag } from '../lib/aiChatPrefs';
+import { loadChatHistory, appendChatTurn, clearChatHistory } from '../lib/aiChatHistory';
 import { wallet } from '../constants/premium';
 import { registerAiChatOpener } from '../lib/aiChatBus';
 import { useAuth } from '../context/AuthContext';
@@ -86,6 +88,14 @@ export default function AiChatBubble() {
   useEffect(() => {
     registerAiChatOpener(() => setOpen(true));
     return () => registerAiChatOpener(null);
+  }, []);
+
+  // Nạp lịch sử chat đã lưu offline trên máy (còn hạn ≤ 30 ngày) ngay khi mở app,
+  // để mở lại "Hỏi Tuzi" vẫn thấy mạch hội thoại trước đó thay vì trống trơn.
+  useEffect(() => {
+    loadChatHistory().then(list => {
+      if (list.length) setTurns(list.map(({ question, answer }) => ({ question, answer })));
+    });
   }, []);
 
   // Mở modal → báo "miễn phí 5 lượt/ngày" nếu lần đầu dùng hoặc sang ngày mới
@@ -226,6 +236,7 @@ export default function AiChatBubble() {
       const r = await sendChatMessage(question, turns, chartFacts);
       if (r.status === 'ok') {
         setTurns(t => [...t, { question, answer: r.reply }]);
+        void appendChatTurn(question, r.reply);
         setInput('');
         return;
       }
@@ -236,7 +247,7 @@ export default function AiChatBubble() {
       // status === 'quota' — hết lượt miễn phí hôm nay.
       if (await getSkipChargeConfirm()) {
         const r2 = await chargeAndSend(question, turns, chartFacts);
-        if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); setInput(''); }
+        if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); void appendChatTurn(question, r2.reply); setInput(''); }
         else if (r2.status === 'error') setErrorMsg(r2.message);
         return;
       }
@@ -262,13 +273,19 @@ export default function AiChatBubble() {
     setLoading(true);
     try {
       const r2 = await chargeAndSend(question, turns, chartFacts);
-      if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); setInput(''); }
+      if (r2.status === 'ok') { setTurns(t => [...t, { question, answer: r2.reply }]); void appendChatTurn(question, r2.reply); setInput(''); }
       else if (r2.status === 'error') setErrorMsg(r2.message);
     } catch (e: any) {
       setErrorMsg(`Có lỗi bất ngờ: ${e?.message || 'không rõ nguyên nhân'}. Bạn thử lại nhé.`);
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Xóa lịch sử chat đã lưu offline trên máy (không ảnh hưởng quota/số dư). */
+  const clearHistory = () => {
+    setTurns([]);
+    void clearChatHistory();
   };
 
   const cancelCharge = () => {
@@ -301,7 +318,14 @@ export default function AiChatBubble() {
           <View style={[styles.sheet, { height: sheetHeight }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>✨ Hỏi Tuzi</Text>
-              <TouchableOpacity onPress={closeChat}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                {turns.length > 0 && (
+                  <TouchableOpacity onPress={clearHistory} accessibilityRole="button" accessibilityLabel="Xóa lịch sử chat">
+                    <Text style={styles.clearBtn}>🗑</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={closeChat}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
+              </View>
             </View>
             <Text style={styles.sheetSub}>Trợ lý AI đồng hành đời sống của bạn — hỏi ngắn gọn, Tuzi trả lời ngắn gọn (tối đa {AI_CHAT_MAX_WORDS} từ).</Text>
             {dailyBanner && (
@@ -422,6 +446,7 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sheetTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
   closeBtn: { color: COLORS.textSecondary, fontSize: FONTS.size.lg, fontWeight: '700', padding: 4 },
+  clearBtn: { fontSize: FONTS.size.md, padding: 4 },
   sheetSub: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, marginTop: 4, marginBottom: SPACING.sm, lineHeight: 16 },
   turnsBox: { flex: 1 },
   emptyHint: { color: COLORS.textMuted, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 20 },
