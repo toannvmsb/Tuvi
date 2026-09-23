@@ -13,7 +13,7 @@ import { t } from '../i18n';
 import { exportChartAsImage, shareImageFile, saveImageToGallery } from '../utils/exportChart';
 import { buildResult } from '../core/buildResult';
 import { navigationRef, popStack } from '../navigation/AppNavigator';
-import { isWeb, useContentWidth } from '../lib/platform';
+import { isWeb, useContentWidth, saveImageOrDownload } from '../lib/platform';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
 import { Display, Segmented, Body } from '../ui';
@@ -102,7 +102,11 @@ export default function TuViChartScreen({ route, navigation }: Props) {
     }
   };
 
-  /** Web: tải ảnh PNG bằng html2canvas */
+  /**
+   * Web: xuất ảnh PNG bằng html2canvas rồi lưu qua saveImageOrDownload() — hàm này tự chọn cách
+   * phù hợp với trình duyệt (Web Share trên iOS Safari, hoặc `<a download>` trên desktop) vì Safari
+   * iOS KHÔNG hỗ trợ `<a download>` (ảnh bấm "Tải ảnh PNG" nhưng không tải xuống được).
+   */
   const handleWebExportPNG = useCallback(async () => {
     if (webExporting) return;
     setWebExporting(true);
@@ -121,13 +125,8 @@ export default function TuViChartScreen({ route, navigation }: Props) {
         logging: false,
       });
       const dataUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
       const name = (birthInfo.name || 'laso').replace(/\s+/g, '-');
-      a.download = `laso-tuvi-${name}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      await saveImageOrDownload(dataUrl, `laso-tuvi-${name}.png`);
     } catch (e: any) {
       Alert.alert('Lỗi xuất ảnh', e?.message || 'Không tạo được ảnh PNG.');
     } finally {
@@ -185,7 +184,7 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           <TouchableOpacity style={nx.roundBtn} onPress={() => popStack()} accessibilityRole="button" accessibilityLabel="Quay lại">
             <Icon name="back" size={22} />
           </TouchableOpacity>
-          <Display size={34}>Lá số</Display>
+          <Display size={30}>Lá số chi tiết</Display>
         </View>
         <Segmented
           options={[{ value: 'tuvi', label: '紫微 Tử Vi' }, { value: 'battu', label: '八字 Bát Tự' }]}

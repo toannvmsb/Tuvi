@@ -94,13 +94,62 @@ async function renamePdfFile(uri: string, fileName: string): Promise<string | un
   return undefined;
 }
 
+/** true nếu đang chạy trên Safari iOS/iPadOS (kể cả iPad báo UA "Macintosh" nhưng có cảm ứng) —
+ *  trình duyệt này KHÔNG hỗ trợ thuộc tính `<a download>` (bug WebKit tồn tại nhiều năm), nên
+ *  saveImageOrDownload() phải dùng đường khác (Web Share API, hoặc mở ảnh ở tab mới). */
+function isIOSWebView(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Macintosh') && typeof document !== 'undefined' && 'ontouchend' in document);
+}
+
 /**
  * Lưu ảnh:
  * - Mobile: expo-media-library.
- * - Web: tạo thẻ <a download> trigger download trình duyệt.
+ * - Web: ưu tiên Web Share API (mở khay chia sẻ có "Lưu vào Ảnh" — dùng được trên iOS Safari,
+ *   nơi thuộc tính `<a download>` KHÔNG hoạt động). Không có Web Share (desktop) → tải qua `<a download>`
+ *   như trước. Safari iOS mà Share cũng không dùng được → mở ảnh ở tab mới để giữ tay lưu (Save Image).
  */
 export async function saveImageOrDownload(uri: string, fileName: string): Promise<void> {
   if (isWeb) {
+    let blob: Blob | null = null;
+    try {
+      blob = await (await fetch(uri)).blob();
+    } catch { /* fetch thất bại (vd CORS) → rơi xuống a[download] với uri gốc bên dưới */ }
+
+    if (blob) {
+      const nav: any = navigator;
+      if (nav?.share && nav?.canShare) {
+        try {
+          const file = new File([blob], fileName, { type: blob.type || 'image/png' });
+          if (nav.canShare({ files: [file] })) {
+            await nav.share({ files: [file] });
+            return;
+          }
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return; // người dùng tự hủy khay chia sẻ — không phải lỗi
+          // các lỗi khác (vd không có app nhận) → thử cách tải xuống bên dưới
+        }
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      if (isIOSWebView()) {
+        // Safari iOS: không có API nào chắc chắn tải file — mở tab mới để người dùng giữ tay lưu ảnh.
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+      return;
+    }
+
+    // Không lấy được blob (vd fetch lỗi) → thử cách cũ với chính uri gốc.
     const a = document.createElement('a');
     a.href = uri;
     a.download = fileName;
