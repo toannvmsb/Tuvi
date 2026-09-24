@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sheetTitle: { color: COLORS.gold, fontSize: FONTS.size.lg, fontWeight: '800' },
   closeBtn: { color: COLORS.textSecondary, fontSize: FONTS.size.lg, fontWeight: '700', padding: 4 },
-  clearBtn: { fontSize: FONTS.size.md, padding: 4 },
+  clearBtn: { color: COLORS.textSecondary, fontSize: FONTS.size.md, padding: 4 },
   sheetSub: { color: COLORS.textSecondary, fontSize: FONTS.size.xs, marginTop: 4, marginBottom: SPACING.sm, lineHeight: 16 },
   turnsBox: { flex: 1 },
   emptyHint: { color: COLORS.textMuted, fontSize: FONTS.size.sm, fontStyle: 'italic', lineHeight: 20 },
