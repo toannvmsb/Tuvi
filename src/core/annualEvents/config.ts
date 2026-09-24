@@ -9,29 +9,27 @@ export const RULE_VERSION = 'annual_event_rules_v1';
 export const ENGINE_VERSION = 'tuzi-annual-events-1.0.0';
 
 /**
- * Trọng số baseScore theo §9 ENGINE_SPEC — 8 nhóm cộng lại = 100%.
- * DIỄN GIẢI (không có trong bộ rule gốc, engine tự bổ sung — xem README cuối file
- * ruleEngine.ts để biết lý do): 1343 rule chỉ tạo tín hiệu ở 2 nhóm NATAL/DA_HAN/ANNUAL
- * (theo family), KHÔNG có rule nào gắn family TIEU_HAN/LUU_NIEN_DAI_HAN/DA_HAN_STRUCTURE —
- * 2 nhóm "TieuHan" và "LuuNienDaHan" + phần cấu trúc Đại Vận trong "DaHanActivation" do
- * engine tự tính từ core/daiVanScore.ts (Thiên Thời/Địa Lợi/Nhân Hòa) và vị trí Tiểu Hạn,
- * KHÔNG lấy từ 1343 rule. "MovingStars" = riêng family MA_SYSTEM (Thiên Mã) ở tầng ANNUAL;
- * các family LOC_TON_SYSTEM/TAI_SUI/ADVERSITY_CLUSTER ở tầng ANNUAL gộp vào "AnnualAxisActivation".
+ * Trọng số baseScore — THEO ĐÚNG §28 "Annual Event Score v3" của
+ * TUZI_Tieu_Han_Annual_Event_Focus_Engine_v1.md, thay thế bảng 8-nhóm v1 (ENGINE_SPEC §9) ở
+ * trên. Khác biệt quan trọng nhất: KHÔNG còn bucket "tieuHan" cộng dồn theo % nữa — Tiểu Hạn giờ
+ * là 1 TẦNG NHÂN ĐIỂM riêng theo TỪNG SỰ KIỆN cụ thể (xem tieuHanFocus.ts), đúng yêu cầu §6 "Do
+ * not implement Tiểu Hạn as a flat score such as 8%". 7 nhóm còn lại cộng = 100%:
+ * Natal 15% + DaHan 25% + AnnualActivation(annualAxis) 15% + AnnualFourTransform 10% +
+ * LuuNienDaiHan 10% + MovingStars 10% + StructuralSupport 15%.
+ * "AnnualActivation"/"MovingStars" tính giống hệt v1 (annualAxis gộp LOC_TON_SYSTEM/TAI_SUI/
+ * ADVERSITY_CLUSTER ở tầng năm; movingStars = riêng family MA_SYSTEM ở tầng năm). "LuuNienDaiHan"
+ * giờ có thêm phần AXIS-SPECIFIC (không chỉ quan hệ ngũ hành chung chung như trước) — xem
+ * tieuHanFocus.ts `computeTieuHanAxisResult`.
  */
 export const BASE_WEIGHTS = {
   natal: 0.15,
   daHan: 0.25,
-  annualAxis: 0.20,
-  annualFourTransform: 0.15,
-  tieuHan: 0.08,
-  luuNienDaHan: 0.07,
-  movingStars: 0.05,
-  structuralSupport: 0.05,
+  annualAxis: 0.15,
+  annualFourTransform: 0.10,
+  luuNienDaHan: 0.10,
+  movingStars: 0.10,
+  structuralSupport: 0.15,
 } as const;
-
-export const CONVERGENCE_MULTIPLIER: Record<number, number> = { 1: 1.0, 2: 1.08, 3: 1.17, 4: 1.28, 5: 1.4 };
-export const CONVERGENCE_MULTIPLIER_6PLUS = 1.55;
-export const CONVERGENCE_MULTIPLIER_CAP = 1.6;
 
 export const INTENSITY_BANDS: { min: number; max: number; level: import('./types').IntensityLevel }[] = [
   { min: 0, max: 19, level: 'VERY_LOW' },
@@ -97,7 +95,7 @@ export const MONTHLY_MOVING_STAR_SCORE: Record<string, number> = {
   THIEN_KHOI: 3, THIEN_VIET: 3,
 };
 
-/** §23 — hệ số hội tụ RIÊNG cho tầng tháng (nhỏ hơn hẳn tầng năm ×1.6 ở CONVERGENCE_MULTIPLIER_CAP). */
+/** §23 — hệ số hội tụ RIÊNG cho tầng tháng (nhỏ hơn hẳn cap 1.40 của axisConvergenceMultiplier tầng năm — xem tieuHanFocus.ts). */
 export const MONTHLY_CONVERGENCE_MULTIPLIER: Record<number, number> = { 1: 1.0, 2: 1.03, 3: 1.07, 4: 1.12 };
 export const MONTHLY_CONVERGENCE_MULTIPLIER_5PLUS = 1.18;
 export const MONTHLY_CONVERGENCE_CAP = 1.20;

@@ -49,6 +49,12 @@ export function palaceBranch(c: AstrologyResult['tuViChart'], palace: Palace): E
   return c.houses.find(h => h.palaceName === vn)?.branch ?? null;
 }
 
+/** Mã cung (enum) đang nằm tại 1 chi cụ thể, trong lá số gốc — chiều ngược của palaceBranch(). */
+export function palaceCodeAtBranch(c: AstrologyResult['tuViChart'], b: EarthlyBranch): Palace | null {
+  const h = c.houses.find(x => x.branch === b);
+  return h ? PALACE_VN_TO_CODE[h.palaceName] ?? null : null;
+}
+
 /** Quan hệ vị trí 2 cung (theo chi): cùng cung / tam hợp / xung chiếu / không liên quan. */
 export function branchRelation(a: EarthlyBranch, b: EarthlyBranch): 'SAME' | 'TAM_HOP' | 'XUNG' | 'NONE' {
   const ia = branchIndex(a), ib = branchIndex(b);
@@ -57,4 +63,11 @@ export function branchRelation(a: EarthlyBranch, b: EarthlyBranch): 'SAME' | 'TA
   const grp = TAM_HOP_GROUPS.find(g => g.includes(ia));
   if (grp && grp.includes(ib)) return 'TAM_HOP';
   return 'NONE';
+}
+
+/** TUZI_Tieu_Han_...v1.md §9 "Tam Phương Tứ Chính" — 2 cung tam hợp + 1 cung xung chiếu của 1 chi bất kỳ. */
+export function sanFangOf(branch: EarthlyBranch): { trine: EarthlyBranch[]; opposition: EarthlyBranch } {
+  const idx = branchIndex(branch);
+  const grp = TAM_HOP_GROUPS.find(g => g.includes(idx)) ?? [];
+  return { trine: grp.filter(i => i !== idx).map(i => BRANCHES[i]), opposition: BRANCHES[oppositeIdx(idx)] };
 }

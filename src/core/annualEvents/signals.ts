@@ -16,6 +16,7 @@ import { currentAgeOf } from '../ageUtil';
 import { PALACE_VN_TO_CODE, yearCanChi } from './calendar';
 import { SIGNAL_CATALOG, STAR_NAME_TO_CODE, brightnessToIntensity } from './signalCatalog';
 import { allMovingStars } from './movingStars';
+import { buildTieuHanFocus, type TieuHanFocus } from './tieuHanFocus';
 
 function palaceOf(vn: string): Palace | null {
   return PALACE_VN_TO_CODE[vn] ?? null;
@@ -121,6 +122,8 @@ export interface AnnualSignalContext {
   /** Cung Đại Vận đang chạy (chi + can) — dùng cho tầng tháng (monthlyTiming.ts) so trùng/hình học. */
   daHanBranch: EarthlyBranch | null;
   daHanStem: HeavenlyStem | null;
+  /** TUZI_Tieu_Han_...v1.md — Tiểu Hạn làm Event Focus layer (§6), tính 1 lần dùng chung cho cả 85 sự kiện. */
+  tieuHanFocus: TieuHanFocus;
 }
 
 const TAM_HOP_ELEMENT: Record<EarthlyBranch, string> = {
@@ -166,14 +169,16 @@ export function buildAnnualContext(result: AstrologyResult, targetYear: number):
     daHanStem = c.houses.find(x => x.branch === dv.branch)?.can ?? null;
   }
   signals.push(...annualSignals(result, yearStem, yearBranch));
+  const tieuHanBranch = tv?.branch ?? null;
 
   return {
     signals, targetAge, yearStem, yearBranch,
     daHanStructuralScore,
-    tieuHanBranch: tv?.branch ?? null,
+    tieuHanBranch,
     luuNienDaHanRelationScore,
     daiVanScore,
     daHanBranch: dv?.branch ?? null,
     daHanStem,
+    tieuHanFocus: buildTieuHanFocus(result, tieuHanBranch),
   };
 }

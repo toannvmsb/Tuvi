@@ -3,6 +3,9 @@
 import { computeAnnualPrediction } from '../annualEvents/engine';
 import { generateAnnualOfflineSummary } from '../annualEvents/offlineSummary';
 import { buildAnnualNarrativePrompt } from '../annualEvents/narrativePrompt';
+import { buildAnnualContext } from '../annualEvents/signals';
+import { tieuHanEventPriorMultiplier } from '../annualEvents/tieuHanFocus';
+import { PALACE_EVENT_BOOST } from '../annualEvents/tieuHanDomains';
 import { allSampleResults, sampleResult } from './fixtures';
 
 describe('annualEvents engine', () => {
@@ -67,5 +70,39 @@ describe('annualEvents engine', () => {
     const prompt = buildAnnualNarrativePrompt(pred, 'Test Nam');
     expect(prompt).toContain('Mệnh chủ'); // câu literal cấm nhắc — phải xuất hiện trong PHẦN QUY TẮC (cấm dùng), không phải bị thiếu
     expect(prompt).toContain(String(pred.targetYear));
+  });
+
+  test('Tiểu Hạn Event Focus Layer: sự kiện được "Boost" đúng cung Tiểu Hạn phải có eventPriorMultiplier 1.25 (§25)', () => {
+    const result = sampleResult();
+    for (const year of [2025, 2026, 2027, 2028, 2029]) {
+      const ctx = buildAnnualContext(result, year);
+      const focus = ctx.tieuHanFocus;
+      if (!focus.palace) continue;
+      const boosted = PALACE_EVENT_BOOST[focus.palace] ?? [];
+      if (boosted.length === 0) continue;
+      const def = require('../../data/annualEventDefinitions.json')[boosted[0]];
+      const { multiplier, tier } = tieuHanEventPriorMultiplier(focus, def);
+      expect(tier).toBe('PRIMARY_EVENT');
+      expect(multiplier).toBeGreaterThanOrEqual(1.22);
+      expect(multiplier).toBeLessThanOrEqual(1.30);
+      return; // đủ 1 lần khớp là đạt — chỉ cần xác nhận công thức chạy đúng, không lặp toàn bộ 85 sự kiện
+    }
+  });
+
+  test('danh sách sự kiện top-5 xu hướng lệch theo ĐÚNG domain của cung Tiểu Hạn năm xem (khắc phục "danh sách chưa phù hợp")', () => {
+    for (const result of allSampleResults()) {
+      for (const year of [2025, 2026, 2027]) {
+        const ctx = buildAnnualContext(result, year);
+        const pred = computeAnnualPrediction(result, year);
+        if (!ctx.tieuHanFocus.palace || pred.events.length === 0) continue;
+        const boosted = new Set(PALACE_EVENT_BOOST[ctx.tieuHanFocus.palace] ?? []);
+        for (const p of ctx.tieuHanFocus.sanFangPalaces) for (const id of PALACE_EVENT_BOOST[p] ?? []) boosted.add(id);
+        if (boosted.size === 0) continue;
+        // Không đòi hỏi TUYỆT ĐỐI (còn nhiều tầng khác cũng góp phần), chỉ xác nhận ít nhất 1 trong
+        // top-5 khớp domain Tiểu Hạn năm đó — tránh trường hợp domain hoàn toàn không liên quan gì.
+        const anyMatch = pred.events.some(e => boosted.has(e.eventId));
+        expect(anyMatch).toBe(true);
+      }
+    }
   });
 });

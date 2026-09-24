@@ -109,7 +109,7 @@ export interface MonthWindow {
 
 export interface ScoreBreakdown {
   natal: number; daHan: number; annualAxis: number; annualFourTransform: number;
-  tieuHan: number; luuNienDaHan: number; movingStars: number; structuralSupport: number;
+  luuNienDaHan: number; movingStars: number; structuralSupport: number;
 }
 
 export interface ScoredEvent {

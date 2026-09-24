@@ -10,8 +10,9 @@ import type {
   ScoredEvent, ScoreBreakdown, Direction, ConfidenceLevel, IntensityLevel, Palace, UniformCondition,
 } from './types';
 import { BASE_WEIGHTS, INTENSITY_BANDS, DIRECTION_DELTA, SUPPRESSION, CONFIDENCE_WEIGHTS } from './config';
-import { convergenceMultiplier, countIndependentFamilies } from './convergence';
-import { PALACE_CODE_TO_VN, palaceBranch, branchRelation } from './calendar';
+import { countIndependentFamilies } from './convergence';
+import { PALACE_CODE_TO_VN } from './calendar';
+import { computeTieuHanAxisResult, type TieuHanAxisResult } from './tieuHanFocus';
 import type { AnnualSignalContext } from './signals';
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
@@ -81,21 +82,7 @@ function movingStarsScore(rules: EventRule[], axisPalaces: Set<Palace>, axisWeig
   return clamp(raw);
 }
 
-/** "TieuHan" (8%) — cung Tiểu Hạn năm xem có trùng/tam hợp/xung với trục sự kiện không. */
-function tieuHanScore(axisPalaces: Palace[], ctx: AnnualSignalContext, houses: import('../../types').AstrologyResult['tuViChart']): number {
-  if (!ctx.tieuHanBranch) return 45; // ngoài phạm vi đã tính tuổi — trung tính, không thưởng/phạt
-  let best = 30;
-  for (const p of axisPalaces) {
-    const b = palaceBranch(houses, p);
-    if (!b) continue;
-    const rel = branchRelation(ctx.tieuHanBranch, b);
-    const score = rel === 'SAME' ? 85 : rel === 'TAM_HOP' ? 65 : rel === 'XUNG' ? 55 : 30;
-    if (score > best) best = score;
-  }
-  return best;
-}
-
-/** "StructuralSupport" (5%) — Tuần/Triệt + độ sáng chính tinh tại cung CHỦ (primary) của trục. */
+/** "StructuralSupport" (15%) — Tuần/Triệt + độ sáng chính tinh tại cung CHỦ (primary) của trục. */
 function structuralSupportScore(primaryPalaces: Palace[], houses: import('../../types').AstrologyResult['tuViChart']): number {
   let best = 55;
   for (const p of primaryPalaces) {
@@ -119,9 +106,10 @@ export interface ScoreEventResult {
   strength: number;
   positiveScore: number;
   negativeScore: number;
+  tieuHanAxis: TieuHanAxisResult;
 }
 
-/** PASS 1 — chấm điểm 1 sự kiện chỉ bằng 1338 rule đồng dạng + các nhóm cấu trúc (TieuHan/LuuNienDaHan/StructuralSupport). */
+/** PASS 1 — chấm điểm 1 sự kiện chỉ bằng 1338 rule đồng dạng + các nhóm cấu trúc (LuuNienDaHan/StructuralSupport). Tiểu Hạn tính RIÊNG làm hệ số nhân (§28), không nằm trong baseScore cộng dồn — xem finalizeEvent(). */
 export function scoreEventPass1(
   event: EventDefinition, rules: EventRule[], ctx: AnnualSignalContext, result: import('../../types').AstrologyResult,
 ): ScoreEventResult {
@@ -130,18 +118,20 @@ export function scoreEventPass1(
   applyUniformRules(rules, axisPalaces, event.axis.weights, ctx.signals, acc);
 
   const movingStars = movingStarsScore(rules, axisPalaces, event.axis.weights, ctx.signals);
-  const tieuHan = tieuHanScore([...axisPalaces], ctx, result.tuViChart);
   const structuralSupport = structuralSupportScore(event.axis.primary, result.tuViChart);
 
   const daHanBlended = clamp(0.6 * clamp(acc.daHan) + 0.4 * ctx.daHanStructuralScore);
+  const annualAxisClamped = clamp(acc.annualAxis);
+  const annualFourTransformClamped = clamp(acc.annualFourTransform);
+
+  const tieuHanAxis = computeTieuHanAxisResult(event, ctx, result.tuViChart, acc.daHan, annualFourTransformClamped, annualAxisClamped, movingStars);
 
   const breakdown: ScoreBreakdown = {
     natal: clamp(acc.natal),
     daHan: daHanBlended,
-    annualAxis: clamp(acc.annualAxis),
-    annualFourTransform: clamp(acc.annualFourTransform),
-    tieuHan,
-    luuNienDaHan: ctx.luuNienDaHanRelationScore,
+    annualAxis: annualAxisClamped,
+    annualFourTransform: annualFourTransformClamped,
+    luuNienDaHan: tieuHanAxis.luuNienDaHanScore,
     movingStars,
     structuralSupport,
   };
@@ -151,7 +141,6 @@ export function scoreEventPass1(
     breakdown.daHan * BASE_WEIGHTS.daHan +
     breakdown.annualAxis * BASE_WEIGHTS.annualAxis +
     breakdown.annualFourTransform * BASE_WEIGHTS.annualFourTransform +
-    breakdown.tieuHan * BASE_WEIGHTS.tieuHan +
     breakdown.luuNienDaHan * BASE_WEIGHTS.luuNienDaHan +
     breakdown.movingStars * BASE_WEIGHTS.movingStars +
     breakdown.structuralSupport * BASE_WEIGHTS.structuralSupport;
@@ -161,6 +150,7 @@ export function scoreEventPass1(
     strength: clamp(baseScore),
     positiveScore: clamp(acc.positive + acc.activating * 0.5),
     negativeScore: clamp(acc.negative + acc.activating * 0.5),
+    tieuHanAxis,
   };
 }
 
@@ -205,22 +195,21 @@ function reasoningChainOf(evidence: EvidenceItem[]): string[] {
 export function finalizeEvent(
   pass1: ScoreEventResult, extraStructural: number, extraEvidence: EvidenceItem[], extraFamilies: EvidenceFamily[],
 ): ScoredEvent {
-  const { event, accum, breakdown } = pass1;
+  const { event, accum, breakdown, tieuHanAxis } = pass1;
   const finalBreakdown: ScoreBreakdown = { ...breakdown, structuralSupport: clamp(breakdown.structuralSupport + extraStructural) };
   const baseScore =
     finalBreakdown.natal * BASE_WEIGHTS.natal +
     finalBreakdown.daHan * BASE_WEIGHTS.daHan +
     finalBreakdown.annualAxis * BASE_WEIGHTS.annualAxis +
     finalBreakdown.annualFourTransform * BASE_WEIGHTS.annualFourTransform +
-    finalBreakdown.tieuHan * BASE_WEIGHTS.tieuHan +
     finalBreakdown.luuNienDaHan * BASE_WEIGHTS.luuNienDaHan +
     finalBreakdown.movingStars * BASE_WEIGHTS.movingStars +
     finalBreakdown.structuralSupport * BASE_WEIGHTS.structuralSupport;
 
-  const allEvidence = [...accum.evidence, ...extraEvidence];
-  const families = countIndependentFamilies([...accum.families, ...extraFamilies]);
+  const allEvidence = [...accum.evidence, ...extraEvidence, ...tieuHanAxis.evidence];
+  const families = countIndependentFamilies([...accum.families, ...extraFamilies, ...tieuHanAxis.families]);
   let extraPositive = 0, extraNegative = 0;
-  for (const e of extraEvidence) {
+  for (const e of [...extraEvidence, ...tieuHanAxis.evidence]) {
     if (e.polarity === 'POSITIVE') extraPositive += e.contribution;
     else if (e.polarity === 'NEGATIVE') extraNegative += e.contribution;
     else if (e.polarity === 'ACTIVATING') { extraPositive += e.contribution * 0.5; extraNegative += e.contribution * 0.5; }
@@ -228,7 +217,11 @@ export function finalizeEvent(
   const positiveScore = clamp(pass1.positiveScore + extraPositive);
   const negativeScore = clamp(pass1.negativeScore + extraNegative);
 
-  let strength = clamp(baseScore * convergenceMultiplier(families.length));
+  // §28 finalScore = baseScore × tieuHanEventPriorMultiplier × axisConvergenceMultiplier (conflictMultiplier
+  // giữ = 1.0 — xem applyConflictRules() ở engine.ts: rule xung khắc hiện chỉ chỉnh NGÔN TỪ/chủ đề, không
+  // đổi điểm, giữ nguyên hành vi này). Thay THẲNG cho convergence theo "số họ bằng chứng" (ENGINE_SPEC v1)
+  // — dùng cả 2 multiplier cộng dồn sẽ đẩy gần hết sự kiện lên kịch trần 100 (xem lý do ở tieuHanFocus.ts).
+  let strength = clamp(baseScore * tieuHanAxis.eventPriorMultiplier * tieuHanAxis.axisConvergenceMultiplier);
 
   // Suppression §10 — Đại Vận yếu thì trần điểm.
   if (finalBreakdown.daHan < SUPPRESSION.daHanScoreLtCapFinal.threshold) {
@@ -237,7 +230,8 @@ export function finalizeEvent(
   const majorBlocked = finalBreakdown.natal < SUPPRESSION.natalDaHanBlockMajor.natalLt
     && finalBreakdown.daHan < SUPPRESSION.natalDaHanBlockMajor.daHanLt;
 
-  const annualCombined = clamp(finalBreakdown.annualAxis * (20 / 35) + finalBreakdown.annualFourTransform * (15 / 35));
+  const annualCombined = clamp(finalBreakdown.annualAxis * (BASE_WEIGHTS.annualAxis / (BASE_WEIGHTS.annualAxis + BASE_WEIGHTS.annualFourTransform))
+    + finalBreakdown.annualFourTransform * (BASE_WEIGHTS.annualFourTransform / (BASE_WEIGHTS.annualAxis + BASE_WEIGHTS.annualFourTransform)));
   const gate = event.majorEventGate;
   const isMajorEvent = !majorBlocked
     && finalBreakdown.natal >= gate.minNatal

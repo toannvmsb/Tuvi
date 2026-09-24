@@ -50,6 +50,8 @@ export const SIGNAL_MEANING: Record<string, string> = {
   THIEN_PHU: 'mang tính ổn định, có của để dành, ít biến động',
   THIEN_TUONG: 'có sự hỗ trợ, che chở, giảm bớt rủi ro',
   VU_KHUC: 'thúc đẩy quyết đoán trong chuyện tiền bạc, dứt khoát hơn',
+
+  TIEU_HAN_FOCUS: 'Tiểu Hạn năm nay đang tập trung đúng vào lĩnh vực này — nên các dấu hiệu liên quan dễ trở thành việc CỤ THỂ trong năm, thay vì chỉ là tiềm năng chung chung',
 };
 
 export function meaningOf(code: string): string {
