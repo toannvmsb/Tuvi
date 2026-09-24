@@ -60,12 +60,12 @@ export default function VanHubScreen() {
 
       <Pressable
         onPress={() => navigation.navigate('AnnualEvents', { result, year: now.getFullYear() })}
-        accessibilityRole="button" accessibilityLabel={`Vận hạn diễn ra trong năm ${now.getFullYear()}`}
+        accessibilityRole="button" accessibilityLabel={`Vận hạn diễn ra trong năm ${now.getFullYear()} của ${result.birthInfo.name || 'bạn'}`}
       >
         <Card hero style={s.annualBox}>
           <View style={s.annualIcon}><Icon name="spark" size={26} color="#1E1230" /></View>
           <View style={{ flex: 1, gap: 3 }}>
-            <Eyebrow>Vận hạn diễn ra trong năm {now.getFullYear()}</Eyebrow>
+            <Eyebrow>{`Vận hạn diễn ra trong năm ${now.getFullYear()} của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
             <Display size={20} numberOfLines={2}>Luận sự kiện: tháng nào kích hoạt, việc gì nên lưu ý</Display>
           </View>
           <Icon name="arrow" size={20} color={COLORS.goldLight} />

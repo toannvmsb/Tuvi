@@ -163,7 +163,7 @@ export default function AnnualEventsScreen() {
 
         {pred && (
           <Card hero style={{ gap: 10 }}>
-            <Eyebrow>Vận hạn diễn ra trong năm {year}</Eyebrow>
+            <Eyebrow>{`Vận hạn diễn ra trong năm ${year} của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
             <Text style={s.overallTxt}>Nhìn chung, năm nay có {INTENSITY_VN[pred.overallIntensity]}.</Text>
             {pred.annualTheme.length > 0 ? (
               <View style={{ gap: 4 }}>
