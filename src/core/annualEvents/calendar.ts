@@ -40,19 +40,6 @@ export function locTonBranchOf(stem: HeavenlyStem): EarthlyBranch {
   return LOC_TON_BY_STEM[stem];
 }
 
-/**
- * Đẩu Quân CỦA THÁNG (không kèm giờ) — dùng cho luận theo tháng/lưu nguyệt, KHÁC với Đẩu Quân
- * bản mệnh trong core/starPlacer.ts (tính kèm giờ sinh, chỉ dùng cho lá số gốc). Quy ước: khởi
- * từ cung Thái Tuế (chi năm) cho tháng 1, đi NGHỊCH mỗi tháng — quy ước phổ biến cho luận lưu
- * nguyệt khi không có một giờ cụ thể để tính. Nêu rõ ở đây theo đúng yêu cầu ENGINE_SPEC §16
- * ("never bury the algorithm in EventDetector").
- */
-export function dauQuanOfMonth(yearBranch: EarthlyBranch, lunarMonth: number): EarthlyBranch {
-  const idx = branchIndex(yearBranch);
-  const dqIdx = ((idx - (lunarMonth - 1)) % 12 + 12) % 12;
-  return BRANCHES[dqIdx];
-}
-
 const TAM_HOP_GROUPS: number[][] = [[8, 0, 4], [2, 6, 10], [5, 9, 1], [11, 3, 7]];
 const oppositeIdx = (idx: number) => (idx + 6) % 12;
 

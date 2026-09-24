@@ -118,6 +118,9 @@ export interface AnnualSignalContext {
   /** 0..100 — quan hệ ngũ hành Tam Hợp năm xem với Tam Hợp Đại Vận đang chạy. Cộng đều cho MỌI sự kiện. */
   luuNienDaHanRelationScore: number;
   daiVanScore: DaiVanScore | null;
+  /** Cung Đại Vận đang chạy (chi + can) — dùng cho tầng tháng (monthlyTiming.ts) so trùng/hình học. */
+  daHanBranch: EarthlyBranch | null;
+  daHanStem: HeavenlyStem | null;
 }
 
 const TAM_HOP_ELEMENT: Record<EarthlyBranch, string> = {
@@ -154,11 +157,13 @@ export function buildAnnualContext(result: AstrologyResult, targetYear: number):
   let daHanStructuralScore = 50;
   let daiVanScore: DaiVanScore | null = null;
   let luuNienDaHanRelationScore = 55;
+  let daHanStem: HeavenlyStem | null = null;
   if (dv) {
     signals.push(...daHanSignals(result, dv.branch));
     daiVanScore = scoreDaiVan(result, dv);
     daHanStructuralScore = Math.max(0, Math.min(100, Math.round(daiVanScore.taiLoc - daiVanScore.thachThuc * 0.3)));
     luuNienDaHanRelationScore = luuNienVsDaHanScore(yearBranch, dv.branch);
+    daHanStem = c.houses.find(x => x.branch === dv.branch)?.can ?? null;
   }
   signals.push(...annualSignals(result, yearStem, yearBranch));
 
@@ -168,5 +173,7 @@ export function buildAnnualContext(result: AstrologyResult, targetYear: number):
     tieuHanBranch: tv?.branch ?? null,
     luuNienDaHanRelationScore,
     daiVanScore,
+    daHanBranch: dv?.branch ?? null,
+    daHanStem,
   };
 }

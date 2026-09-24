@@ -5,7 +5,7 @@
  */
 import type { EvidenceItem, MonthWindow, ScoredEvent } from './types';
 import { categoryTitleOf } from './eventTitles';
-import { LAYER_VN } from './labels';
+import { LAYER_VN, EVENT_PHASE_VN } from './labels';
 import { meaningOf } from './signalMeaning';
 import { PALACE_CODE_TO_VN } from './calendar';
 
@@ -50,10 +50,13 @@ export function explainEvent(e: ScoredEvent): EventExplanation {
 
 /** Câu giải thích "vì sao đúng tháng này" cho 1 cửa sổ tháng — dựa trên sao lưu (lưu nguyệt) đã kích hoạt. */
 export function explainMonthWindow(w: MonthWindow): string {
-  const label = w.startLunarMonth === w.endLunarMonth ? `Tháng ${w.startLunarMonth}` : `Khoảng tháng ${w.startLunarMonth}–${w.endLunarMonth}`;
+  const label = w.startLunarMonth === w.endLunarMonth || !w.isUniquePeak
+    ? (w.startLunarMonth === w.endLunarMonth ? `Tháng ${w.startLunarMonth}` : `Khoảng tháng ${w.startLunarMonth}–${w.endLunarMonth}`)
+    : `Tháng ${w.startLunarMonth}`;
+  const phaseTxt = EVENT_PHASE_VN[w.phase] ? ` — ${EVENT_PHASE_VN[w.phase]}` : '';
   if (w.drivers.length === 0) {
-    return `${label} âm lịch: điểm kích hoạt cao hơn mặt bằng chung của năm, nhưng chưa tách được rõ sao lưu nào là chính.`;
+    return `${label} âm lịch: điểm kích hoạt cao hơn mặt bằng chung của năm${phaseTxt}, nhưng chưa tách được rõ sao lưu nào là chính.`;
   }
-  const names = w.drivers.map(d => `${d.starName} (cung ${PALACE_CODE_TO_VN[d.palace] ?? d.palace})`).join(', ');
-  return `${label} âm lịch: vì có ${names} cùng hội tụ vào trục sự kiện trong lưu nguyệt tháng này.`;
+  const names = w.drivers.map(d => `${d.starName}${d.palace ? ` (cung ${PALACE_CODE_TO_VN[d.palace] ?? d.palace})` : ''}`).join(', ');
+  return `${label} âm lịch${phaseTxt}: vì có ${names} cùng hội tụ vào trục sự kiện trong lưu nguyệt tháng này.`;
 }

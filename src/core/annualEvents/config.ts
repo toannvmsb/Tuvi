@@ -69,6 +69,100 @@ export const CONFIDENCE_WEIGHTS = {
 
 export const PEAK_MONTH_DELTA = 12;
 
+/**
+ * TUZI_Monthly_Event_Timing_Engine_v2.md — thay thế hoàn toàn MONTHLY_WEIGHTS/SUPPRESSION.monthlyCap
+ * ở trên (giữ nguyên 2 hằng số cũ để không phá vỡ chỗ khác lỡ còn import, nhưng monthlyTiming.ts
+ * từ nay CHỈ dùng bộ hằng số MONTHLY_V2_* này).
+ */
+export const MONTHLY_V2_WEIGHTS = {
+  annualBaseline: 0.25,
+  axisResonance: 0.20,
+  monthlyFourTransform: 0.25,
+  crossLayerEcho: 0.15,
+  douJun: 0.05,
+  movingStars: 0.05,
+  structural: 0.05,
+} as const;
+
+/** §21 — cap riêng từng thành phần (điểm tuyệt đối 0..cap, ÁP DỤNG TRƯỚC khi nhân trọng số ở trên). */
+export const MONTHLY_V2_CAPS = {
+  annualBaseline: 25, axisResonance: 20, monthlyFourTransform: 25,
+  crossLayerEcho: 15, douJun: 5, movingStars: 5, structural: 5,
+} as const;
+
+/** §8 — trọng số hình học giữa 2 chi (tháng ↔ cung tham chiếu). */
+export const MONTHLY_GEOMETRY_WEIGHT: Record<'DIRECT' | 'OPPOSITION' | 'TRINE' | 'ADJACENT' | 'NONE', number> = {
+  DIRECT: 1.0, OPPOSITION: 0.85, TRINE: 0.70, ADJACENT: 0.25, NONE: 0,
+};
+/** §8 — Hóa Kỵ nhấn mạnh xung chiếu hơn cả đồng cung (school-configurable, để mặc định theo spec). */
+export const KY_OPPOSITION_MULTIPLIER = 1.05;
+
+/** §36 MONTHLY_GENERIC_ECHO_001 — điểm gốc theo hình học cho "Tứ Hóa tháng có chạm trục sự kiện". */
+export const MONTHLY_TU_HOA_GEOMETRY_BONUS: Record<'DIRECT' | 'OPPOSITION' | 'TRINE' | 'ADJACENT' | 'NONE', number> = {
+  DIRECT: 15, OPPOSITION: 13, TRINE: 10, ADJACENT: 0, NONE: 0,
+};
+
+/** §6 — Same-Function Overlap: dùng pattern MẠNH NHẤT áp dụng được, không cộng dồn. */
+export const MONTHLY_OVERLAP_SCORE = {
+  natalOnly: 8, daHanOnly: 12, annualOnly: 16, annualPlusDaHan: 22, allThree: 28,
+} as const;
+
+/** §10 — Transformation Echo: cùng loại hóa cùng đích (Lộc/Quyền/Khoa/Kỵ theo thứ tự). */
+export const ECHO_SAME_TRANSFORM: Record<string, number> = {
+  'Hóa Lộc': 22, 'Hóa Quyền': 22, 'Hóa Khoa': 18, 'Hóa Kỵ': 25,
+};
+/** §10 — khác loại hóa nhưng trùng đích (khóa theo "annualHoa|monthlyHoa"); cặp không liệt kê dùng fallback. */
+export const ECHO_CROSS_TRANSFORM: Record<string, number> = {
+  'Hóa Lộc|Hóa Quyền': 16, 'Hóa Quyền|Hóa Khoa': 14, 'Hóa Lộc|Hóa Kỵ': 16,
+  'Hóa Quyền|Hóa Kỵ': 17, 'Hóa Khoa|Hóa Quyền': 14,
+};
+export const ECHO_CROSS_TRANSFORM_FALLBACK = 10;
+/** §11 — ưu tiên theo tầng khi so khớp Tứ Hóa tháng với tầng trên. */
+export const ECHO_LAYER_PRIORITY = { ANNUAL: 1.0, DA_HAN: 0.85, NATAL: 0.70 } as const;
+
+/** §14 — Đẩu Quân tương tác (cộng dồn rồi clamp theo MONTHLY_V2_CAPS.douJun). */
+export const DOU_JUN_SCORE = {
+  onEventAxis: 8, overlapsAnnualEventPalace: 10, ownTransformHitsAxis: 8,
+  annualMingHitsDouJun: 8, mutualInteraction: 12,
+} as const;
+
+/** §15 — sao lưu tháng, cộng dồn rồi clamp theo MONTHLY_V2_CAPS.movingStars (mã sao khớp movingStars.ts/signalCatalog.ts). */
+export const MONTHLY_MOVING_STAR_SCORE: Record<string, number> = {
+  THIEN_MA: 6, LOC_TON: 5, KINH_DUONG: 4, DA_LA: 4, HONG_LOAN: 4, THIEN_HY: 4,
+  THIEN_KHOI: 3, THIEN_VIET: 3,
+};
+
+/** §23 — hệ số hội tụ RIÊNG cho tầng tháng (nhỏ hơn hẳn tầng năm ×1.6 ở CONVERGENCE_MULTIPLIER_CAP). */
+export const MONTHLY_CONVERGENCE_MULTIPLIER: Record<number, number> = { 1: 1.0, 2: 1.03, 3: 1.07, 4: 1.12 };
+export const MONTHLY_CONVERGENCE_MULTIPLIER_5PLUS = 1.18;
+export const MONTHLY_CONVERGENCE_CAP = 1.20;
+
+/** §24 — thay SUPPRESSION.monthlyCap cũ. */
+export const MONTHLY_V2_SUPPRESSION = {
+  blockBelowAnnual: 50,
+  capAt60BelowAnnual: 55,
+  capAt45BelowAnnual: 40,
+};
+
+/** §25 — dải cường độ THỜI ĐIỂM (khác dải INTENSITY_BANDS dùng cho cường độ SỰ KIỆN). */
+export const TIMING_INTENSITY_BANDS: { min: number; max: number; level: 'NOTABLE' | 'ACTIVITY' | 'STRONG' | 'VERY_STRONG' }[] = [
+  { min: 55, max: 64, level: 'NOTABLE' },
+  { min: 65, max: 74, level: 'ACTIVITY' },
+  { min: 75, max: 84, level: 'STRONG' },
+  { min: 85, max: 100, level: 'VERY_STRONG' },
+];
+
+/** §27/§28 — gộp cửa sổ tháng liền kề + quy tắc "1 tháng đỉnh duy nhất". */
+export const TIMING_WINDOW_MERGE = { minScore: 70, maxDelta: 10, maxWindowMonths: 3 };
+export const UNIQUE_PEAK_MIN_SCORE = 75;
+export const UNIQUE_PEAK_MIN_DELTA = 12;
+
+/** §35 — Timing Confidence (KHÁC CONFIDENCE_WEIGHTS dùng cho confidence của SỰ KIỆN năm). */
+export const TIMING_CONFIDENCE_WEIGHTS = {
+  annualConfirmation: 0.25, axisMatching: 0.20, crossLayerTuHoa: 0.30,
+  evidenceIndependence: 0.15, adjacentMonthCoherence: 0.10,
+};
+
 /** Bảng Tứ Hóa theo Can — GIỐNG HỆT core/phiHoa.ts (HOA_BY_STEM), chỉ để đối chiếu/tài liệu.
  *  Engine KHÔNG dùng bảng này để tính — luôn gọi phiHoa.ts (nguồn chuẩn duy nhất, theo CLAUDE.md §2.3). */
 export const FOUR_TRANSFORMATIONS_REFERENCE_NOTE =

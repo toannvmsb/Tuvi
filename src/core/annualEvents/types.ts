@@ -85,10 +85,19 @@ export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
 export type Direction = 'POSITIVE' | 'NEGATIVE' | 'MIXED';
 
 export interface MonthDriver { starName: string; palace: Palace; signalType: string }
+
+/** TUZI_Monthly_Event_Timing_Engine_v2.md §25 — cường độ THỜI ĐIỂM, khác IntensityLevel (dùng cho
+ *  cường độ SỰ KIỆN cả năm). §29 — giai đoạn sự kiện, suy từ hóa tinh tháng chiếm ưu thế trong cửa sổ. */
+export type TimingIntensity = 'NOTABLE' | 'ACTIVITY' | 'STRONG' | 'VERY_STRONG';
+export type EventPhase = 'NONE' | 'ONSET' | 'PEAK' | 'FORMALIZATION' | 'PRESSURE' | 'RESOLUTION';
+
 export interface MonthWindow {
   startLunarMonth: number;
   endLunarMonth: number;
-  strength: IntensityLevel;
+  strength: TimingIntensity;
+  /** true nếu đây là 1 tháng ĐỈNH DUY NHẤT (§28: top ≥75 và hơn tháng nhì ≥12 điểm) — false nghĩa là nên hiểu như 1 khoảng, không chốt đúng 1 tháng. */
+  isUniquePeak: boolean;
+  phase: EventPhase;
   score: number;
   /** Sao lưu (lưu nguyệt) đóng góp mạnh nhất khiến cửa sổ tháng này nổi bật — để giải thích "vì sao". */
   drivers: MonthDriver[];
