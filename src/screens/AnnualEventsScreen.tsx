@@ -178,7 +178,15 @@ export default function AnnualEventsScreen() {
         <Segmented<Mode>
           options={[
             { value: 'advanced', label: isCurrentYear ? 'Nâng cao (miễn phí)' : `Nâng cao (${costNote(PREMIUM.COST.annualEvents)})` },
-            { value: 'ai', label: `Phân tích AI (${costNote(PREMIUM.COST.aiAnnualEvents)})` },
+            {
+              value: 'ai',
+              label: (
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={[s.segTxtLine, { color: mode === 'ai' ? '#1E1230' : COLORS.textSecondary, fontFamily: mode === 'ai' ? FONTS.bodyBold : FONTS.bodySemi }]}>Phân tích AI</Text>
+                  <Text style={[s.segTxtSub, { color: mode === 'ai' ? '#1E1230' : COLORS.textSecondary }]}>{`(${costNote(PREMIUM.COST.aiAnnualEvents)})`}</Text>
+                </View>
+              ),
+            },
           ]}
           value={mode} onChange={setMode}
         />
@@ -254,6 +262,8 @@ const s = StyleSheet.create({
   chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textSecondary },
   blockLabel: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 0.5, color: COLORS.gold, textTransform: 'uppercase' },
   justify: { textAlign: 'justify' },
+  segTxtLine: { fontSize: 12.5, lineHeight: 15, textAlign: 'center' },
+  segTxtSub: { fontFamily: FONTS.body, fontSize: 10.5, lineHeight: 13, textAlign: 'center' },
   loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   retry: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.gold, textAlign: 'center' },
   disclaimer: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 17, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },

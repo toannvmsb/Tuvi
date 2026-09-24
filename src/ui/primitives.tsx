@@ -73,19 +73,22 @@ export function Chip({ label, active, onPress, color }: { label: string; active?
 
 /** Thanh chọn phân đoạn (Tử Vi | Bát Tự, Đại vận | Tiểu vận…). */
 export function Segmented<T extends string>({ options, value, onChange }: {
-  options: { value: T; label: string }[]; value: T; onChange: (v: T) => void;
+  options: { value: T; label: React.ReactNode }[]; value: T; onChange: (v: T) => void;
 }) {
   return (
     <View style={s.seg}>
       {options.map(o => {
         const on = o.value === value;
+        const content = typeof o.label === 'string'
+          ? <Text style={[s.segTxt, { color: on ? '#1E1230' : COLORS.textSecondary, fontFamily: on ? FONTS.bodyBold : FONTS.bodySemi }]}>{o.label}</Text>
+          : o.label;
         return on ? (
-          <LinearGradient key={o.value} colors={[COLORS.goldLight, COLORS.goldDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.segItem}>
-            <Text style={[s.segTxt, { color: '#1E1230', fontFamily: FONTS.bodyBold }]} accessibilityRole="button">{o.label}</Text>
+          <LinearGradient key={o.value} colors={[COLORS.goldLight, COLORS.goldDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.segItem} accessibilityRole="button">
+            {content}
           </LinearGradient>
         ) : (
           <Pressable key={o.value} onPress={() => onChange(o.value)} style={s.segItem} accessibilityRole="button">
-            <Text style={[s.segTxt, { color: COLORS.textSecondary }]}>{o.label}</Text>
+            {content}
           </Pressable>
         );
       })}
