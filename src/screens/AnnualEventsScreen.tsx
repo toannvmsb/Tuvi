@@ -2,6 +2,9 @@
  * LUẬN SỰ KIỆN TRONG NĂM — 85 sự kiện theo Tử Vi Nam Phái, chấm điểm bằng engine xác định
  * (core/annualEvents), không phải AI đoán tự do. "Nâng cao" trình bày trực tiếp kết quả đã
  * chấm điểm (không cần AI); "Phân tích AI" biến kết quả đó thành lời khuyên hành động.
+ *
+ * Giá: NĂM HIỆN TẠI xem Nâng cao MIỄN PHÍ (Phân tích AI vẫn tính phí); mở NĂM KHÁC tính phí mở
+ * Nâng cao + phí Phân tích AI riêng.
  */
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
@@ -12,7 +15,10 @@ import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, SectionTitle, ScoreRing, Segmented, GoldButton } from '../ui';
 import Icon from '../ui/Icon';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
-import { computeAnnualPrediction, generateAnnualOfflineSummary, analyzeAnnualEventsWithAI, type AnnualPrediction, type ScoredEvent } from '../core/annualEvents';
+import {
+  computeAnnualPrediction, analyzeAnnualEventsWithAI, explainEvent, explainMonthWindow,
+  INTENSITY_VN, categoryTitleOf, type AnnualPrediction, type ScoredEvent,
+} from '../core/annualEvents';
 import { PREMIUM, costNote } from '../constants/premium';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -32,13 +38,14 @@ type AiState = { status: 'idle' | 'loading' | 'done' | 'error'; text: string };
 function EventCard({ e }: { e: ScoredEvent }) {
   const [open, setOpen] = useState(false);
   const color = DIRECTION_COLOR[e.direction];
+  const ex = useMemo(() => explainEvent(e), [e]);
   return (
     <Pressable onPress={() => setOpen(v => !v)} accessibilityRole="button">
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <ScoreRing score={e.strength} size={52} stroke={5} numberSize={16} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={s.eventCat}>{e.category}</Text>
+            <Text style={s.eventCat}>{categoryTitleOf(e.category)}</Text>
             <Text style={s.eventTitle} numberOfLines={2}>{e.title}</Text>
           </View>
           <Icon name="chev" size={18} color={COLORS.textMuted} />
@@ -47,25 +54,33 @@ function EventCard({ e }: { e: ScoredEvent }) {
           <View style={[s.chip, { backgroundColor: color + '22', borderColor: color + '66' }]}>
             <Text style={[s.chipTxt, { color }]}>{DIRECTION_LABEL[e.direction]}</Text>
           </View>
-          <View style={s.chip}><Text style={s.chipTxt}>{e.level}</Text></View>
-          <View style={s.chip}><Text style={s.chipTxt}>Tin cậy {e.confidence}</Text></View>
-          {e.isMajorEvent && <View style={[s.chip, { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold }]}><Text style={[s.chipTxt, { color: COLORS.goldLight }]}>⭐ Sự kiện lớn</Text></View>}
+          {e.isMajorEvent && <View style={[s.chip, { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold }]}><Text style={[s.chipTxt, { color: COLORS.goldLight }]}>⭐ Đáng chú ý trong năm</Text></View>}
         </View>
         {open && (
-          <View style={{ gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)' }}>
-            {e.reasoningChain.length > 0 && (
-              <Body size={12.5}>Dữ kiện: {e.reasoningChain.join('; ')}.</Body>
+          <View style={{ gap: 10, paddingTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)' }}>
+            {ex.facts.length > 0 && (
+              <View style={{ gap: 4 }}>
+                <Text style={s.blockLabel}>Dữ kiện</Text>
+                {ex.facts.map((f, i) => <Body key={i} size={12.5}>• {f.replace(/\*\*/g, '')}</Body>)}
+              </View>
             )}
+            <View style={{ gap: 2 }}>
+              <Text style={s.blockLabel}>Phân tích</Text>
+              <Body size={12.5}>{ex.analysis}</Body>
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text style={s.blockLabel}>Kết luận</Text>
+              <Body size={12.5} color={COLORS.textPrimary}>{ex.conclusion}</Body>
+            </View>
             {e.peakMonths.length > 0 ? (
-              <Body size={12.5} color={COLORS.goldLight}>
-                Thời điểm mạnh: {e.peakMonths.map(m => (m.startLunarMonth === m.endLunarMonth ? `tháng ${m.startLunarMonth}` : `tháng ${m.startLunarMonth}–${m.endLunarMonth}`)).join('; ')} âm lịch.
-              </Body>
+              <View style={{ gap: 4 }}>
+                <Text style={s.blockLabel}>Thời điểm cần lưu ý</Text>
+                {e.peakMonths.map((w, i) => <Body key={i} size={12.5} color={COLORS.goldLight}>{explainMonthWindow(w)}</Body>)}
+              </View>
             ) : (
               <Body size={12.5}>Chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.</Body>
             )}
-            {e.counterEvidence.length > 0 && (
-              <Body size={12} color={COLORS.textMuted}>Dữ kiện ngược chiều: {e.counterEvidence.slice(0, 3).map(c => c.starName).join(', ')} — không nên chủ quan tuyệt đối theo một hướng.</Body>
-            )}
+            {ex.caution && <Body size={12} color={COLORS.textMuted}>{ex.caution}</Body>}
           </View>
         )}
       </Card>
@@ -81,6 +96,7 @@ export default function AnnualEventsScreen() {
 
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState<number>(route.params?.year ?? result?.tuViChart.viewingYear ?? currentYear);
+  const isCurrentYear = year === currentYear;
   const [mode, setMode] = useState<Mode>('advanced');
   const [unlockedAdvanced, setUnlockedAdvanced] = useState(false);
   const [ai, setAi] = useState<AiState>({ status: 'idle', text: '' });
@@ -88,6 +104,7 @@ export default function AnnualEventsScreen() {
   const pred: AnnualPrediction | null = useMemo(() => (result ? computeAnnualPrediction(result, year) : null), [result, year]);
   const advancedKey = result ? fkey(result, `annualEvents:${year}:adv`) : '';
   const aiKey = result ? fkey(result, `annualEvents:${year}:ai`) : '';
+  const showAdvancedContent = isCurrentYear || unlockedAdvanced;
 
   React.useEffect(() => {
     setUnlockedAdvanced(false);
@@ -138,7 +155,7 @@ export default function AnnualEventsScreen() {
           </Pressable>
           <View style={{ alignItems: 'center', flex: 1 }}>
             <Display size={30}>{year}</Display>
-            {pred && <Text style={s.yearSub}>{pred.yearCanChi} · {pred.targetAge} tuổi</Text>}
+            {pred && <Text style={s.yearSub}>{pred.yearCanChi} · {pred.targetAge} tuổi{isCurrentYear ? ' · Năm hiện tại' : ''}</Text>}
           </View>
           <Pressable style={s.yearBtn} onPress={() => setYear(y => y + 1)} accessibilityRole="button" accessibilityLabel="Năm sau">
             <Text style={s.yearBtnTxt}>›</Text>
@@ -148,7 +165,7 @@ export default function AnnualEventsScreen() {
         {pred && (
           <Card hero style={{ gap: 10 }}>
             <Eyebrow>Vận hạn diễn ra trong năm {year}</Eyebrow>
-            <Text style={s.overallTxt}>Độ sôi động chung: {pred.overallIntensity}</Text>
+            <Text style={s.overallTxt}>Nhìn chung, năm nay có {INTENSITY_VN[pred.overallIntensity]}.</Text>
             {pred.annualTheme.length > 0 ? (
               <View style={{ gap: 4 }}>
                 {pred.annualTheme.map((t, i) => <Body key={i} size={13}>• {t}</Body>)}
@@ -160,12 +177,15 @@ export default function AnnualEventsScreen() {
         )}
 
         <Segmented<Mode>
-          options={[{ value: 'advanced', label: `Nâng cao (${costNote(PREMIUM.COST.annualEvents)})` }, { value: 'ai', label: `Phân tích AI (${costNote(PREMIUM.COST.aiAnnualEvents)})` }]}
+          options={[
+            { value: 'advanced', label: isCurrentYear ? 'Nâng cao (miễn phí)' : `Nâng cao (${costNote(PREMIUM.COST.annualEvents)})` },
+            { value: 'ai', label: `Phân tích AI (${costNote(PREMIUM.COST.aiAnnualEvents)})` },
+          ]}
           value={mode} onChange={setMode}
         />
 
         {mode === 'advanced' && pred && (
-          unlockedAdvanced ? (
+          showAdvancedContent ? (
             pred.events.length > 0 ? (
               <View style={{ gap: 10 }}>
                 <SectionTitle title="Sự kiện nổi bật" sub={`${pred.events.length}/${pred.debugCandidateCount} nhóm đã xét`} />
@@ -211,12 +231,6 @@ export default function AnnualEventsScreen() {
           )
         )}
 
-        {mode === 'advanced' && unlockedAdvanced && pred && (
-          <Card style={{ marginTop: 4 }}>
-            <SimpleMarkdown content={generateAnnualOfflineSummary(pred)} />
-          </Card>
-        )}
-
         <Text style={s.disclaimer}>
           Luận sự kiện thể hiện xu hướng và mức độ hội tụ dữ kiện trên lá số, không phải phán đoán tuyệt đối hay lời khuyên y tế/pháp lý/tài chính chuyên môn.
         </Text>
@@ -239,6 +253,7 @@ const s = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(226,194,133,0.22)', backgroundColor: 'rgba(255,255,255,0.05)' },
   chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textSecondary },
+  blockLabel: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 0.5, color: COLORS.gold, textTransform: 'uppercase' },
   loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   retry: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.gold, textAlign: 'center' },
   disclaimer: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 17, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },

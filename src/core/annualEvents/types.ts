@@ -84,11 +84,14 @@ export type IntensityLevel = 'VERY_LOW' | 'LOW' | 'MODERATE' | 'HIGH' | 'VERY_HI
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
 export type Direction = 'POSITIVE' | 'NEGATIVE' | 'MIXED';
 
+export interface MonthDriver { starName: string; palace: Palace; signalType: string }
 export interface MonthWindow {
   startLunarMonth: number;
   endLunarMonth: number;
   strength: IntensityLevel;
   score: number;
+  /** Sao lưu (lưu nguyệt) đóng góp mạnh nhất khiến cửa sổ tháng này nổi bật — để giải thích "vì sao". */
+  drivers: MonthDriver[];
 }
 
 export interface ScoreBreakdown {

@@ -2,10 +2,11 @@
  * Thời điểm trong THÁNG — ENGINE_SPEC §15. Chỉ chạy khi sự kiện đã đạt
  * `event.minAnnualScoreForMonthlyTiming` (luôn = 55 trong bộ 85 sự kiện) — tầng tháng KHÔNG
  * được tự tạo ra sự kiện lớn nếu năm/đại vận/bản mệnh chưa ủng hộ (§15 "hard rule").
- * Trả về CỬA SỔ tháng (có thể gộp các tháng liền kề tương đương), không khẳng định 1 ngày cụ thể.
+ * Trả về CỬA SỔ tháng (có thể gộp các tháng liền kề tương đương) KÈM sao lưu (lưu nguyệt) đã
+ * "kích hoạt" tháng đó — để giải thích "vì sao đúng tháng này" thay vì chỉ đưa ra con số.
  */
 import type { AstrologyResult, EarthlyBranch } from '../../types';
-import type { EventDefinition, EventRule, MonthWindow, Palace, UniformCondition } from './types';
+import type { EventDefinition, EventRule, MonthDriver, MonthWindow, Palace, UniformCondition } from './types';
 import { MONTHLY_WEIGHTS, SUPPRESSION } from './config';
 import { buildMonthlyContext, dauQuanInteracts } from './monthlySignals';
 import { palaceBranch } from './calendar';
@@ -17,8 +18,14 @@ function isUniform(c: EventRule['condition']): c is UniformCondition {
   return typeof (c as UniformCondition).signal === 'string';
 }
 
-function contributionOf(rules: EventRule[], family: 'FOUR_TRANSFORMATION' | 'OTHER', axisPalaces: Set<Palace>, weights: Record<string, number>, monthlySignals: { signalType: string; palace: Palace; intensity: number }[]): number {
+interface MonthlyHit { starName: string; palace: Palace; signalType: string; contribution: number }
+
+function contributionOf(
+  rules: EventRule[], family: 'FOUR_TRANSFORMATION' | 'OTHER', axisPalaces: Set<Palace>, weights: Record<string, number>,
+  monthlySignals: { signalType: string; starName: string; palace: Palace; intensity: number }[],
+): { score: number; hits: MonthlyHit[] } {
   let raw = 0;
+  const hits: MonthlyHit[] = [];
   for (const r of rules) {
     if (!isUniform(r.condition)) continue;
     const isFT = r.evidenceFamily === 'FOUR_TRANSFORMATION';
@@ -27,10 +34,12 @@ function contributionOf(rules: EventRule[], family: 'FOUR_TRANSFORMATION' | 'OTH
     for (const s of monthlySignals) {
       if (s.signalType !== r.condition.signal || !axisPalaces.has(s.palace)) continue;
       const axisWeight = weights[s.palace] ?? 0.5;
-      raw += r.baseWeight * axisWeight * (r.layerMultipliers?.MONTHLY ?? 0.45) * (s.intensity / 100);
+      const contribution = r.baseWeight * axisWeight * (r.layerMultipliers?.MONTHLY ?? 0.45) * (s.intensity / 100);
+      raw += contribution;
+      hits.push({ starName: s.starName, palace: s.palace, signalType: s.signalType, contribution });
     }
   }
-  return clamp(raw);
+  return { score: clamp(raw), hits };
 }
 
 export function computeMonthlyTiming(
@@ -40,7 +49,7 @@ export function computeMonthlyTiming(
   const axisPalaces = new Set<Palace>([...event.axis.primary, ...event.axis.secondary]);
   const axisBranches = [...axisPalaces].map(p => palaceBranch(result.tuViChart, p)).filter((b): b is EarthlyBranch => !!b);
 
-  const monthly: { month: number; score: number }[] = [];
+  const monthly: { month: number; score: number; hits: MonthlyHit[] }[] = [];
   for (let m = 1; m <= 12; m++) {
     const mc = buildMonthlyContext(result, ctx.yearStem, ctx.yearBranch, m);
     const ft = contributionOf(rules, 'FOUR_TRANSFORMATION', axisPalaces, event.axis.weights, mc.fourTransformSignals);
@@ -50,15 +59,15 @@ export function computeMonthlyTiming(
 
     let raw =
       annualStrength * MONTHLY_WEIGHTS.annualEventBaseline +
-      axisHit * MONTHLY_WEIGHTS.monthlyAxisHit +
-      ft * MONTHLY_WEIGHTS.monthlyFourTransform +
+      axisHit.score * MONTHLY_WEIGHTS.monthlyAxisHit +
+      ft.score * MONTHLY_WEIGHTS.monthlyFourTransform +
       douJun * MONTHLY_WEIGHTS.douJunInteraction +
-      other * MONTHLY_WEIGHTS.otherMonthlySignals;
+      other.score * MONTHLY_WEIGHTS.otherMonthlySignals;
 
     for (const cap of SUPPRESSION.monthlyCap) {
       if (annualStrength < cap.annualEventScoreLt) raw = Math.min(raw, cap.cap);
     }
-    monthly.push({ month: m, score: Math.round(clamp(raw)) });
+    monthly.push({ month: m, score: Math.round(clamp(raw)), hits: [...ft.hits, ...axisHit.hits, ...other.hits] });
   }
 
   // Chỉ giữ tháng "nổi bật" (điểm cao hơn hẳn mặt bằng chung), gộp các tháng liền kề.
@@ -67,19 +76,36 @@ export function computeMonthlyTiming(
   const notable = monthly.filter(x => x.score >= threshold);
   if (notable.length === 0) return [];
 
+  const driversOf = (months: typeof notable): MonthDriver[] => {
+    const byKey = new Map<string, MonthlyHit>();
+    for (const m of months) {
+      for (const h of m.hits) {
+        const key = `${h.signalType}:${h.palace}`;
+        const prev = byKey.get(key);
+        if (!prev || h.contribution > prev.contribution) byKey.set(key, h);
+      }
+    }
+    return [...byKey.values()]
+      .sort((a, b) => b.contribution - a.contribution)
+      .slice(0, 4)
+      .map(h => ({ starName: h.starName, palace: h.palace, signalType: h.signalType }));
+  };
+
   const windows: MonthWindow[] = [];
   let start = notable[0].month, prev = notable[0].month, peak = notable[0].score;
+  let group: typeof notable = [notable[0]];
   for (let i = 1; i < notable.length; i++) {
     const cur = notable[i];
     if (cur.month === prev + 1) {
       prev = cur.month;
       peak = Math.max(peak, cur.score);
+      group.push(cur);
     } else {
-      windows.push({ startLunarMonth: start, endLunarMonth: prev, strength: intensityLevelOf(peak), score: peak });
-      start = cur.month; prev = cur.month; peak = cur.score;
+      windows.push({ startLunarMonth: start, endLunarMonth: prev, strength: intensityLevelOf(peak), score: peak, drivers: driversOf(group) });
+      start = cur.month; prev = cur.month; peak = cur.score; group = [cur];
     }
   }
-  windows.push({ startLunarMonth: start, endLunarMonth: prev, strength: intensityLevelOf(peak), score: peak });
+  windows.push({ startLunarMonth: start, endLunarMonth: prev, strength: intensityLevelOf(peak), score: peak, drivers: driversOf(group) });
 
   return windows.sort((a, b) => b.score - a.score).slice(0, 3);
 }

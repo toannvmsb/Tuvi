@@ -319,11 +319,9 @@ export default function AiChatBubble() {
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>✨ Hỏi Tuzi</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {turns.length > 0 && (
-                  <TouchableOpacity onPress={clearHistory} accessibilityRole="button" accessibilityLabel="Xóa lịch sử chat">
-                    <Text style={styles.clearBtn}>🗑</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity onPress={clearHistory} disabled={turns.length === 0} style={turns.length === 0 && { opacity: 0.35 }} accessibilityRole="button" accessibilityLabel="Xóa lịch sử chat">
+                  <Text style={styles.clearBtn}>🗑</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={closeChat}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
               </View>
             </View>
