@@ -61,21 +61,21 @@ function EventCard({ e }: { e: ScoredEvent }) {
             {ex.facts.length > 0 && (
               <View style={{ gap: 4 }}>
                 <Text style={s.blockLabel}>Dữ kiện</Text>
-                {ex.facts.map((f, i) => <Body key={i} size={12.5}>• {f.replace(/\*\*/g, '')}</Body>)}
+                {ex.facts.map((f, i) => <Body key={i} size={12.5} style={s.justify}>• {f.replace(/\*\*/g, '')}</Body>)}
               </View>
             )}
             <View style={{ gap: 2 }}>
               <Text style={s.blockLabel}>Phân tích</Text>
-              <Body size={12.5}>{ex.analysis}</Body>
+              <Body size={12.5} style={s.justify}>{ex.analysis}</Body>
             </View>
             <View style={{ gap: 2 }}>
               <Text style={s.blockLabel}>Kết luận</Text>
-              <Body size={12.5} color={COLORS.textPrimary}>{ex.conclusion}</Body>
+              <Body size={12.5} color={COLORS.textPrimary} style={s.justify}>{ex.conclusion}</Body>
             </View>
             {e.peakMonths.length > 0 ? (
               <View style={{ gap: 4 }}>
                 <Text style={s.blockLabel}>Thời điểm cần lưu ý</Text>
-                {e.peakMonths.map((w, i) => <Body key={i} size={12.5} color={COLORS.goldLight}>{explainMonthWindow(w)}</Body>)}
+                {e.peakMonths.map((w, i) => <Body key={i} size={12.5} color={COLORS.goldLight} style={s.justify}>{explainMonthWindow(w)}</Body>)}
               </View>
             ) : (
               <Body size={12.5}>Chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.</Body>
@@ -253,6 +253,7 @@ const s = StyleSheet.create({
   chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(226,194,133,0.22)', backgroundColor: 'rgba(255,255,255,0.05)' },
   chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textSecondary },
   blockLabel: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 0.5, color: COLORS.gold, textTransform: 'uppercase' },
+  justify: { textAlign: 'justify' },
   loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   retry: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.gold, textAlign: 'center' },
   disclaimer: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 17, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },

@@ -573,7 +573,7 @@ const ps = StyleSheet.create({
   stepTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
   block: { borderRadius: 14, padding: 12, gap: 5 },
   blockLabel: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 1.4 },
-  blockBody: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, color: '#F3EBDC' },
+  blockBody: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 21, color: '#F3EBDC', textAlign: 'justify' },
   relLine: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.textPrimary },
   relKey: { fontFamily: FONTS.bodySemi, color: COLORS.goldLight },
   ttTitle: { fontFamily: FONTS.bodyBold, fontSize: 14, color: '#F3B0A5' },
