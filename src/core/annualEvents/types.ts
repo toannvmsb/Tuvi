@@ -91,12 +91,16 @@ export interface MonthDriver { starName: string; palace: Palace; signalType: str
 export type TimingIntensity = 'NOTABLE' | 'ACTIVITY' | 'STRONG' | 'VERY_STRONG';
 export type EventPhase = 'NONE' | 'ONSET' | 'PEAK' | 'FORMALIZATION' | 'PRESSURE' | 'RESOLUTION';
 
+/** TUZI_Tieu_Han_Annual_Event_Focus_Engine_v1.md §35 — đo mức RÕ RỆT của tháng đứng đầu so với
+ *  tháng nhì (trên cả 12 tháng), KHÔNG phải xác suất sự kiện xảy ra. */
+export type TimingConfidence = 'LOW' | 'MEDIUM' | 'HIGH';
+
 export interface MonthWindow {
   startLunarMonth: number;
   endLunarMonth: number;
   strength: TimingIntensity;
-  /** true nếu đây là 1 tháng ĐỈNH DUY NHẤT (§28: top ≥75 và hơn tháng nhì ≥12 điểm) — false nghĩa là nên hiểu như 1 khoảng, không chốt đúng 1 tháng. */
-  isUniquePeak: boolean;
+  /** §35 — tháng/cửa sổ này có thực sự nổi bật hơn hẳn phần còn lại của năm không, hay chỉ là lựa chọn tương đối (nhích hơn 1 chút). */
+  timingConfidence: TimingConfidence;
   phase: EventPhase;
   score: number;
   /** Sao lưu (lưu nguyệt) đóng góp mạnh nhất khiến cửa sổ tháng này nổi bật — để giải thích "vì sao". */

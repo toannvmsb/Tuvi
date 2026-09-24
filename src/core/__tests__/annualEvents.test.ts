@@ -40,11 +40,18 @@ describe('annualEvents engine', () => {
     }
   });
 
-  test('tầng tháng KHÔNG tự sinh cửa sổ khi sự kiện chưa đạt ngưỡng 55', () => {
-    const result = sampleResult();
-    const pred = computeAnnualPrediction(result, 2026);
-    for (const e of pred.events) {
-      if (e.strength < 55) expect(e.peakMonths.length).toBe(0);
+  test('tầng tháng LUÔN có ít nhất 1 cửa sổ chính, kể cả khi sự kiện điểm thấp (Monthly Timing v3 §34)', () => {
+    for (const result of allSampleResults()) {
+      const pred = computeAnnualPrediction(result, 2026);
+      for (const e of pred.events) {
+        expect(e.peakMonths.length).toBeGreaterThanOrEqual(1);
+        expect(e.peakMonths.length).toBeLessThanOrEqual(2);
+        for (const w of e.peakMonths) {
+          expect(['LOW', 'MEDIUM', 'HIGH']).toContain(w.timingConfidence);
+          expect(w.startLunarMonth).toBeGreaterThanOrEqual(1);
+          expect(w.endLunarMonth).toBeLessThanOrEqual(12);
+        }
+      }
     }
   });
 

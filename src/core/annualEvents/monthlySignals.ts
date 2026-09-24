@@ -6,7 +6,7 @@
  */
 import type { AstrologyResult, EarthlyBranch, HeavenlyStem } from '../../types';
 import { monthStem } from '../phiHoa';
-import { PALACE_VN_TO_CODE, BRANCHES, monthBranch, branchIndex } from './calendar';
+import { monthBranch } from './calendar';
 import { fourTransformTargets, type HoaTargets } from './fourTransformTargets';
 import { movingStarsCore, daiHaoOf } from './movingStars';
 import { douJunIndex, monthlyMingBranchIndex } from './douJun';
@@ -52,9 +52,3 @@ export function buildMonthlyContext(
   };
 }
 
-export function palaceCodeAtBranch(c: AstrologyResult['tuViChart'], b: EarthlyBranch) {
-  const h = c.houses.find(x => x.branch === b);
-  return h ? PALACE_VN_TO_CODE[h.palaceName] ?? null : null;
-}
-
-export { BRANCHES, branchIndex };

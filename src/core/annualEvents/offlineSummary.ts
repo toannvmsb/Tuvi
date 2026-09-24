@@ -29,7 +29,6 @@ function eventBlock(e: ScoredEvent): string {
   } else {
     out.push('**Thời điểm cần lưu ý:** chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.');
   }
-  if (ex.caution) out.push('**Lưu ý:** ' + ex.caution);
   return out.join('\n\n');
 }
 

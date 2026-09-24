@@ -18,7 +18,6 @@ export interface EventExplanation {
   facts: string[];       // DỮ KIỆN + ý nghĩa từng dữ kiện chính
   analysis: string;      // PHÂN TÍCH — tổng hợp các dữ kiện thành 1 mạch
   conclusion: string;    // KẾT LUẬN — bằng ngôn ngữ thường, không dùng nhãn kỹ thuật
-  caution?: string;      // dữ kiện ngược chiều, nếu có
 }
 
 /** Cần ≥ 2 dữ kiện cho mỗi kết luận quan trọng (CLAUDE.md §2.4). */
@@ -41,22 +40,25 @@ export function explainEvent(e: ScoredEvent): EventExplanation {
       ? `Xu hướng ${cat} cần thận trọng hơn — nên chuẩn bị phương án dự phòng thay vì chủ quan.`
       : `Xu hướng ${cat} có cả mặt thuận lợi lẫn áp lực đi cùng nhau — nên cân nhắc kỹ trước quyết định lớn, không nên chỉ nhìn một chiều.`;
 
-  const caution = e.counterEvidence.length
-    ? `Vẫn có ${e.counterEvidence.length} dữ kiện đi ngược chiều kết luận trên (${e.counterEvidence.slice(0, 2).map(c => c.starName).join(', ')}) — không nên tuyệt đối hóa theo một hướng.`
-    : undefined;
-
-  return { facts, analysis, conclusion, caution };
+  return { facts, analysis, conclusion };
 }
 
-/** Câu giải thích "vì sao đúng tháng này" cho 1 cửa sổ tháng — dựa trên sao lưu (lưu nguyệt) đã kích hoạt. */
+const TIMING_CONFIDENCE_PREFIX: Record<MonthWindow['timingConfidence'], string> = {
+  HIGH: 'Rõ rệt nhất là',
+  MEDIUM: 'Nhỉnh hơn các tháng khác là',
+  LOW: 'Chưa có tháng nào nổi bật hẳn trong năm, nhưng nếu phải chọn thì đáng chú ý nhất là',
+};
+
+/** Câu giải thích "vì sao đúng tháng này" cho 1 cửa sổ tháng — dựa trên sao lưu (lưu nguyệt) đã kích hoạt.
+ *  §35 timingConfidence đo mức RÕ RỆT của lựa chọn (không phải xác suất sự kiện xảy ra) — LOW thì câu văn
+ *  phải hedge rõ, tránh khiến người dùng hiểu nhầm là "chắc chắn xảy ra đúng tháng này". */
 export function explainMonthWindow(w: MonthWindow): string {
-  const label = w.startLunarMonth === w.endLunarMonth || !w.isUniquePeak
-    ? (w.startLunarMonth === w.endLunarMonth ? `Tháng ${w.startLunarMonth}` : `Khoảng tháng ${w.startLunarMonth}–${w.endLunarMonth}`)
-    : `Tháng ${w.startLunarMonth}`;
+  const label = w.startLunarMonth === w.endLunarMonth ? `tháng ${w.startLunarMonth}` : `khoảng tháng ${w.startLunarMonth}–${w.endLunarMonth}`;
   const phaseTxt = EVENT_PHASE_VN[w.phase] ? ` — ${EVENT_PHASE_VN[w.phase]}` : '';
+  const prefix = TIMING_CONFIDENCE_PREFIX[w.timingConfidence];
   if (w.drivers.length === 0) {
-    return `${label} âm lịch: điểm kích hoạt cao hơn mặt bằng chung của năm${phaseTxt}, nhưng chưa tách được rõ sao lưu nào là chính.`;
+    return `${prefix} ${label} âm lịch${phaseTxt}, nhưng chưa tách được rõ sao lưu nào là chính.`;
   }
   const names = w.drivers.map(d => `${d.starName}${d.palace ? ` (cung ${PALACE_CODE_TO_VN[d.palace] ?? d.palace})` : ''}`).join(', ');
-  return `${label} âm lịch${phaseTxt}: vì có ${names} cùng hội tụ vào trục sự kiện trong lưu nguyệt tháng này.`;
+  return `${prefix} ${label} âm lịch${phaseTxt}: vì có ${names} cùng hội tụ vào trục sự kiện trong lưu nguyệt tháng này.`;
 }

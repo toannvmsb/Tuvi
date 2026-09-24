@@ -46,18 +46,6 @@ export const DIRECTION_DELTA = 25;
 export const SUPPRESSION = {
   daHanScoreLtCapFinal: { threshold: 25, cap: 59 },
   natalDaHanBlockMajor: { natalLt: 25, daHanLt: 30 },
-  monthlyCap: [
-    { annualEventScoreLt: 50, cap: 55 },
-    { annualEventScoreLt: 35, cap: 45 },
-  ],
-};
-
-export const MONTHLY_WEIGHTS = {
-  annualEventBaseline: 0.40,
-  monthlyAxisHit: 0.20,
-  monthlyFourTransform: 0.25,
-  douJunInteraction: 0.10,
-  otherMonthlySignals: 0.05,
 };
 
 export const CONFIDENCE_WEIGHTS = {
@@ -66,29 +54,6 @@ export const CONFIDENCE_WEIGHTS = {
   ruleConsistency: 0.20,
   timingConsistency: 0.15,
 };
-
-export const PEAK_MONTH_DELTA = 12;
-
-/**
- * TUZI_Monthly_Event_Timing_Engine_v2.md — thay thế hoàn toàn MONTHLY_WEIGHTS/SUPPRESSION.monthlyCap
- * ở trên (giữ nguyên 2 hằng số cũ để không phá vỡ chỗ khác lỡ còn import, nhưng monthlyTiming.ts
- * từ nay CHỈ dùng bộ hằng số MONTHLY_V2_* này).
- */
-export const MONTHLY_V2_WEIGHTS = {
-  annualBaseline: 0.25,
-  axisResonance: 0.20,
-  monthlyFourTransform: 0.25,
-  crossLayerEcho: 0.15,
-  douJun: 0.05,
-  movingStars: 0.05,
-  structural: 0.05,
-} as const;
-
-/** §21 — cap riêng từng thành phần (điểm tuyệt đối 0..cap, ÁP DỤNG TRƯỚC khi nhân trọng số ở trên). */
-export const MONTHLY_V2_CAPS = {
-  annualBaseline: 25, axisResonance: 20, monthlyFourTransform: 25,
-  crossLayerEcho: 15, douJun: 5, movingStars: 5, structural: 5,
-} as const;
 
 /** §8 — trọng số hình học giữa 2 chi (tháng ↔ cung tham chiếu). */
 export const MONTHLY_GEOMETRY_WEIGHT: Record<'DIRECT' | 'OPPOSITION' | 'TRINE' | 'ADJACENT' | 'NONE', number> = {
@@ -120,13 +85,13 @@ export const ECHO_CROSS_TRANSFORM_FALLBACK = 10;
 /** §11 — ưu tiên theo tầng khi so khớp Tứ Hóa tháng với tầng trên. */
 export const ECHO_LAYER_PRIORITY = { ANNUAL: 1.0, DA_HAN: 0.85, NATAL: 0.70 } as const;
 
-/** §14 — Đẩu Quân tương tác (cộng dồn rồi clamp theo MONTHLY_V2_CAPS.douJun). */
+/** §14 — Đẩu Quân tương tác (cộng dồn rồi clamp theo MONTHLY_V3_CAPS.douJunStructure). */
 export const DOU_JUN_SCORE = {
   onEventAxis: 8, overlapsAnnualEventPalace: 10, ownTransformHitsAxis: 8,
   annualMingHitsDouJun: 8, mutualInteraction: 12,
 } as const;
 
-/** §15 — sao lưu tháng, cộng dồn rồi clamp theo MONTHLY_V2_CAPS.movingStars (mã sao khớp movingStars.ts/signalCatalog.ts). */
+/** §15 — sao lưu tháng, cộng dồn rồi clamp theo MONTHLY_V3_CAPS.monthlyMovingStars (mã sao khớp movingStars.ts/signalCatalog.ts). */
 export const MONTHLY_MOVING_STAR_SCORE: Record<string, number> = {
   THIEN_MA: 6, LOC_TON: 5, KINH_DUONG: 4, DA_LA: 4, HONG_LOAN: 4, THIEN_HY: 4,
   THIEN_KHOI: 3, THIEN_VIET: 3,
@@ -137,30 +102,72 @@ export const MONTHLY_CONVERGENCE_MULTIPLIER: Record<number, number> = { 1: 1.0, 
 export const MONTHLY_CONVERGENCE_MULTIPLIER_5PLUS = 1.18;
 export const MONTHLY_CONVERGENCE_CAP = 1.20;
 
-/** §24 — thay SUPPRESSION.monthlyCap cũ. */
-export const MONTHLY_V2_SUPPRESSION = {
-  blockBelowAnnual: 50,
-  capAt60BelowAnnual: 55,
-  capAt45BelowAnnual: 40,
-};
-
-/** §25 — dải cường độ THỜI ĐIỂM (khác dải INTENSITY_BANDS dùng cho cường độ SỰ KIỆN). */
+/** §25 — dải cường độ THỜI ĐIỂM theo điểm tuyệt đối (khác dải INTENSITY_BANDS dùng cho cường độ SỰ KIỆN năm; v3 không còn ngưỡng chặn cứng theo điểm năm, nhưng vẫn giữ dải này để gắn nhãn "đáng chú ý/mạnh/rất mạnh" cho 1 tháng cụ thể). */
 export const TIMING_INTENSITY_BANDS: { min: number; max: number; level: 'NOTABLE' | 'ACTIVITY' | 'STRONG' | 'VERY_STRONG' }[] = [
-  { min: 55, max: 64, level: 'NOTABLE' },
-  { min: 65, max: 74, level: 'ACTIVITY' },
-  { min: 75, max: 84, level: 'STRONG' },
-  { min: 85, max: 100, level: 'VERY_STRONG' },
+  { min: 0, max: 39, level: 'NOTABLE' },
+  { min: 40, max: 59, level: 'ACTIVITY' },
+  { min: 60, max: 79, level: 'STRONG' },
+  { min: 80, max: 100, level: 'VERY_STRONG' },
 ];
-
-/** §27/§28 — gộp cửa sổ tháng liền kề + quy tắc "1 tháng đỉnh duy nhất". */
-export const TIMING_WINDOW_MERGE = { minScore: 70, maxDelta: 10, maxWindowMonths: 3 };
-export const UNIQUE_PEAK_MIN_SCORE = 75;
-export const UNIQUE_PEAK_MIN_DELTA = 12;
 
 /** §35 — Timing Confidence (KHÁC CONFIDENCE_WEIGHTS dùng cho confidence của SỰ KIỆN năm). */
 export const TIMING_CONFIDENCE_WEIGHTS = {
   annualConfirmation: 0.25, axisMatching: 0.20, crossLayerTuHoa: 0.30,
   evidenceIndependence: 0.15, adjacentMonthCoherence: 0.10,
+};
+
+/**
+ * TUZI_Tieu_Han_Annual_Event_Focus_Engine_v1.md §31-35 — MONTHLY TIMING v3, THAY THẾ HOÀN TOÀN
+ * bộ MONTHLY_V2_* ở trên. Lý do đổi (anh Toàn phản hồi trực tiếp): (1) sự kiện <50-55 điểm năm
+ * không có tháng nào cả — v3 bỏ hẳn việc gate theo điểm năm; (2) các tháng đưa ra "khá giống
+ * nhau" — nguyên nhân chính là v2 cộng thẳng 25% điểm SỰ KIỆN NĂM vào mọi tháng (annualBaseline),
+ * khiến 12 tháng cùng bị kéo về gần nhau quanh 1 mặt bằng chung; §34 nói rõ "Do not include
+ * Annual Event score directly in the month-ranking formula" — v3 bỏ hẳn thành phần này, chỉ xếp
+ * hạng THÁNG theo dữ kiện RIÊNG của tháng đó, nên các tháng tách biệt rõ hơn.
+ */
+export const MONTHLY_V3_CAPS = {
+  eventPalaceMatch: 18, monthlyFourTransform: 18, annualMovingStarResonance: 12,
+  monthlyMovingStars: 12, tieuHanResonance: 15, crossLayerEcho: 15,
+  eventSpecificPattern: 7, douJunStructure: 3,
+} as const;
+
+/**
+ * §35 gốc đo "Top - Second" (tháng đứng đầu trừ tháng NHÌ). Thử trên dữ liệu thật thấy công thức
+ * này RẤT DỄ ra LOW một cách giả tạo: 1 lá số có phổ điểm 12 tháng trải dài 70-100 (khác biệt rõ
+ * rệt so với phần còn lại của năm) vẫn bị chấm LOW chỉ vì 2 tháng cao nhất tình cờ sát nhau (vd
+ * 99 và 100). §34 lại tự định nghĩa `relativeTimingIndex = primaryMonth.score - median` — đúng
+ * hơn cho câu hỏi anh Toàn quan tâm ("tháng này có thực sự nổi bật hơn PHẦN CÒN LẠI của năm hay
+ * không", không phải "có nổi bật hơn đúng 1 tháng đứng nhì hay không") — nên engine dùng công
+ * thức §34 (Top so với TRUNG VỊ 12 tháng) để xếp `timingConfidence`, ngưỡng hiệu chỉnh lại cho
+ * phù hợp thang đo mới (gap so với trung vị thường lớn hơn gap giữa 2 tháng liền hạng).
+ */
+export const TIMING_CONFIDENCE_GAP = { high: 20, medium: 10 };
+
+/** Gộp cửa sổ tháng liền kề quanh tháng đỉnh — giữ nguyên cơ chế cũ, chỉ bỏ ngưỡng tuyệt đối (§27 v2), thay bằng so với tháng đỉnh + trung vị. */
+export const MONTHLY_V3_WINDOW = { maxDelta: 10, maxWindowMonths: 3, secondaryMinGapAboveMedian: 5 };
+
+/** §30 — hóa tinh "hợp cơ chế" / "gây áp lực" theo từng nhóm sự kiện — dùng cho "Event-Specific Pattern" (7%).
+ *  Nhóm KHÔNG có trong §30 gốc (CHILDREN/FAMILY/MOBILITY/EDUCATION_REPUTATION) suy diễn hợp lý theo đúng
+ *  tinh thần §9 (Lộc=mở ra/khởi đầu, Khoa=chính thức hóa/công nhận, Quyền=hành động, Kỵ=vướng mắc). */
+export const CATEGORY_PREFERRED_HOA: Record<string, import('../phiHoa').HoaKind[]> = {
+  CAREER: ['Hóa Quyền', 'Hóa Lộc', 'Hóa Khoa'],
+  FINANCE: ['Hóa Lộc'],
+  PROPERTY: ['Hóa Lộc', 'Hóa Quyền'],
+  RELATIONSHIP: ['Hóa Lộc', 'Hóa Khoa'],
+  CHILDREN: ['Hóa Lộc', 'Hóa Khoa'],
+  HEALTH: ['Hóa Khoa'],
+  MOBILITY: ['Hóa Quyền', 'Hóa Lộc'],
+  EDUCATION_REPUTATION: ['Hóa Khoa'],
+  FAMILY: ['Hóa Lộc', 'Hóa Khoa'],
+  LEGAL: ['Hóa Khoa'],
+};
+export const CATEGORY_ADVERSE_HOA: Record<string, import('../phiHoa').HoaKind[]> = {
+  FINANCE: ['Hóa Kỵ'],
+  HEALTH: ['Hóa Kỵ'],
+  LEGAL: ['Hóa Kỵ'],
+  RELATIONSHIP: ['Hóa Kỵ'],
+  FAMILY: ['Hóa Kỵ'],
+  PROPERTY: ['Hóa Kỵ'],
 };
 
 /** Bảng Tứ Hóa theo Can — GIỐNG HỆT core/phiHoa.ts (HOA_BY_STEM), chỉ để đối chiếu/tài liệu.

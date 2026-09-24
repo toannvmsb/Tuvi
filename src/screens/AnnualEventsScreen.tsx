@@ -80,7 +80,6 @@ function EventCard({ e }: { e: ScoredEvent }) {
             ) : (
               <Body size={12.5}>Chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.</Body>
             )}
-            {ex.caution && <Body size={12} color={COLORS.textMuted}>{ex.caution}</Body>}
           </View>
         )}
       </Card>

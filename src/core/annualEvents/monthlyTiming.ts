@@ -1,54 +1,66 @@
 /**
- * Thời điểm trong THÁNG (lưu nguyệt) — TUZI_Monthly_Event_Timing_Engine_v2.md, thay thế hoàn
- * toàn bản v1 trước đây. Chỉ chạy khi sự kiện đã đạt `event.minAnnualScoreForMonthlyTiming`
- * (§2 "Hard Gate: Annual Before Monthly" — tầng tháng KHÔNG được tự tạo ra sự kiện lớn nếu năm/
- * đại vận/bản mệnh chưa ủng hộ).
+ * Thời điểm trong THÁNG (lưu nguyệt) — MONTHLY TIMING v3, theo
+ * tuzi_annual_event_engine_full/TUZI_Tieu_Han_Annual_Event_Focus_Engine_v1.md §31-35, THAY THẾ
+ * bản v2 trước đây (TUZI_Monthly_Event_Timing_Engine_v2.md) sau phản hồi trực tiếp của anh Toàn:
  *
- * 7 thành phần cộng điểm (§20-22), mỗi thành phần đã trả điểm THÔ nằm sẵn trong khoảng cap của
- * chính nó (§21) — không nhân thêm trọng số nữa, trừ `annualBaseline` (điểm sự kiện năm × 25%):
- *  - annualBaseline      : annualStrength × 25%                         (cap 25)
- *  - axisResonance       : §6 Same-Function Overlap + §8 hình học        (cap 20)
- *  - monthlyTuHoa        : §9 Tứ Hóa tháng chạm trục sự kiện (§36)       (cap 25)
- *  - crossLayerEcho      : §10-11 Tứ Hóa tháng cộng hưởng bản mệnh/đại vận/lưu niên (cap 15)
- *  - douJun              : §14 Đẩu Quân tương tác                        (cap 5)
- *  - movingStars         : §15 sao lưu tháng                             (cap 5)
- *  - structural           : Structural Confirmation — spec không cho công thức cụ thể, engine
- *                            tự bổ sung tương tự "structuralSupport" đã có ở tầng năm (Tuần/Triệt
- *                            + độ sáng chính tinh) áp cho cung trục TẠI VỊ TRÍ THÁNG.               (cap 5)
+ *  1) "Điểm sự kiện dưới 50% thì không có thông tin tháng" — v2 GATE cứng theo điểm năm
+ *     (`annualStrength < event.minAnnualScoreForMonthlyTiming` → trả về rỗng). §34 của tài liệu
+ *     mới nói rõ: "No event should return no timing solely because annual score is below 50" —
+ *     v3 BỎ HẲN gate này. Điểm SỰ KIỆN (có xảy ra hay không, mạnh hay yếu) và THỜI ĐIỂM (nếu xảy
+ *     ra thì rơi vào tháng nào) là 2 câu hỏi khác nhau — event yếu vẫn luôn có 1 tháng "nổi bật
+ *     nhất trong năm" để tham khảo, chỉ khác là độ tin cậy của lựa chọn đó thấp hơn.
+ *  2) "Các tháng đưa ra khá giống nhau" — nguyên nhân chính ở bản v2: `annualBaseline` (25% điểm
+ *     SỰ KIỆN NĂM) được cộng THẲNG vào CẢ 12 tháng như nhau, khiến 12 tháng cùng bị kéo về gần
+ *     một mặt bằng chung, và các ngưỡng suppression (cap 60/45 khi điểm năm thấp) càng nén thêm.
+ *     §34 nói rõ: "Do not include Annual Event score directly in the month-ranking formula.
+ *     Annual score = event strength only." — v3 bỏ hẳn thành phần này, xếp hạng THÁNG chỉ dựa
+ *     trên dữ kiện RIÊNG của từng tháng, nên khoảng cách giữa các tháng phản ánh đúng dữ liệu hơn.
+ *
+ * 8 thành phần theo §33 (cộng lại = 100 điểm tuyệt đối, không nhân thêm trọng số — mỗi hàm con
+ * đã trả điểm nằm sẵn trong khoảng cap của chính nó):
+ *  - eventPalaceMatch     (18) — Same-Function Overlap + hình học (đổi tên từ "Axis Resonance" ở v2, giữ nguyên công thức).
+ *  - monthlyFourTransform (18) — Tứ Hóa tháng chạm trục sự kiện (giữ nguyên công thức MONTHLY_GENERIC_ECHO_001 ở v2).
+ *  - annualMovingStarResonance (12) — MỚI: sao lưu THÁNG có trùng cung với sao lưu NĂM đã chạm trục sự kiện không.
+ *  - monthlyMovingStars   (12) — sao lưu tháng đóng tại trục sự kiện (giữ công thức v2, tăng cap 5→12).
+ *  - tieuHanResonance     (15) — MỚI §32: tháng có cộng hưởng với cung TIỂU HẠN của năm xem không.
+ *  - crossLayerEcho       (15) — Tứ Hóa tháng cộng hưởng bản mệnh/đại vận/lưu niên (giữ nguyên công thức v2).
+ *  - eventSpecificPattern (7)  — MỚI §30: hóa tinh chiếm ưu thế trong tháng có "hợp cơ chế" với nhóm sự kiện không.
+ *  - douJunStructure      (3)  — gộp Đẩu Quân tương tác (§14) + Structural Confirmation (giữ công thức v2, giảm cap).
+ *
+ * Xếp hạng THÁNG theo §34 "Relative Timing Ranking": LUÔN tính đủ 12 tháng, tháng nổi bật nhất
+ * (argmax) luôn được trả về làm "cửa sổ chính" dù điểm tuyệt đối cao hay thấp; độ tin cậy
+ * (`timingConfidence`, §35) đo khoảng cách giữa tháng đứng đầu và tháng nhì trên CẢ 12 tháng
+ * (≥15 HIGH / 8-14 MEDIUM / <8 LOW) — KHÔNG phải xác suất sự kiện xảy ra.
  *
  * DIỄN GIẢI so với spec gốc (ghi rõ theo yêu cầu "đọc thấy chỗ nào chưa hợp lý thì sửa"):
- *  - "Da Han event palace" (§6/§11): app này (core/daiVanScore.ts) không có khái niệm 1 cung
- *    Quan Lộc/Tài Bạch RIÊNG của Đại Vận — chỉ có 1 cung DUY NHẤT mà Đại Vận đang chạy tới. Nên
- *    lấy chính cung đó (ctx.daHanBranch) làm điểm neo so trùng/hình học, thay vì dựng thêm 1 "lá
- *    số phụ" theo Đại Vận (app chưa có tiền lệ này ở tầng năm, tránh vượt phạm vi yêu cầu).
- *  - "Annual event palace" (§6/§11/§14): dùng ĐÚNG cách app đã tính — dựng "lá số lưu niên" bằng
- *    roleBranchIndex neo tại chi năm xem (quy ước "Lưu niên Mệnh an tại chi năm"), cho phần Same-
- *    Function Overlap; riêng phần Đẩu Quân Interaction (§14, chỉ nói "overlaps Annual Event
- *    Palace") dùng tập cung mà tín hiệu LƯU NIÊN thật sự đã ghi nhận trên trục sự kiện (ctx.signals
- *    source=ANNUAL) — cụ thể và bám sát dữ liệu đã có hơn là chỉ 1 cung Mệnh lưu niên duy nhất.
- *  - Bảng "Transformation Echo" khác loại hóa (§10) chỉ liệt kê 5/6 cặp — cặp không có trong bảng
- *    dùng ECHO_CROSS_TRANSFORM_FALLBACK (10 điểm, thấp hơn mọi cặp đã liệt kê) để không bịa số.
- *  - Ranh giới Tứ Hóa tháng theo Tiết Khí (§17 "SOLAR_TERM_JIEQI") CHƯA làm — app hiện chưa có dữ
- *    liệu tiết khí sẵn sàng cho việc này; giữ ranh giới THÁNG ÂM LỊCH cho cả cung lẫn Tứ Hóa (an
- *    toàn hơn, đã nêu rõ ở đây theo đúng §17 "this remains configurable by school").
- *  - "Event-Specific Timing Profiles" (§30, ưu tiên sao theo từng nhóm sự kiện) CHƯA tách riêng
- *    — đã có sẵn qua trọng số trục sự kiện (event.axis.weights) + bảng SIGNAL_MEANING/hướng cực
- *    (polarity) hiện có; tinh chỉnh sâu hơn theo từng category để dành cho vòng sau nếu cần.
+ *  - "Tiểu Hạn calculator" (§4): app này ĐÃ CÓ SẴN đúng thuật toán Nam Phái Tam Hợp yêu cầu
+ *    (`core/daiVanEngine.ts` → `tieuHanStartBranchIdx` + "Nam thuận, Nữ nghịch", khớp CHÍNH XÁC
+ *    4 nhóm khởi cung ở §4) — dùng thẳng `ctx.tieuHanBranch` đã có, KHÔNG viết lại calculator.
+ *  - Phần "Annual Event Focus Layer" đầy đủ ở §1-30 (Tiểu Hạn làm nhân hệ số ưu tiên SỰ KIỆN,
+ *    domain-mapping 12 cung, pattern engine, dignity/ngũ hành modifier, Annual Scorer v3 thay
+ *    hẳn breakdown 8 nhóm hiện tại) là 1 khối việc RIÊNG, ảnh hưởng tới việc CHỌN/XẾP HẠNG sự
+ *    kiện — không phải nguyên nhân của 2 vấn đề anh Toàn báo (đều là vấn đề hiển thị THÁNG). Để
+ *    tránh sửa lan sang toàn bộ cách tính điểm năm (rủi ro cao, ngoài phạm vi yêu cầu lần này),
+ *    em CHỈ áp dụng phần Monthly Timing v3 (§31-35) — là phần trực tiếp gây ra 2 hiện tượng anh
+ *    thấy. Phần Tiểu Hạn làm Event Focus Layer cho điểm SỰ KIỆN NĂM em để dành làm riêng nếu anh
+ *    cần, tránh đổi luôn cả cách xếp hạng/chọn sự kiện trong 1 lần sửa.
+ *  - "Event-Specific Pattern" (§30) chỉ liệt kê rõ Career/Finance/Property/Relationship/
+ *    Health/Legal — 4 nhóm còn lại (Children/Family/Mobility/Education&Reputation) suy diễn theo
+ *    đúng tinh thần §9 (Lộc=mở ra, Khoa=chính thức hóa, Quyền=hành động, Kỵ=vướng mắc), xem config.ts.
  */
 import type { AstrologyResult, EarthlyBranch } from '../../types';
-import type { EventDefinition, EventRule, MonthDriver, MonthWindow, Palace, EventPhase } from './types';
+import type { EventDefinition, EventRule, MonthDriver, MonthWindow, Palace, EventPhase, TimingConfidence } from './types';
 import type { HoaKind } from '../phiHoa';
 import type { HoaTargets } from './fourTransformTargets';
 import {
-  MONTHLY_V2_WEIGHTS, MONTHLY_V2_CAPS, MONTHLY_GEOMETRY_WEIGHT, KY_OPPOSITION_MULTIPLIER,
-  MONTHLY_TU_HOA_GEOMETRY_BONUS, MONTHLY_OVERLAP_SCORE, ECHO_SAME_TRANSFORM, ECHO_CROSS_TRANSFORM,
-  ECHO_CROSS_TRANSFORM_FALLBACK, ECHO_LAYER_PRIORITY, DOU_JUN_SCORE, MONTHLY_MOVING_STAR_SCORE,
-  MONTHLY_CONVERGENCE_MULTIPLIER, MONTHLY_CONVERGENCE_MULTIPLIER_5PLUS, MONTHLY_CONVERGENCE_CAP,
-  MONTHLY_V2_SUPPRESSION, TIMING_INTENSITY_BANDS, TIMING_WINDOW_MERGE, UNIQUE_PEAK_MIN_SCORE, UNIQUE_PEAK_MIN_DELTA,
+  MONTHLY_V3_CAPS, MONTHLY_GEOMETRY_WEIGHT, KY_OPPOSITION_MULTIPLIER, MONTHLY_TU_HOA_GEOMETRY_BONUS,
+  MONTHLY_OVERLAP_SCORE, ECHO_SAME_TRANSFORM, ECHO_CROSS_TRANSFORM, ECHO_CROSS_TRANSFORM_FALLBACK,
+  ECHO_LAYER_PRIORITY, DOU_JUN_SCORE, MONTHLY_MOVING_STAR_SCORE, TIMING_INTENSITY_BANDS,
+  TIMING_CONFIDENCE_GAP, MONTHLY_V3_WINDOW, CATEGORY_PREFERRED_HOA, CATEGORY_ADVERSE_HOA,
 } from './config';
 import { buildMonthlyContext, type MonthlyContext } from './monthlySignals';
 import { fourTransformTargets } from './fourTransformTargets';
-import { roleBranchIndex, geometryOf, type Geometry } from './monthlyChart';
+import { roleBranchIndex, geometryOf } from './monthlyChart';
 import { palaceBranch, branchIndex, PALACE_VN_TO_CODE, PALACE_CODE_TO_VN, BRANCHES } from './calendar';
 import { SIGNAL_CATALOG } from './signalCatalog';
 import type { AnnualSignalContext } from './signals';
@@ -64,8 +76,8 @@ function axisRolesOf(event: EventDefinition): Palace[] {
   return [...event.axis.primary, ...event.axis.secondary];
 }
 
-/** §6 + §8 — cung "vai trò trục sự kiện" của tháng có trùng/hình chiếu tới đúng cung đó ở bản mệnh/đại vận/lưu niên không. */
-function axisResonanceScore(event: EventDefinition, monthlyMingIdx: number, natalMingIdx: number, yearBranchIdx: number, daHanBranchIdx: number | null, hits: Hit[]): number {
+/** §6/§8 (đổi tên "Event Palace Match") — cung trục sự kiện của tháng có trùng/hình chiếu tới đúng cung đó ở bản mệnh/đại vận/lưu niên không. */
+function eventPalaceMatchScore(event: EventDefinition, monthlyMingIdx: number, natalMingIdx: number, yearBranchIdx: number, daHanBranchIdx: number | null, hits: Hit[]): number {
   let total = 0;
   for (const role of axisRolesOf(event)) {
     const weight = event.axis.weights[role] ?? 0.5;
@@ -99,7 +111,7 @@ function axisResonanceScore(event: EventDefinition, monthlyMingIdx: number, nata
   return total;
 }
 
-/** §9 (dùng đúng công thức MONTHLY_GENERIC_ECHO_001 ở §36) — Tứ Hóa tháng có chạm trục sự kiện không, theo hình học. */
+/** §9/§36 MONTHLY_GENERIC_ECHO_001 — Tứ Hóa tháng có chạm trục sự kiện không, theo hình học. Trả kèm hóa tinh chiếm ưu thế (dùng cho phase + event-specific pattern). */
 function monthlyFourTransformScore(
   event: EventDefinition, targets: HoaTargets, c: AstrologyResult['tuViChart'], hits: Hit[],
 ): { score: number; dominantHoa: HoaKind | null } {
@@ -162,54 +174,24 @@ function crossLayerEchoScore(
   return total;
 }
 
-/** §14 — Đẩu Quân của tháng tương tác với trục sự kiện / cung lưu niên tới đâu. */
-function douJunScore(event: EventDefinition, ctx: AnnualSignalContext, result: AstrologyResult, douJunIdx: number, hits: Hit[]): number {
-  const c = result.tuViChart;
+/** MỚI (§16 "Annual Moving Stars" + tinh thần §11 áp cho sao lưu thay vì Tứ Hóa) — sao lưu tháng có trùng cung với sao lưu NĂM đã chạm trục sự kiện không. */
+function annualMovingStarResonanceScore(event: EventDefinition, mc: MonthlyContext, ctx: AnnualSignalContext, c: AstrologyResult['tuViChart'], hits: Hit[]): number {
   const axisSet = new Set(axisRolesOf(event));
-  const douJunBranch = BRANCHES[douJunIdx];
-  const douJunHouse = c.houses.find(h => h.branch === douJunBranch);
-  const douJunPalace: Palace | null = douJunHouse ? PALACE_VN_TO_CODE[douJunHouse.palaceName] ?? null : null;
+  const annualHitPalaces = new Set(
+    ctx.signals
+      .filter(s => s.source === 'ANNUAL' && axisSet.has(s.palace) && ['MA_SYSTEM', 'LOC_TON_SYSTEM', 'ADVERSITY_CLUSTER', 'TAI_SUI'].includes(s.family))
+      .map(s => s.palace),
+  );
+  if (annualHitPalaces.size === 0) return 0;
   let total = 0;
-
-  const onAxis = !!douJunPalace && axisSet.has(douJunPalace);
-  if (onAxis && douJunPalace) {
-    total += DOU_JUN_SCORE.onEventAxis;
-    hits.push({ starName: 'Đẩu Quân tháng nằm trên trục sự kiện', palace: douJunPalace, signalType: 'DOU_JUN_AXIS', contribution: DOU_JUN_SCORE.onEventAxis });
-  }
-
-  const annualHitPalaces = new Set(ctx.signals.filter(s => s.source === 'ANNUAL' && axisSet.has(s.palace)).map(s => s.palace));
-  if (douJunPalace && annualHitPalaces.has(douJunPalace)) {
-    total += DOU_JUN_SCORE.overlapsAnnualEventPalace;
-    hits.push({ starName: 'Đẩu Quân tháng trùng cung lưu niên đang tác động', palace: douJunPalace, signalType: 'DOU_JUN_ANNUAL', contribution: DOU_JUN_SCORE.overlapsAnnualEventPalace });
-  }
-
-  let ownHitsAxis = false;
-  if (douJunHouse) {
-    const dqTargets = fourTransformTargets(c, douJunHouse.can);
-    for (const t of Object.values(dqTargets)) {
-      if (t && axisSet.has(t.palace)) { ownHitsAxis = true; break; }
-    }
-    if (ownHitsAxis && douJunPalace) {
-      total += DOU_JUN_SCORE.ownTransformHitsAxis;
-      hits.push({ starName: 'Tứ Hóa của cung Đẩu Quân chạm trục sự kiện', palace: douJunPalace, signalType: 'DOU_JUN_OWN_HOA', contribution: DOU_JUN_SCORE.ownTransformHitsAxis });
-    }
-  }
-
-  const mingHouse = c.houses.find(h => h.branch === ctx.yearBranch);
-  let mingHitsDouJun = false;
-  if (mingHouse && douJunPalace) {
-    const mingTargets = fourTransformTargets(c, mingHouse.can);
-    for (const t of Object.values(mingTargets)) {
-      if (t && t.palace === douJunPalace) { mingHitsDouJun = true; break; }
-    }
-    if (mingHitsDouJun) {
-      total += DOU_JUN_SCORE.annualMingHitsDouJun;
-      hits.push({ starName: 'Tứ Hóa của cung Mệnh lưu niên chiếu vào Đẩu Quân', palace: douJunPalace, signalType: 'DOU_JUN_MING_HOA', contribution: DOU_JUN_SCORE.annualMingHitsDouJun });
-    }
-  }
-  if (mingHitsDouJun && ownHitsAxis && douJunPalace) {
-    total += DOU_JUN_SCORE.mutualInteraction;
-    hits.push({ starName: 'Đẩu Quân và Mệnh lưu niên tương tác 2 chiều', palace: douJunPalace, signalType: 'DOU_JUN_MUTUAL', contribution: DOU_JUN_SCORE.mutualInteraction });
+  for (const m of mc.movingStars) {
+    const h = c.houses.find(x => x.branch === BRANCHES[m.branchIdx]);
+    if (!h) continue;
+    const palace = PALACE_VN_TO_CODE[h.palaceName];
+    if (!palace || !axisSet.has(palace) || !annualHitPalaces.has(palace)) continue;
+    const bonus = 6;
+    total += bonus;
+    hits.push({ starName: `${SIGNAL_CATALOG[m.code]?.name ?? m.code} tháng cộng hưởng sao lưu lưu niên`, palace, signalType: `ANNUAL_MS_${m.code}`, contribution: bonus });
   }
   return total;
 }
@@ -231,19 +213,117 @@ function monthlyMovingStarsScore(event: EventDefinition, mc: MonthlyContext, c: 
   return total;
 }
 
-/** Structural Confirmation — spec không cho công thức, engine bổ sung tương tự tầng năm (Tuần/Triệt + độ sáng chính tinh), áp cho cung trục TẠI VỊ TRÍ THÁNG (xem ghi chú đầu file). */
-function structuralConfirmationScore(event: EventDefinition, monthlyMingIdx: number, c: AstrologyResult['tuViChart']): number {
-  let best = 0;
+/** MỚI §32 — tháng có cộng hưởng với cung TIỂU HẠN của năm xem không (dùng thẳng ctx.tieuHanBranch đã có sẵn, đúng thuật toán Nam Phái Tam Hợp — xem ghi chú đầu file). */
+function monthlyTieuHanResonanceScore(event: EventDefinition, mc: MonthlyContext, ctx: AnnualSignalContext, c: AstrologyResult['tuViChart'], hits: Hit[]): number {
+  if (!ctx.tieuHanBranch) return 0;
+  const tieuHanIdx = branchIndex(ctx.tieuHanBranch);
+  const tieuHanHouse = c.houses.find(h => h.branch === ctx.tieuHanBranch);
+  const tieuHanPalace: Palace | null = tieuHanHouse ? PALACE_VN_TO_CODE[tieuHanHouse.palaceName] ?? null : null;
+  let total = 0;
+
+  // (a) Cung trục sự kiện của tháng có hình chiếu tới đúng cung Tiểu Hạn không.
+  for (const role of axisRolesOf(event)) {
+    const monthlyIdx = roleBranchIndex(mc.monthlyMingIdx, role);
+    const geo = geometryOf(monthlyIdx, tieuHanIdx);
+    const w = MONTHLY_GEOMETRY_WEIGHT[geo];
+    if (w <= 0) continue;
+    const contribution = w * 10 * (event.axis.weights[role] ?? 0.5);
+    if (contribution < 1) continue;
+    total += contribution;
+    hits.push({ starName: `Cung ${PALACE_CODE_TO_VN[role] ?? role} của tháng cộng hưởng cung Tiểu Hạn`, palace: role, signalType: `TIEU_HAN_OVERLAP_${role}`, contribution });
+  }
+
+  // (b) Tứ Hóa tháng có đánh trúng đúng cung Tiểu Hạn không.
+  if (tieuHanPalace) {
+    for (const hoa of HOA_LIST) {
+      const t = mc.fourTransformTargets[hoa];
+      if (t && t.palace === tieuHanPalace) {
+        total += 6;
+        hits.push({ starName: `${t.star} hóa ${hoa.replace('Hóa ', '')} đánh trúng cung Tiểu Hạn`, palace: tieuHanPalace, signalType: `TIEU_HAN_HOA_${hoaCode(hoa)}`, contribution: 6 });
+      }
+    }
+  }
+
+  // (c) Lộc Tồn/Thiên Mã tháng có kích hoạt đúng cung Tiểu Hạn không.
+  if (tieuHanPalace) {
+    for (const m of mc.movingStars) {
+      if ((m.code !== 'LOC_TON' && m.code !== 'THIEN_MA') || BRANCHES[m.branchIdx] !== ctx.tieuHanBranch) continue;
+      total += 5;
+      hits.push({ starName: `${SIGNAL_CATALOG[m.code]?.name ?? m.code} tháng kích hoạt cung Tiểu Hạn`, palace: tieuHanPalace, signalType: `TIEU_HAN_MS_${m.code}`, contribution: 5 });
+    }
+  }
+  return total;
+}
+
+/** MỚI §30 — hóa tinh chiếm ưu thế trong tháng có "hợp cơ chế" với nhóm sự kiện không (xem bảng CATEGORY_PREFERRED_HOA/CATEGORY_ADVERSE_HOA trong config.ts). */
+function eventSpecificPatternScore(event: EventDefinition, dominantHoa: HoaKind | null, hits: Hit[]): number {
+  if (!dominantHoa) return 0;
+  const preferred = CATEGORY_PREFERRED_HOA[event.category] ?? [];
+  const adverse = CATEGORY_ADVERSE_HOA[event.category] ?? [];
+  if (preferred.includes(dominantHoa)) {
+    hits.push({ starName: `Cơ chế hóa ${dominantHoa.replace('Hóa ', '')} khớp với nhóm sự kiện này`, palace: event.axis.primary[0], signalType: 'PATTERN_PREFERRED', contribution: 7 });
+    return 7;
+  }
+  if (adverse.includes(dominantHoa)) {
+    hits.push({ starName: `Cơ chế hóa ${dominantHoa.replace('Hóa ', '')} là dạng áp lực thường gặp của nhóm sự kiện này`, palace: event.axis.primary[0], signalType: 'PATTERN_ADVERSE', contribution: 5 });
+    return 5;
+  }
+  return 0;
+}
+
+/** §14 (Đẩu Quân) gộp với Structural Confirmation — cùng 1 cap nhỏ 3 điểm theo §33. */
+function douJunStructureScore(event: EventDefinition, ctx: AnnualSignalContext, result: AstrologyResult, mc: MonthlyContext, hits: Hit[]): number {
+  const c = result.tuViChart;
+  const axisSet = new Set(axisRolesOf(event));
+  const douJunBranch = BRANCHES[mc.douJunIdx];
+  const douJunHouse = c.houses.find(h => h.branch === douJunBranch);
+  const douJunPalace: Palace | null = douJunHouse ? PALACE_VN_TO_CODE[douJunHouse.palaceName] ?? null : null;
+  let total = 0;
+
+  if (douJunPalace && axisSet.has(douJunPalace)) {
+    total += DOU_JUN_SCORE.onEventAxis;
+    hits.push({ starName: 'Đẩu Quân tháng nằm trên trục sự kiện', palace: douJunPalace, signalType: 'DOU_JUN_AXIS', contribution: DOU_JUN_SCORE.onEventAxis });
+  }
+  const annualHitPalaces = new Set(ctx.signals.filter(s => s.source === 'ANNUAL' && axisSet.has(s.palace)).map(s => s.palace));
+  if (douJunPalace && annualHitPalaces.has(douJunPalace)) {
+    total += DOU_JUN_SCORE.overlapsAnnualEventPalace;
+    hits.push({ starName: 'Đẩu Quân tháng trùng cung lưu niên đang tác động', palace: douJunPalace, signalType: 'DOU_JUN_ANNUAL', contribution: DOU_JUN_SCORE.overlapsAnnualEventPalace });
+  }
+  let ownHitsAxis = false;
+  if (douJunHouse) {
+    const dqTargets = fourTransformTargets(c, douJunHouse.can);
+    for (const t of Object.values(dqTargets)) if (t && axisSet.has(t.palace)) { ownHitsAxis = true; break; }
+    if (ownHitsAxis && douJunPalace) {
+      total += DOU_JUN_SCORE.ownTransformHitsAxis;
+      hits.push({ starName: 'Tứ Hóa của cung Đẩu Quân chạm trục sự kiện', palace: douJunPalace, signalType: 'DOU_JUN_OWN_HOA', contribution: DOU_JUN_SCORE.ownTransformHitsAxis });
+    }
+  }
+  const mingHouse = c.houses.find(h => h.branch === ctx.yearBranch);
+  let mingHitsDouJun = false;
+  if (mingHouse && douJunPalace) {
+    const mingTargets = fourTransformTargets(c, mingHouse.can);
+    for (const t of Object.values(mingTargets)) if (t && t.palace === douJunPalace) { mingHitsDouJun = true; break; }
+    if (mingHitsDouJun) {
+      total += DOU_JUN_SCORE.annualMingHitsDouJun;
+      hits.push({ starName: 'Tứ Hóa của cung Mệnh lưu niên chiếu vào Đẩu Quân', palace: douJunPalace, signalType: 'DOU_JUN_MING_HOA', contribution: DOU_JUN_SCORE.annualMingHitsDouJun });
+    }
+  }
+  if (mingHitsDouJun && ownHitsAxis && douJunPalace) {
+    total += DOU_JUN_SCORE.mutualInteraction;
+    hits.push({ starName: 'Đẩu Quân và Mệnh lưu niên tương tác 2 chiều', palace: douJunPalace, signalType: 'DOU_JUN_MUTUAL', contribution: DOU_JUN_SCORE.mutualInteraction });
+  }
+
   for (const role of event.axis.primary) {
-    const idx = roleBranchIndex(monthlyMingIdx, role);
+    const idx = roleBranchIndex(mc.monthlyMingIdx, role);
     const h = c.houses.find(x => x.branch === BRANCHES[idx]);
     if (!h) continue;
-    let v = 2.5;
-    if (h.tuanAt || h.trietAt) v -= 1.5;
-    if (h.stars.some(s => s.type === 'chinh' && (s.brightness === 'miếu' || s.brightness === 'vượng'))) v += 2.5;
-    if (v > best) best = v;
+    let v = 0;
+    if (!h.tuanAt && !h.trietAt) v += 1;
+    if (h.stars.some(s => s.type === 'chinh' && (s.brightness === 'miếu' || s.brightness === 'vượng'))) v += 1.5;
+    if (v > 0) { total += v; hits.push({ starName: 'Cấu trúc cung trục tháng ổn định (không Tuần/Triệt, chính tinh vượng)', palace: role, signalType: 'STRUCTURAL', contribution: v }); }
   }
-  return best;
+
+  return total;
 }
 
 function phaseOfHoa(hoa: HoaKind | null): EventPhase {
@@ -269,14 +349,34 @@ function driversOf(hits: Hit[]): MonthDriver[] {
     .map(h => ({ starName: h.starName, palace: h.palace, signalType: h.signalType }));
 }
 
-interface MonthResult { month: number; score: number; hits: Hit[]; dominantHoa: HoaKind | null; familiesCount: number }
+interface MonthResult { month: number; score: number; hits: Hit[]; dominantHoa: HoaKind | null }
+
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/** Gộp các tháng liền kề quanh 1 tháng tâm — §27 (cơ chế) vẫn giữ, chỉ bỏ ngưỡng tuyệt đối ≥70 (v2) vì v3 không còn thang điểm có "sàn". */
+function mergeAround(byMonth: Map<number, MonthResult>, centerMonth: number, used: Set<number>): MonthResult[] {
+  const center = byMonth.get(centerMonth)!;
+  let lo = centerMonth, hi = centerMonth;
+  const group = [center];
+  while (group.length < MONTHLY_V3_WINDOW.maxWindowMonths) {
+    const leftCand = lo - 1 >= 1 && !used.has(lo - 1) ? byMonth.get(lo - 1) : undefined;
+    const rightCand = hi + 1 <= 12 && !used.has(hi + 1) ? byMonth.get(hi + 1) : undefined;
+    const leftOk = !!leftCand && Math.abs(leftCand.score - center.score) <= MONTHLY_V3_WINDOW.maxDelta;
+    const rightOk = !!rightCand && Math.abs(rightCand.score - center.score) <= MONTHLY_V3_WINDOW.maxDelta;
+    if (!leftOk && !rightOk) break;
+    if (leftOk && (!rightOk || leftCand!.score >= rightCand!.score)) { group.unshift(leftCand!); lo--; }
+    else { group.push(rightCand!); hi++; }
+  }
+  return group;
+}
 
 export function computeMonthlyTiming(
-  event: EventDefinition, annualStrength: number, _rules: EventRule[], result: AstrologyResult, ctx: AnnualSignalContext,
+  event: EventDefinition, _annualStrength: number, _rules: EventRule[], result: AstrologyResult, ctx: AnnualSignalContext,
 ): MonthWindow[] {
-  if (annualStrength < MONTHLY_V2_SUPPRESSION.blockBelowAnnual) return [];
-  if (annualStrength < event.minAnnualScoreForMonthlyTiming) return [];
-
   const c = result.tuViChart;
   const natalMingBranch: EarthlyBranch | undefined = c.houses.find(h => h.palaceName === 'Mệnh')?.branch;
   if (!natalMingBranch) return [];
@@ -291,97 +391,78 @@ export function computeMonthlyTiming(
   const monthly: MonthResult[] = [];
   for (let m = 1; m <= 12; m++) {
     const mc = buildMonthlyContext(result, ctx.yearStem, ctx.yearBranch, m);
+    const allHits: Hit[] = [];
 
-    const axisHits: Hit[] = [];
-    const axisResonance = clamp(axisResonanceScore(event, mc.monthlyMingIdx, natalMingIdx, yearBranchIdx, daHanBranchIdx, axisHits), 0, MONTHLY_V2_CAPS.axisResonance);
+    const eventPalaceMatch = clamp(eventPalaceMatchScore(event, mc.monthlyMingIdx, natalMingIdx, yearBranchIdx, daHanBranchIdx, allHits), 0, MONTHLY_V3_CAPS.eventPalaceMatch);
 
     const ftHits: Hit[] = [];
     const { score: ftScoreRaw, dominantHoa } = monthlyFourTransformScore(event, mc.fourTransformTargets, c, ftHits);
-    const monthlyTuHoa = clamp(ftScoreRaw, 0, MONTHLY_V2_CAPS.monthlyFourTransform);
+    const monthlyFourTransform = clamp(ftScoreRaw, 0, MONTHLY_V3_CAPS.monthlyFourTransform);
+    allHits.push(...ftHits);
 
-    const echoHits: Hit[] = [];
-    const crossLayerEcho = clamp(crossLayerEchoScore(event, mc.fourTransformTargets, natalTargets, daHanTargets, annualTargets, echoHits), 0, MONTHLY_V2_CAPS.crossLayerEcho);
-
-    const djHits: Hit[] = [];
-    const douJun = clamp(douJunScore(event, ctx, result, mc.douJunIdx, djHits), 0, MONTHLY_V2_CAPS.douJun);
+    const annualMsHits: Hit[] = [];
+    const annualMovingStarResonance = clamp(annualMovingStarResonanceScore(event, mc, ctx, c, annualMsHits), 0, MONTHLY_V3_CAPS.annualMovingStarResonance);
+    allHits.push(...annualMsHits);
 
     const msHits: Hit[] = [];
-    const movingStars = clamp(monthlyMovingStarsScore(event, mc, c, msHits), 0, MONTHLY_V2_CAPS.movingStars);
+    const monthlyMovingStars = clamp(monthlyMovingStarsScore(event, mc, c, msHits), 0, MONTHLY_V3_CAPS.monthlyMovingStars);
+    allHits.push(...msHits);
 
-    const structural = clamp(structuralConfirmationScore(event, mc.monthlyMingIdx, c), 0, MONTHLY_V2_CAPS.structural);
+    const thHits: Hit[] = [];
+    const tieuHanResonance = clamp(monthlyTieuHanResonanceScore(event, mc, ctx, c, thHits), 0, MONTHLY_V3_CAPS.tieuHanResonance);
+    allHits.push(...thHits);
 
-    const annualBaseline = clamp(annualStrength) * MONTHLY_V2_WEIGHTS.annualBaseline;
+    const echoHits: Hit[] = [];
+    const crossLayerEcho = clamp(crossLayerEchoScore(event, mc.fourTransformTargets, natalTargets, daHanTargets, annualTargets, echoHits), 0, MONTHLY_V3_CAPS.crossLayerEcho);
+    allHits.push(...echoHits);
 
-    let raw = annualBaseline + axisResonance + monthlyTuHoa + crossLayerEcho + douJun + movingStars + structural;
+    const patternHits: Hit[] = [];
+    const eventSpecificPattern = clamp(eventSpecificPatternScore(event, dominantHoa, patternHits), 0, MONTHLY_V3_CAPS.eventSpecificPattern);
+    allHits.push(...patternHits);
 
-    const families = new Set<string>();
-    if (axisResonance > 0) families.add('MONTHLY_PALACE_RESONANCE');
-    if (monthlyTuHoa > 0) families.add('MONTHLY_FOUR_TRANSFORMATION');
-    if (crossLayerEcho > 0) families.add('CROSS_LAYER_TRANSFORMATION_ECHO');
-    if (douJun > 0) families.add('DOU_JUN_INTERACTION');
-    if (movingStars > 0) families.add('MONTHLY_SUPPORTING_STARS');
-    const n = families.size;
-    const mult = n <= 0 ? 1 : n <= 4 ? (MONTHLY_CONVERGENCE_MULTIPLIER[n] ?? 1) : MONTHLY_CONVERGENCE_MULTIPLIER_5PLUS;
-    raw = raw * Math.min(mult, MONTHLY_CONVERGENCE_CAP);
+    const djHits: Hit[] = [];
+    const douJunStructure = clamp(douJunStructureScore(event, ctx, result, mc, djHits), 0, MONTHLY_V3_CAPS.douJunStructure);
+    allHits.push(...djHits);
 
-    if (annualStrength < MONTHLY_V2_SUPPRESSION.capAt60BelowAnnual) raw = Math.min(raw, 60);
-    if (annualStrength < MONTHLY_V2_SUPPRESSION.capAt45BelowAnnual) raw = Math.min(raw, 45);
+    const raw = eventPalaceMatch + monthlyFourTransform + annualMovingStarResonance + monthlyMovingStars
+      + tieuHanResonance + crossLayerEcho + eventSpecificPattern + douJunStructure;
 
-    monthly.push({
-      month: m, score: Math.round(clamp(raw)),
-      hits: [...axisHits, ...ftHits, ...echoHits, ...djHits, ...msHits],
-      dominantHoa, familiesCount: n,
-    });
+    monthly.push({ month: m, score: Math.round(clamp(raw)), hits: allHits, dominantHoa });
   }
 
-  const notable = monthly.filter(x => x.score >= 55);
-  if (notable.length === 0) return [];
-
-  // §27/§28 — chỉ 1 tháng "đỉnh duy nhất" khi vượt hẳn tháng nhì trong CẢ 12 tháng, không chỉ trong 1 cửa sổ.
+  // §34 Relative Timing Ranking — LUÔN trả về 1 cửa sổ chính (tháng nổi bật nhất trong năm), bất
+  // kể điểm tuyệt đối cao hay thấp. Độ tin cậy dùng relativeTimingIndex = đỉnh − trung vị 12
+  // tháng (§34), KHÔNG dùng "đỉnh trừ tháng nhì" (§35 gốc) — xem lý do ở config.ts TIMING_CONFIDENCE_GAP.
   const sortedAll = [...monthly].sort((a, b) => b.score - a.score);
-  const uniquePeakMonth = sortedAll.length >= 2
-    && sortedAll[0].score >= UNIQUE_PEAK_MIN_SCORE
-    && sortedAll[0].score - sortedAll[1].score >= UNIQUE_PEAK_MIN_DELTA
-    ? sortedAll[0].month
-    : null;
+  const med = median(monthly.map(m => m.score));
+  const relativeTimingIndex = sortedAll[0].score - med;
+  const timingConfidence: TimingConfidence = relativeTimingIndex >= TIMING_CONFIDENCE_GAP.high ? 'HIGH' : relativeTimingIndex >= TIMING_CONFIDENCE_GAP.medium ? 'MEDIUM' : 'LOW';
 
-  const windows: MonthWindow[] = [];
-  let idx = 0;
-  while (idx < notable.length) {
-    const group = [notable[idx]];
-    while (
-      idx + 1 < notable.length
-      && group.length < TIMING_WINDOW_MERGE.maxWindowMonths
-      && notable[idx + 1].month === notable[idx].month + 1
-      && notable[idx].score >= TIMING_WINDOW_MERGE.minScore
-      && notable[idx + 1].score >= TIMING_WINDOW_MERGE.minScore
-      && Math.abs(notable[idx + 1].score - notable[idx].score) <= TIMING_WINDOW_MERGE.maxDelta
-    ) {
-      idx++;
-      group.push(notable[idx]);
-    }
+  const byMonth = new Map(monthly.map(m => [m.month, m]));
+  const used = new Set<number>();
+  const primaryGroup = mergeAround(byMonth, sortedAll[0].month, used);
+  for (const g of primaryGroup) used.add(g.month);
 
+  const remaining = sortedAll.filter(m => !used.has(m.month));
+  let secondaryGroup: MonthResult[] | null = null;
+  if (remaining.length > 0 && remaining[0].score >= med + MONTHLY_V3_WINDOW.secondaryMinGapAboveMedian) {
+    secondaryGroup = mergeAround(byMonth, remaining[0].month, used);
+  }
+
+  const toWindow = (group: MonthResult[]): MonthWindow => {
     const peak = group.reduce((a, b) => (b.score > a.score ? b : a));
-    const combinedHits = group.flatMap(g => g.hits);
-
-    // §26 — VERY_HIGH chỉ khi đủ cả 5 điều kiện, không thì trần ở STRONG dù điểm số đã ≥85.
-    const monthlyHitsAxis = peak.hits.some(h => h.signalType.startsWith('HOA_'));
-    const crossLayerEchoTrue = peak.hits.some(h => h.signalType.startsWith('ECHO_'));
-    const veryHighAllowed = peak.score >= 85 && annualStrength >= 70 && peak.familiesCount >= 4 && monthlyHitsAxis && crossLayerEchoTrue;
-    let strength = timingIntensityOf(peak.score);
-    if (strength === 'VERY_STRONG' && !veryHighAllowed) strength = 'STRONG';
-
-    windows.push({
-      startLunarMonth: group[0].month,
-      endLunarMonth: group[group.length - 1].month,
-      strength,
-      isUniquePeak: uniquePeakMonth !== null && group.some(g => g.month === uniquePeakMonth),
+    return {
+      startLunarMonth: Math.min(...group.map(g => g.month)),
+      endLunarMonth: Math.max(...group.map(g => g.month)),
+      strength: timingIntensityOf(peak.score),
+      timingConfidence,
       phase: phaseOfHoa(peak.dominantHoa),
       score: peak.score,
-      drivers: driversOf(combinedHits),
-    });
-    idx++;
-  }
+      drivers: driversOf(group.flatMap(g => g.hits)),
+    };
+  };
 
-  return windows.sort((a, b) => b.score - a.score).slice(0, 3);
+  const windows: MonthWindow[] = [toWindow(primaryGroup)];
+  if (secondaryGroup) windows.push(toWindow(secondaryGroup));
+  return windows;
 }
