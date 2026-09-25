@@ -43,7 +43,7 @@ export default function ChartHubScreen() {
 
   return (
     <Screen tabBarSpace>
-      <Display size={34}>Lá số</Display>
+      <Display size={34}>Tổng quan lá số</Display>
       <Text style={s.who}>
         <Text style={{ fontFamily: FONTS.bodyBold, color: COLORS.textPrimary }}>{r.birthInfo.name || 'Hồ sơ của tôi'}</Text>
         {` · ${genderLabel} · ${c.lunarDate.yearStem} ${c.lunarDate.yearBranch} ${r.birthInfo.year}`}

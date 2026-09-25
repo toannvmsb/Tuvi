@@ -309,6 +309,25 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           >
             <Text style={styles.aiChartBtnText}>🔮 Phân tích chuyên sâu toàn lá số · {viewYear}</Text>
           </TouchableOpacity>
+          <View style={styles.vanRow}>
+            {(
+              [
+                { screen: 'DaiVan', label: 'Đại vận', color: COLORS.gold },
+                { screen: 'TieuVan', label: 'Tiểu vận', color: COLORS.purple },
+                { screen: 'NguyetVan', label: 'Nguyệt vận', color: COLORS.green },
+                { screen: 'NhatVan', label: 'Nhật vận', color: COLORS.blue },
+              ] as const
+            ).map(v => (
+              <TouchableOpacity
+                key={v.screen}
+                style={[styles.vanBtn, { borderColor: v.color }]}
+                onPress={() => (navigationRef.navigate as any)('MainTabs', { result: fullChartResult, screen: v.screen, params: { result: fullChartResult } })}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.vanBtnText, { color: v.color }]}>{v.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </ScrollView>
       <ScrollToTopButton visible={showTop} onPress={scrollToTop} />
@@ -456,6 +475,12 @@ const styles = StyleSheet.create({
     padding: SPACING.md, alignItems: 'center',
   },
   aiChartBtnText: { color: '#fff', fontWeight: '800', fontSize: FONTS.size.md },
+  vanRow: { flexDirection: 'row', gap: SPACING.xs },
+  vanBtn: {
+    flex: 1, borderRadius: 8, borderWidth: 1, paddingVertical: 10,
+    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  vanBtnText: { fontWeight: '700', fontSize: FONTS.size.sm },
   dayBtn: {
     width: '100%', alignSelf: 'stretch',
     backgroundColor: COLORS.surface, borderRadius: 10,
