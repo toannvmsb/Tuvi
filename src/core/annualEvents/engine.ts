@@ -90,7 +90,7 @@ export function computeAnnualPrediction(result: AstrologyResult, targetYear: num
 
   const top = rankEvents(scored);
   const overallIntensity = intensityLevelOf(top.length ? Math.round(top.reduce((s, e) => s + e.strength, 0) / top.length) : 0);
-  const annualTheme = top.slice(0, 5).map(e => `${categoryTitleOf(e.category)} — ${e.title} (${e.direction === 'POSITIVE' ? 'thuận' : e.direction === 'NEGATIVE' ? 'cần lưu ý' : 'hai chiều'})`);
+  const annualTheme = top.map(e => `${categoryTitleOf(e.category)} — ${e.title} (${e.direction === 'POSITIVE' ? 'thuận' : e.direction === 'NEGATIVE' ? 'cần lưu ý' : 'hai chiều'})`);
   const { stem, branch } = yearCanChi(targetYear);
 
   return {

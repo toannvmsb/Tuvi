@@ -14,11 +14,9 @@ describe('annualEvents engine', () => {
     const pred = computeAnnualPrediction(result, 2026);
 
     expect(pred.targetYear).toBe(2026);
-    expect(pred.events.length).toBeLessThanOrEqual(5);
-    // tối đa 2 sự kiện mỗi nhóm
-    const perCategory: Record<string, number> = {};
-    for (const e of pred.events) perCategory[e.category] = (perCategory[e.category] ?? 0) + 1;
-    for (const n of Object.values(perCategory)) expect(n).toBeLessThanOrEqual(2);
+    // Tối đa 10 sự kiện/năm, không còn giới hạn riêng theo nhóm — mọi sự kiện hiện ra phải đạt ngưỡng 50.
+    expect(pred.events.length).toBeLessThanOrEqual(10);
+    for (const e of pred.events) expect(e.strength).toBeGreaterThanOrEqual(50);
 
     for (const e of pred.events) {
       expect(e.strength).toBeGreaterThanOrEqual(0);
@@ -89,7 +87,7 @@ describe('annualEvents engine', () => {
     }
   });
 
-  test('danh sách sự kiện top-5 xu hướng lệch theo ĐÚNG domain của cung Tiểu Hạn năm xem (khắc phục "danh sách chưa phù hợp")', () => {
+  test('danh sách sự kiện (>= 50 điểm, tối đa 10) xu hướng lệch theo ĐÚNG domain của cung Tiểu Hạn năm xem', () => {
     for (const result of allSampleResults()) {
       for (const year of [2025, 2026, 2027]) {
         const ctx = buildAnnualContext(result, year);
