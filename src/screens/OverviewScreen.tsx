@@ -36,6 +36,7 @@ import { buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
 import { WeatherMini } from '../components/WeatherCards';
+import WeatherBackdrop from '../components/WeatherBackdrop';
 import { formatXu } from '../lib/format';
 import AnimatedAvatar from '../components/AnimatedAvatar';
 import { getSelectedAvatarId } from '../lib/avatarPrefs';
@@ -144,7 +145,7 @@ export default function OverviewScreen() {
     : '';
 
   return (
-    <Screen tabBarSpace>
+    <Screen tabBarSpace topOverlay={<WeatherBackdrop />}>
       {/* Thanh trên: hồ sơ · xu · chuông */}
       <View style={s.topRow}>
         <Pressable

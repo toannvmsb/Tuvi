@@ -11,13 +11,16 @@ import { COLORS } from '../constants/theme';
 export const TAB_BAR_HEIGHT = 64;
 
 export default function Screen({
-  children, tabBarSpace = false, contentStyle, scroll = true, gap = 18,
+  children, tabBarSpace = false, contentStyle, scroll = true, gap = 18, topOverlay,
 }: {
   children: React.ReactNode;
   tabBarSpace?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
   gap?: number;
+  /** Lớp phủ tùy chọn vẽ đè lên nền đêm sao mặc định, chỉ ở phần trên màn (vd nền động theo thời
+   *  tiết ở Tổng quan) — không ảnh hưởng các màn khác không truyền prop này. */
+  topOverlay?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const bottom = (tabBarSpace ? TAB_BAR_HEIGHT + insets.bottom + 72 : insets.bottom + 32);
@@ -28,6 +31,7 @@ export default function Screen({
         colors={['#2B2160', '#15162F', '#0A0B1A']} locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFill} pointerEvents="none"
       />
+      {topOverlay}
       {scroll ? (
         <ScrollView contentContainerStyle={inner} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {children}
