@@ -50,10 +50,15 @@ const packOf = (productId: string): XuPack | undefined =>
 async function creditPurchase(pack: XuPack, purchase: any): Promise<number> {
   if (isOnlineMode()) {
     try {
+      // QUAN TRỌNG: phải gửi ĐÚNG Product ID theo từng nền tảng (iOS: ios_xu_*, Android: xu_*).
+      // Trước đây luôn gửi pack.productId (bản Android) kể cả khi mua trên iOS → server xác thực
+      // Apple receipt so khớp productId sai, mọi giao dịch iOS đều bị từ chối (invalid_receipt)
+      // dù Apple đã trừ tiền thành công. purchase?.productId là ID THẬT mà store trả về, ưu tiên dùng.
+      const productId = purchase?.productId || (Platform.OS === 'ios' ? pack.iosProductId : pack.productId);
       const { data, error } = await supabase.functions.invoke('iap-verify', {
         body: {
           platform: Platform.OS,
-          productId: pack.productId,
+          productId,
           // iOS: transactionReceipt; Android: purchaseToken + packageName
           receipt: purchase?.transactionReceipt,
           purchaseToken: purchase?.purchaseToken,

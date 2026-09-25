@@ -24,9 +24,14 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 // Bản đồ sản phẩm → xu (đặt PHÍA SERVER để không tin số xu do client gửi).
+// Có 2 bộ ID: Android giữ nguyên "xu_*" (constants/payment.ts XU_PACKS.productId), iOS dùng
+// riêng "ios_xu_*" (XU_PACKS.iosProductId, tạo lại trên App Store Connect) — thiếu bộ ios_xu_*
+// khiến MỌI giao dịch iOS bị từ chối ở bước "unknown_product" dù Apple đã xác thực đúng receipt.
 const XU_BY_PRODUCT: Record<string, number> = {
   xu_100: 100, xu_200: 200, xu_500: 500,
   xu_1000: 1000, xu_2000: 2000, xu_5000: 5000,
+  ios_xu_100: 100, ios_xu_200: 200, ios_xu_500: 500,
+  ios_xu_1000: 1000, ios_xu_2000: 2000, ios_xu_5000: 5000,
 };
 
 const json = (b: unknown, s = 200) =>

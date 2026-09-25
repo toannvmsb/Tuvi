@@ -24,7 +24,7 @@ export function WeatherMini({ onPress }: { onPress?: () => void }) {
   const d = weather ? describeWeather(weather.now.code, weather.now.isDay) : null;
   return (
     <Card tint={COLORS.blue} style={m.card}>
-      <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, justifyContent: 'space-between', gap: 8 }} accessibilityRole="button" accessibilityLabel="Thời tiết hôm nay">
+      <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, justifyContent: 'space-between', gap: 4 }} accessibilityRole="button" accessibilityLabel="Thời tiết hôm nay">
         <View style={m.head}>
           <Icon name="pin" size={16} color={COLORS.blue} />
           <Text style={m.place} numberOfLines={1}>{shortPlace(place.name).toUpperCase()}</Text>
@@ -153,12 +153,12 @@ const s = StyleSheet.create({
 });
 
 const m = StyleSheet.create({
-  card: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
+  card: { flex: 1, minHeight: 136, padding: 10, borderRadius: 20 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   place: { flex: 1, fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 1.6, color: COLORS.blue },
   tempRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  emoji: { fontSize: 30 },
-  temp: { fontFamily: FONTS.display, fontSize: 40, lineHeight: 44, color: COLORS.textPrimary },
+  emoji: { fontSize: 40 },
+  temp: { fontFamily: FONTS.display, fontSize: 48, lineHeight: 50, color: COLORS.textPrimary },
   status: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.textPrimary },
   sub: { fontFamily: FONTS.body, fontSize: 11.5, color: COLORS.textSecondary },
 });
