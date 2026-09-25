@@ -14,9 +14,8 @@ describe('annualEvents engine', () => {
     const pred = computeAnnualPrediction(result, 2026);
 
     expect(pred.targetYear).toBe(2026);
-    // Tối đa 10 sự kiện/năm, không còn giới hạn riêng theo nhóm — mọi sự kiện hiện ra phải đạt ngưỡng 50.
+    // Tối đa 10 sự kiện/năm; ngưỡng chuẩn 50 nhưng có sàn tối thiểu 5 (hạ ngưỡng nếu năm quá bình lặng).
     expect(pred.events.length).toBeLessThanOrEqual(10);
-    for (const e of pred.events) expect(e.strength).toBeGreaterThanOrEqual(50);
 
     for (const e of pred.events) {
       expect(e.strength).toBeGreaterThanOrEqual(0);
@@ -100,6 +99,36 @@ describe('annualEvents engine', () => {
         // top-5 khớp domain Tiểu Hạn năm đó — tránh trường hợp domain hoàn toàn không liên quan gì.
         const anyMatch = pred.events.some(e => boosted.has(e.eventId));
         expect(anyMatch).toBe(true);
+      }
+    }
+  });
+
+  test('sàn tối thiểu 5 sự kiện: năm nào không đủ 5 sự kiện >= 50 điểm thì hạ dần để lấy đủ 5', () => {
+    for (const result of allSampleResults()) {
+      for (let year = 2024; year <= 2033; year++) {
+        const pred = computeAnnualPrediction(result, year);
+        // Luôn có ít nhất 5 sự kiện (85 sự kiện trong bộ luôn đủ để hạ ngưỡng lấy đủ 5).
+        expect(pred.events.length).toBeGreaterThanOrEqual(5);
+        expect(pred.events.length).toBeLessThanOrEqual(10);
+        // Vẫn xếp giảm dần theo điểm.
+        for (let i = 1; i < pred.events.length; i++) {
+          expect(pred.events[i].strength).toBeLessThanOrEqual(pred.events[i - 1].strength);
+        }
+      }
+    }
+  });
+
+  test('gộp nhóm "Biến động tài sản": không hiện quá 1 sự kiện PROPERTY_* trong danh sách', () => {
+    const PROPERTY_IDS = new Set([
+      'PROPERTY_PURCHASE', 'PROPERTY_SALE', 'PROPERTY_RELOCATION', 'PROPERTY_RENOVATION',
+      'PROPERTY_LARGE_EXPENSE', 'PROPERTY_INVESTMENT', 'PROPERTY_FAMILY_ASSET',
+      'PROPERTY_INHERITANCE', 'PROPERTY_DISPUTE',
+    ]);
+    for (const result of allSampleResults()) {
+      for (let year = 2024; year <= 2033; year++) {
+        const pred = computeAnnualPrediction(result, year);
+        const propertyCount = pred.events.filter(e => PROPERTY_IDS.has(e.eventId)).length;
+        expect(propertyCount).toBeLessThanOrEqual(1);
       }
     }
   });
