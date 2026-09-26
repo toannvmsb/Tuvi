@@ -6,8 +6,8 @@
  * sáng chói toàn trang, chỉ vùng đầu trang.
  * Không có mạng / chưa có dữ liệu thời tiết → không hiện gì (giữ nguyên nền mặc định).
  */
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, type LayoutChangeEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useWeather, describeWeather } from '../lib/weather';
 
@@ -55,33 +55,50 @@ function Star({ top, left, size, delay }: { top: number; left: string; size: num
   return <Animated.Text style={[s.star, { top, left: left as any, fontSize: size, opacity }]}>✦</Animated.Text>;
 }
 
-/**
- * Hạt mưa rơi — vị trí rải rác (không thẳng hàng), mỗi hạt bắt đầu ở độ cao khác nhau (startTop
- * âm khác nhau) để không rơi đồng loạt trông như một "hàng" — lặp vô hạn, lệch tốc độ cho tự nhiên.
- */
-const RAIN_POS = [
-  { left: '5%', startTop: -10, delay: 0, duration: 950 }, { left: '21%', startTop: -70, delay: 340, duration: 1150 },
-  { left: '9%', startTop: -140, delay: 620, duration: 1000 }, { left: '35%', startTop: -30, delay: 120, duration: 1080 },
-  { left: '61%', startTop: -100, delay: 500, duration: 900 }, { left: '44%', startTop: -180, delay: 180, duration: 1220 },
-  { left: '78%', startTop: -50, delay: 260, duration: 1000 }, { left: '88%', startTop: -160, delay: 420, duration: 1100 },
-  { left: '68%', startTop: -20, delay: 700, duration: 950 }, { left: '15%', startTop: -200, delay: 60, duration: 1180 },
-  { left: '95%', startTop: -90, delay: 380, duration: 1050 }, { left: '53%', startTop: -60, delay: 560, duration: 970 },
-] as const;
+const RAIN_COUNT = 14;
 
-function Raindrop({ left, startTop, delay, duration }: { left: string; startTop: number; delay: number; duration: number }) {
-  const y = useRef(new Animated.Value(startTop)).current;
+function randomBetween(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+/**
+ * Hạt mưa rơi — vị trí ngang (left) và độ cao bắt đầu random LẠI mỗi lần rơi (không phải 1 lần
+ * lúc mount) nên không bao giờ rơi thành hàng đều/lặp lại y hệt nhau. Dùng vòng lặp animation thủ
+ * công (start() → callback → random lại → start() tiếp) thay vì Animated.loop(): Animated.loop()
+ * chỉ lặp lại đúng animation cũ mà KHÔNG reset giá trị đầu về startTop — sau lần rơi đầu, các lần
+ * sau animate từ (đã ở toValue) → cùng toValue nên không di chuyển nữa, khiến hạt mưa đứng khựng
+ * ở cuối, nhìn như "dừng thành 1 hàng" (đúng lỗi anh Toàn gặp).
+ */
+function Raindrop({ maxLeft }: { maxLeft: number }) {
+  const y = useRef(new Animated.Value(-20)).current;
+  const [left, setLeft] = useState(() => randomBetween(0, maxLeft));
+
   useEffect(() => {
-    y.setValue(startTop);
-    const loop = Animated.loop(
-      Animated.timing(y, { toValue: OVERLAY_HEIGHT * 0.7, duration, delay, easing: Easing.linear, useNativeDriver: true }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [delay, duration, startTop, y]);
+    let cancelled = false;
+    const fall = () => {
+      if (cancelled) return;
+      setLeft(randomBetween(0, maxLeft));
+      y.setValue(randomBetween(-160, -10));
+      Animated.timing(y, {
+        toValue: OVERLAY_HEIGHT * 0.72,
+        duration: randomBetween(850, 1400),
+        delay: randomBetween(0, 500),
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => { if (finished) fall(); });
+    };
+    fall();
+    return () => { cancelled = true; y.stopAnimation(); };
+  }, [maxLeft, y]);
+
+  return <Animated.View style={[s.raindrop, { left, transform: [{ translateY: y }, { rotate: '12deg' }] }]} />;
+}
+
+function RainLayer({ maxLeft }: { maxLeft: number }) {
   return (
-    <Animated.View
-      style={[s.raindrop, { left: left as any, transform: [{ translateY: y }, { rotate: '12deg' }] }]}
-    />
+    <>
+      {Array.from({ length: RAIN_COUNT }, (_, i) => <Raindrop key={i} maxLeft={maxLeft} />)}
+    </>
   );
 }
 
@@ -91,13 +108,15 @@ function Cloud({ top, left, size, opacity }: { top: number; left: string; size: 
 
 export default function WeatherBackdrop() {
   const { weather } = useWeather();
+  const [width, setWidth] = useState(360);
+  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
   if (!weather) return null;
   const d = describeWeather(weather.now.code, weather.now.isDay);
   const mood = moodOf(d.kind, weather.now.isDay);
   const colors = MOOD_COLORS[mood];
 
   return (
-    <View style={[StyleSheet.absoluteFill, { height: OVERLAY_HEIGHT, overflow: 'hidden' }]} pointerEvents="none">
+    <View onLayout={onLayout} style={[StyleSheet.absoluteFill, { height: OVERLAY_HEIGHT, overflow: 'hidden' }]} pointerEvents="none">
       <LinearGradient colors={colors} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
 
       {mood === 'sunnyDay' && (
@@ -129,9 +148,7 @@ export default function WeatherBackdrop() {
         <>
           <Cloud top={16} left="8%" size={60} opacity={0.32} />
           <Cloud top={40} left="56%" size={44} opacity={0.24} />
-          {RAIN_POS.map((p, i) => (
-            <Raindrop key={i} left={p.left} startTop={p.startTop} delay={p.delay} duration={p.duration} />
-          ))}
+          <RainLayer maxLeft={Math.max(width - 4, 40)} />
         </>
       )}
 
