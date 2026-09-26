@@ -6,7 +6,7 @@
  * Tách ra đây để KHÔNG duplicate nội dung. Cập nhật thông tin liên hệ tại CONTACT.
  */
 
-export const LEGAL_UPDATED = '08/08/2026';
+export const LEGAL_UPDATED = '26/09/2026';
 
 export const CONTACT = {
   appName: 'Tuzi — Trợ lý thông minh của bạn',
@@ -43,7 +43,7 @@ Chúng tôi tôn trọng quyền riêng tư của mỗi cá nhân, do đó, cam 
 - **Họ tên / biệt danh** — gắn nhãn lá số, cá nhân hóa lời chào, xuất file PDF.
 - **Giới tính** — tính lá số (an sao theo Nam / Nữ).
 - **Giờ, ngày, tháng, năm sinh (dương lịch)** — đầu vào bắt buộc để tính lá số Tử Vi và Tứ Trụ Bát Tự.
-- **Tỉnh / thành phố nơi sinh** (tùy chọn) — bổ sung dữ liệu cho phần Nhật vận / xem ngày.
+- **Tỉnh / thành phố nơi sinh** (tùy chọn) — bổ sung dữ liệu cho phần Nhật vận / xem ngày, đồng thời dùng để tra cứu dự báo thời tiết hiển thị ở Trang chủ và "Sự kiện sắp tới" (mặc định Hà Nội nếu chưa có; Ứng dụng KHÔNG truy cập vị trí GPS của thiết bị).
 - **Bộ nhớ thiết bị** — lưu / xuất lá số dạng PDF khi Người dùng yêu cầu.
 - **Thông tin thiết bị** (model, hệ điều hành, phiên bản app, ngôn ngữ) — đề xuất phiên bản phù hợp, hỗ trợ kỹ thuật.
 - **Dữ liệu thanh toán** — thông qua dịch vụ bên thứ ba (VietQR / cổng ngân hàng / Apple App Store / Google Play) để xác thực giao dịch nạp xu. Ứng dụng KHÔNG lưu trữ số thẻ ngân hàng, mã CVV hay mật khẩu thanh toán.
@@ -51,6 +51,7 @@ Chúng tôi tôn trọng quyền riêng tư của mỗi cá nhân, do đó, cam 
 - **Nội dung "Việc & Mục tiêu"** — tiêu đề, ghi chú, ngày bắt đầu/kết thúc, trạng thái và thứ tự ưu tiên do Người dùng tự nhập — để hiển thị, nhắc hạn và gợi ý thời điểm phù hợp.
 - **Nội dung "Ghi chú nhanh"** — nội dung ghi chú tự do và ngày ghi chú do Người dùng tự nhập — để lưu lại và hiển thị theo ngày, không được Hệ thống phân tích hay đối chiếu với lá số.
 - **Nội dung "Sự kiện sắp tới"** — các sự kiện cá nhân do Người dùng tự thêm (tiêu đề, ngày, loại sự kiện, người liên quan nếu có), tùy chọn bật/tắt thông báo và số ngày nhắc trước cho từng sự kiện, trạng thái đã ẩn/nhắc lại sau — để hiển thị đúng lịch cá nhân và nhắc đúng lúc. "Gợi ý tài chính" ở Trang chủ KHÔNG thu thập thêm dữ liệu nào — chỉ đọc lại dữ liệu Bát Tự đã có của Người dùng để tạo gợi ý, xử lý hoàn toàn trên hệ thống của Ứng dụng, không gửi cho bên thứ ba.
+- **Lựa chọn khi vẽ "Chân dung tương hợp"** — giới tính, kiểu tóc, độ tuổi mong muốn và ghi chú thêm (tùy chọn) do Người dùng nhập, cùng dữ liệu cung Phu Thê/cung Mệnh suy ra từ lá số (KHÔNG kèm tên thật hay thông tin định danh khác) — gửi tới nhà cung cấp AI để tạo hình ảnh minh họa. Ảnh kết quả được lưu trên hệ thống lưu trữ của Ứng dụng để hiển thị lại và tải về, không dùng cho mục đích nào khác.
 - **Token thông báo đẩy (push token)** — mã định danh thiết bị do Expo cấp, dùng để gửi thông báo nhắc việc/sự kiện và thông báo khuyến mại từ Ứng dụng; Người dùng có thể tắt trong phần cài đặt thông báo của thiết bị bất kỳ lúc nào.
 - **Lượt sử dụng "Hỏi Tuzi" (Chat AI)** — Hệ thống chỉ đếm SỐ LƯỢT hỏi theo ngày để tính hạn mức miễn phí; **KHÔNG lưu trữ nội dung câu hỏi và câu trả lời** sau khi phiên trò chuyện kết thúc. Nếu Người dùng có lá số đang gắn, một khối tóm tắt facts NGẮN GỌN từ lá số đó (Mệnh/Thân, Bát Tự, vận hiện tại — không kèm thông tin định danh khác) có thể được gửi kèm câu hỏi tới nhà cung cấp AI để trả lời đúng ngữ cảnh khi câu hỏi liên quan tới lá số; khối này KHÔNG được lưu trữ lại sau khi trả lời xong.
 - **Cookies và dữ liệu phân tích** (nếu sử dụng website) — phân tích, thống kê, tối ưu hóa trải nghiệm Người dùng.
@@ -77,6 +78,8 @@ Người dùng đồng ý cho Ứng dụng chia sẻ dữ liệu cá nhân cho c
 
 - Nền tảng lưu trữ đám mây (cơ sở dữ liệu, xác thực, lưu file) để vận hành tài khoản và đồng bộ lá số giữa các thiết bị.
 - Nhà cung cấp dịch vụ AI: OpenAI (ChatGPT) là dịch vụ chính, Anthropic (Claude) là dịch vụ dự phòng. Khi Người dùng chủ động yêu cầu "Phân tích AI", dữ liệu lá số (KHÔNG kèm email, mật khẩu, thông tin thanh toán) được gửi đến các nhà cung cấp này để tạo nội dung luận giải. Tương tự, khi Người dùng dùng "Hỏi Tuzi" (Chat AI), nội dung câu hỏi — và một khối tóm tắt facts ngắn gọn từ lá số đang gắn nếu câu hỏi liên quan tới lá số (KHÔNG kèm email, mật khẩu, thông tin thanh toán) — được gửi tới nhà cung cấp AI để tạo câu trả lời, và KHÔNG được lưu trữ lại sau khi trả lời xong. Việc xử lý dữ liệu tại các nhà cung cấp này tuân theo chính sách riêng của họ.
+- Nhà cung cấp dịch vụ vẽ ảnh AI: Cloudflare Workers AI, dùng riêng cho tính năng "Chân dung tương hợp" — nhận mô tả đặc điểm khuôn mặt/vóc dáng do OpenAI suy luận từ lá số (KHÔNG kèm tên thật hay thông tin định danh khác) để tạo hình ảnh minh họa.
+- Nhà cung cấp dữ liệu thời tiết (Open-Meteo) — chỉ nhận tên địa điểm/tọa độ suy ra từ tỉnh/thành phố nơi sinh đã lưu, không kèm bất kỳ thông tin định danh nào khác của Người dùng.
 - Cổng thanh toán / cổng nạp xu (VietQR / SePay / Apple App Store / Google Play) để xác thực giao dịch.
 
 **4.2. Cơ quan thực thi pháp luật và bảo vệ dữ liệu:**
@@ -143,11 +146,13 @@ Hệ thống bao gồm các nhóm tính năng chính:
 - **Hỏi Tuzi (Chat AI)** — biểu tượng trợ lý AI hiện trên mọi màn hình của Ứng dụng, cho phép Người dùng đặt câu hỏi ngắn (tối đa 500 từ) về công việc, cảm xúc, các mối quan hệ, mục tiêu cá nhân… và nhận câu trả lời ngắn gọn từ AI. Có hạn mức miễn phí theo ngày; sử dụng vượt hạn mức sẽ trừ xu theo mức phí niêm yết trong Ứng dụng.
 - **Việc & Mục tiêu** — công cụ quản lý công việc ngắn hạn và mục tiêu dài hạn của Người dùng, cho phép đặt ngày bắt đầu/ngày kết thúc (tham khảo lịch "ngày tốt/xấu" do Hệ thống tính toán để hỗ trợ chọn thời điểm), sắp xếp thứ tự ưu tiên, và nhận thông báo nhắc hạn.
 - **Ghi chú nhanh** — sổ ghi chú tự do theo ngày để Người dùng lưu lại điều chợt nhớ ra hoặc một sự kiện đã diễn ra; độc lập với "Việc & Mục tiêu", không có ngày hạn hay trạng thái hoàn thành.
-- **Sự kiện sắp tới** — nhắc và cá nhân hóa các dịp lễ Tết truyền thống, tiết khí, cùng sự kiện cá nhân do Người dùng tự thêm (sinh nhật, cưới hỏi, khai trương, thi cử, giỗ, hợp đồng, tốt nghiệp…): ý nghĩa, nên làm/nên tránh, hướng xuất hành, gợi ý mâm cúng – bài cúng tham khảo, checklist chuẩn bị và tùy chọn phân tích AI cá nhân hóa theo lá số.
+- **Sự kiện sắp tới** — nhắc và cá nhân hóa các dịp lễ Tết truyền thống, tiết khí, cùng sự kiện cá nhân do Người dùng tự thêm (sinh nhật, cưới hỏi, khai trương, thi cử, giỗ, hợp đồng, tốt nghiệp…): ý nghĩa, nên làm/nên tránh, hướng xuất hành, gợi ý mâm cúng – bài cúng tham khảo, checklist chuẩn bị, dự báo thời tiết đúng ngày diễn ra sự kiện, và tùy chọn phân tích AI cá nhân hóa theo lá số. Người dùng có thể xem lại các sự kiện đã diễn ra hoặc sắp diễn ra khác bằng nút chuyển sự kiện ngay trên màn hình.
+- **Dự báo thời tiết** — hiển thị thời tiết hiện tại trên Trang chủ và tại đúng ngày diễn ra từng sự kiện ở mục "Sự kiện sắp tới", suy ra từ tỉnh/thành phố nơi sinh (hoặc nơi ở) đã gắn cho lá số của Người dùng (mặc định Hà Nội nếu chưa có) — dữ liệu lấy từ nhà cung cấp thời tiết bên thứ ba, Ứng dụng KHÔNG truy cập vị trí GPS thiết bị.
 - **Gợi ý tài chính** — gợi ý định hướng tài chính – đầu tư mang tính tham khảo văn hóa – mệnh lý cho hôm nay và tháng này, dựa trên dữ liệu Bát Tự đã có của Người dùng; **KHÔNG phải lời khuyên đầu tư tài chính thực sự** (xem thêm Điều 9).
 - **Tử Vi Đẩu Số & Tứ Trụ Bát Tự** — công cụ lập và phân tích lá số dựa trên giờ, ngày, tháng, năm sinh: cách cục Mệnh – Thân – Phúc Đức, đại vận, tiểu vận, nguyệt vận, nhật vận, tài vận, công danh sự nghiệp, tình duyên, gia đạo, sức khỏe, xem ngày tốt/xấu và nhiều khía cạnh khác; có thể so sánh mức độ tương hợp giữa hai lá số. Hệ thống tích hợp phân tích chuyên sâu bằng trí tuệ nhân tạo (AI) cho lá số tổng thể, từng cung, đại vận, tiểu vận, nguyệt vận, nhật vận và so sánh lá số.
+- **Chân dung tương hợp** — dựa trên các sao tọa thủ cung Phu Thê trong lá số, AI (kết hợp OpenAI và Cloudflare Workers AI) tạo một hình ảnh minh họa gương mặt "người tương hợp" theo giới tính, kiểu tóc, độ tuổi Người dùng lựa chọn. Đây là hình ảnh HƯ CẤU do AI vẽ ra mang tính tham khảo, giải trí — **KHÔNG phải ảnh chụp hay dự đoán diện mạo có thật của bất kỳ ai**, không đảm bảo độ chính xác hay sự tồn tại của người trong ảnh.
 
-Người dùng có thể sử dụng "Hỏi Tuzi", "Việc & Mục tiêu", "Ghi chú nhanh", "Sự kiện sắp tới" và "Gợi ý tài chính" độc lập, không bắt buộc phải lập lá số Tử Vi/Bát Tự trước.
+Người dùng có thể sử dụng "Hỏi Tuzi", "Việc & Mục tiêu", "Ghi chú nhanh", "Sự kiện sắp tới", "Dự báo thời tiết" và "Gợi ý tài chính" độc lập, không bắt buộc phải lập lá số Tử Vi/Bát Tự trước. Riêng "Chân dung tương hợp" cần có lá số đã lập (để đọc cung Phu Thê) mới sử dụng được.
 
 # 2. Dữ liệu cá nhân
 
@@ -203,6 +208,8 @@ Trong phạm vi tối đa được pháp luật cho phép, Chúng tôi không đ
 Người dùng hiểu và thừa nhận rằng đôi khi các tính năng có thể không khả dụng (lỗi mạng, lỗi nhà cung cấp AI, bảo trì hệ thống…) và Chúng tôi sẽ không chịu trách nhiệm về việc Người dùng không thể sử dụng Hệ thống vì bất kỳ lý do gì.
 
 **Đặc biệt lưu ý — tính chất tham khảo:** Toàn bộ nội dung luận giải Tử Vi, Bát Tự, phong thủy, đại vận, tiểu vận, nguyệt vận, xem ngày tốt/xấu, phân tích AI, **"Gợi ý tài chính"**, nội dung ý nghĩa/nên làm/nên tránh/mâm cúng/bài cúng tại **"Sự kiện sắp tới"**… mang **tính tham khảo về văn hóa – tín ngưỡng dân gian phương Đông**, **KHÔNG phải lời khuyên y tế, tài chính, đầu tư, pháp lý hay quyết định trọng đại trong đời sống**. Riêng "Gợi ý tài chính" chỉ gợi ý HÌNH THỨC/NHÓM tài sản chung chung (vàng, tiết kiệm, chứng khoán, bất động sản…) dựa trên dữ liệu Bát Tự, tuyệt đối KHÔNG khuyến nghị mã cổ phiếu, tài sản hay khoản đầu tư cụ thể nào. Người dùng có toàn quyền tự quyết định và tự chịu trách nhiệm về các hành động của mình. Chúng tôi không bảo đảm hay tuyên bố rằng Hệ thống sẽ luôn có sẵn để sử dụng ở mọi nơi; Người dùng chịu trách nhiệm tuân thủ luật pháp tại địa điểm sử dụng.
+
+**"Chân dung tương hợp"** là hình ảnh HƯ CẤU do AI vẽ ra mang tính tham khảo, giải trí — hoàn toàn KHÔNG phải ảnh chụp thật, KHÔNG dự đoán hay cam kết diện mạo có thật của bất kỳ ai ngoài đời, và không đại diện cho một người có thật nào. **"Dự báo thời tiết"** lấy từ nhà cung cấp dữ liệu thời tiết bên thứ ba, chỉ mang tính tham khảo, có thể sai lệch so với thực tế và Chúng tôi không chịu trách nhiệm về độ chính xác của dữ liệu này.
 
 # 10. Giới hạn trách nhiệm
 

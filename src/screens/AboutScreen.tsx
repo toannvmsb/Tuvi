@@ -69,7 +69,8 @@ export default function AboutScreen() {
         <Card title="🧭 Đồng hành mỗi ngày">
           <Bullet text="Hỏi Tuzi: đặt câu hỏi ngắn về công việc, cảm xúc, các mối quan hệ, mục tiêu cá nhân… và nhận câu trả lời ngắn gọn ngay lập tức, mọi lúc mọi nơi trong app." />
           <Bullet text="Việc & Mục tiêu: quản lý việc ngắn hạn và mục tiêu dài hạn, chọn ngày bắt đầu/kết thúc qua lịch có tô màu ngày đẹp/xấu, sắp xếp thứ tự ưu tiên, nhận nhắc hạn đúng lúc." />
-          <Bullet text="Sự kiện sắp tới: nhắc trước các dịp lễ Tết truyền thống, tiết khí và ngày quan trọng của riêng bạn (sinh nhật, cưới hỏi, khai trương, thi cử, giỗ, hợp đồng, tốt nghiệp…) — kèm ý nghĩa, nên làm/nên tránh, hướng xuất hành, mâm cúng tham khảo và tùy chọn phân tích AI cá nhân hóa theo lá số." />
+          <Bullet text="Sự kiện sắp tới: nhắc trước các dịp lễ Tết truyền thống, tiết khí và ngày quan trọng của riêng bạn (sinh nhật, cưới hỏi, khai trương, thi cử, giỗ, hợp đồng, tốt nghiệp…) — kèm ý nghĩa, nên làm/nên tránh, hướng xuất hành, mâm cúng tham khảo, dự báo thời tiết đúng ngày sự kiện, tùy chọn phân tích AI cá nhân hóa theo lá số, và nút duyệt nhanh sang sự kiện trước/sau." />
+          <Bullet text="Dự báo thời tiết: xem nhanh thời tiết hôm nay ngay trên Trang chủ (nền hình ảnh cũng đổi theo — nắng, nhiều mây, mưa, đêm quang) và thời tiết đúng ngày diễn ra từng sự kiện sắp tới." />
           <Bullet text="Gợi ý tài chính: định hướng tài chính – đầu tư mang tính tham khảo cho hôm nay và tháng này, dựa trên dữ liệu Bát Tự đã có của bạn (không phải lời khuyên đầu tư thực sự)." />
           <Bullet text="Ghi chú nhanh: lưu lại điều chợt nhớ ra hoặc một sự kiện vừa diễn ra, xem lại theo từng ngày." />
           <Bullet text="Trang chủ: nhìn nhanh ngày hôm nay, nhịp cả tháng và việc quan trọng nhất — tất cả trong một màn hình." />
@@ -92,6 +93,7 @@ export default function AboutScreen() {
           <Bullet text="Xem ngày tốt/xấu, khung giờ hợp, chọn ngày xuất hành riêng theo lá số của bạn." />
           <Bullet text="Tư vấn ngành nghề, màu sắc, hướng, vật phẩm hợp mệnh theo Dụng thần." />
           <Bullet text="So sánh 2 lá số: đối chiếu mức độ hợp – khắc giữa hai người trên 12 khía cạnh, cả bản Nâng cao lẫn AI song song." />
+          <Bullet text="Chân dung tương hợp: AI vẽ hình ảnh minh họa gương mặt người bạn đời/đối tác tương hợp dựa trên cung Phu Thê trong lá số của bạn — hình ảnh mang tính tham khảo, giải trí, không phải diện mạo có thật." />
           <Bullet text="Lưu nhiều lá số, xuất ảnh & phóng to lá số, tra cứu mọi lúc – mọi nơi." />
           <Bullet text="Trung tâm thông báo & khuyến mại: nhắc việc, nhắc sự kiện đúng lúc, cập nhật ưu đãi nạp xu mới nhất." />
         </Card>
