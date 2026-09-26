@@ -12,13 +12,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import ExportPdfButton from '../components/ExportPdfButton';
-import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
-import { Screen, Card, Display, Eyebrow, Body, SectionTitle, ScoreRing, Segmented, GoldButton } from '../ui';
-import Icon from '../ui/Icon';
+import AnnualEventCard from '../components/AnnualEventCard';
+import { COLORS, FONTS } from '../constants/theme';
+import { Screen, Card, Display, Eyebrow, Body, SectionTitle, Segmented, GoldButton } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import {
-  computeAnnualPrediction, analyzeAnnualEventsWithAI, explainEvent, explainMonthWindow,
-  generateFullAnnualEventsExport, INTENSITY_VN, categoryTitleOf, type AnnualPrediction, type ScoredEvent,
+  computeAnnualPrediction, analyzeAnnualEventsWithAI,
+  generateFullAnnualEventsExport, primaryMonthOf, INTENSITY_VN, type AnnualPrediction,
 } from '../core/annualEvents';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { PREMIUM, costNote } from '../constants/premium';
@@ -27,67 +27,8 @@ import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import type { AstrologyResult } from '../types';
 
-const DIRECTION_COLOR: Record<ScoredEvent['direction'], string> = {
-  POSITIVE: TIER_COLORS.great, NEGATIVE: TIER_COLORS.bad, MIXED: TIER_COLORS.caution,
-};
-const DIRECTION_LABEL: Record<ScoredEvent['direction'], string> = {
-  POSITIVE: 'Thuận lợi', NEGATIVE: 'Cần thận trọng', MIXED: 'Hai chiều',
-};
-
 type Mode = 'advanced' | 'ai';
 type AiState = { status: 'idle' | 'loading' | 'done' | 'error'; text: string };
-
-function EventCard({ e }: { e: ScoredEvent }) {
-  const [open, setOpen] = useState(false);
-  const color = DIRECTION_COLOR[e.direction];
-  const ex = useMemo(() => explainEvent(e), [e]);
-  return (
-    <Pressable onPress={() => setOpen(v => !v)} accessibilityRole="button">
-      <Card style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <ScoreRing score={e.strength} size={52} stroke={5} numberSize={16} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={s.eventCat}>{categoryTitleOf(e.category)}</Text>
-            <Text style={s.eventTitle} numberOfLines={2}>{e.title}</Text>
-          </View>
-          <Icon name="chev" size={18} color={COLORS.textMuted} />
-        </View>
-        <View style={s.chipRow}>
-          <View style={[s.chip, { backgroundColor: color + '22', borderColor: color + '66' }]}>
-            <Text style={[s.chipTxt, { color }]}>{DIRECTION_LABEL[e.direction]}</Text>
-          </View>
-          {e.isMajorEvent && <View style={[s.chip, { backgroundColor: COLORS.gold + '22', borderColor: COLORS.gold }]}><Text style={[s.chipTxt, { color: COLORS.goldLight }]}>⭐ Đáng chú ý trong năm</Text></View>}
-        </View>
-        {open && (
-          <View style={{ gap: 10, paddingTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)' }}>
-            {ex.facts.length > 0 && (
-              <View style={{ gap: 4 }}>
-                <Text style={s.blockLabel}>Dữ kiện</Text>
-                {ex.facts.map((f, i) => <Body key={i} size={12.5} style={s.justify}>• {f.replace(/\*\*/g, '')}</Body>)}
-              </View>
-            )}
-            <View style={{ gap: 2 }}>
-              <Text style={s.blockLabel}>Phân tích</Text>
-              <Body size={12.5} style={s.justify}>{ex.analysis}</Body>
-            </View>
-            <View style={{ gap: 2 }}>
-              <Text style={s.blockLabel}>Kết luận</Text>
-              <Body size={12.5} color={COLORS.textPrimary} style={s.justify}>{ex.conclusion}</Body>
-            </View>
-            {e.peakMonths.length > 0 ? (
-              <View style={{ gap: 4 }}>
-                <Text style={s.blockLabel}>Thời điểm cần lưu ý</Text>
-                {e.peakMonths.map((w, i) => <Body key={i} size={12.5} color={COLORS.goldLight} style={s.justify}>{explainMonthWindow(w)}</Body>)}
-              </View>
-            ) : (
-              <Body size={12.5}>Chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.</Body>
-            )}
-          </View>
-        )}
-      </Card>
-    </Pressable>
-  );
-}
 
 export default function AnnualEventsScreen() {
   const navigation = useNavigation<any>();
@@ -106,6 +47,21 @@ export default function AnnualEventsScreen() {
   const advancedKey = result ? fkey(result, `annualEvents:${year}:adv`) : '';
   const aiKey = result ? fkey(result, `annualEvents:${year}:ai`) : '';
   const showAdvancedContent = isCurrentYear || unlockedAdvanced;
+
+  // "Sự kiện theo tháng" — đếm đúng các sự kiện đang hiện ở "Sự kiện nổi bật" (featuredGroups),
+  // mỗi sự kiện tính vào ĐÚNG 1 tháng đại diện (xem primaryMonthOf — tháng của cửa sổ thời điểm có
+  // xác suất cao nhất). Mảng 13 phần tử, chỉ dùng index 1..12.
+  const monthCounts = useMemo(() => {
+    const counts = new Array(13).fill(0) as number[];
+    if (!pred) return counts;
+    for (const g of pred.featuredGroups) {
+      for (const e of g.events) {
+        const m = primaryMonthOf(e);
+        if (m && m >= 1 && m <= 12) counts[m]++;
+      }
+    }
+    return counts;
+  }, [pred]);
 
   React.useEffect(() => {
     setUnlockedAdvanced(false);
@@ -197,11 +153,32 @@ export default function AnnualEventsScreen() {
           showAdvancedContent ? (
             pred.featuredGroups.length > 0 ? (
               <View style={{ gap: 10 }}>
+                <Card style={{ gap: 10 }}>
+                  <SectionTitle title="Sự kiện theo tháng" sub="Theo tháng âm lịch" />
+                  <View style={s.monthGrid}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                      const count = monthCounts[m];
+                      return (
+                        <Pressable
+                          key={m}
+                          style={[s.monthBtn, count === 0 && s.monthBtnDisabled]}
+                          disabled={count === 0}
+                          onPress={() => navigation.navigate('MonthEvents', { result, year, month: m })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Sự kiện tháng ${m}, ${count} sự kiện`}
+                        >
+                          <Text style={s.monthBtnTxt}>Tháng {m}: {count}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Card>
+
                 <SectionTitle title="Sự kiện nổi bật" sub={`${pred.featuredGroups.length} lĩnh vực`} />
                 {pred.featuredGroups.map(g => (
                   <View key={g.category} style={{ gap: 8 }}>
                     <Eyebrow color={COLORS.goldLight}>{g.label}</Eyebrow>
-                    {g.events.map(e => <EventCard key={e.eventId} e={e} />)}
+                    {g.events.map(e => <AnnualEventCard key={e.eventId} e={e} />)}
                   </View>
                 ))}
                 {pred.composites.length > 0 && (
@@ -271,13 +248,13 @@ const s = StyleSheet.create({
   yearBtnTxt: { fontFamily: FONTS.display, fontSize: 22, color: COLORS.goldLight },
   yearSub: { fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
   overallTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, color: COLORS.goldLight },
-  eventCat: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 1, color: COLORS.textMuted, textTransform: 'uppercase' },
-  eventTitle: { fontFamily: FONTS.display, fontSize: 19, color: COLORS.textPrimary },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(226,194,133,0.22)', backgroundColor: 'rgba(255,255,255,0.05)' },
-  chipTxt: { fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textSecondary },
-  blockLabel: { fontFamily: FONTS.bodySemi, fontSize: 11, letterSpacing: 0.5, color: COLORS.gold, textTransform: 'uppercase' },
-  justify: { textAlign: 'justify' },
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  monthBtn: {
+    width: '31%', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(226,194,133,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.04)', paddingVertical: 10, alignItems: 'center',
+  },
+  monthBtnDisabled: { opacity: 0.35 },
+  monthBtnTxt: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.textPrimary },
   segTxtLine: { fontSize: 12.5, lineHeight: 15, textAlign: 'center' },
   segTxtSub: { fontFamily: FONTS.body, fontSize: 10.5, lineHeight: 13, textAlign: 'center' },
   loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 20 },

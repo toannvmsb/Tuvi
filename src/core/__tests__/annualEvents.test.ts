@@ -6,7 +6,7 @@ import { buildAnnualNarrativePrompt } from '../annualEvents/narrativePrompt';
 import { buildAnnualContext } from '../annualEvents/signals';
 import { tieuHanEventPriorMultiplier } from '../annualEvents/tieuHanFocus';
 import { PALACE_EVENT_BOOST } from '../annualEvents/tieuHanDomains';
-import { groupEventsForExport } from '../annualEvents/ranking';
+import { groupEventsForExport, primaryMonthOf } from '../annualEvents/ranking';
 import { CATEGORY_VN } from '../annualEvents/eventTitles';
 import { allSampleResults, sampleResult } from './fixtures';
 
@@ -147,6 +147,25 @@ describe('annualEvents engine', () => {
           expect(g.events.every(e => e.category === g.category)).toBe(true);
           for (let i = 1; i < g.events.length; i++) {
             expect(g.events[i].strength).toBeLessThanOrEqual(g.events[i - 1].strength);
+          }
+        }
+      }
+    }
+  });
+
+  test('primaryMonthOf: trả đúng startLunarMonth của cửa sổ ĐẦU TIÊN (mạnh nhất) trong peakMonths — dùng cho box "Sự kiện theo tháng"', () => {
+    for (const result of allSampleResults()) {
+      for (const year of [2024, 2026, 2030]) {
+        const pred = computeAnnualPrediction(result, year);
+        const allFeatured = pred.featuredGroups.flatMap(g => g.events);
+        for (const e of allFeatured) {
+          const m = primaryMonthOf(e);
+          if (e.peakMonths.length === 0) {
+            expect(m).toBeNull();
+          } else {
+            expect(m).toBe(e.peakMonths[0].startLunarMonth);
+            expect(m).toBeGreaterThanOrEqual(1);
+            expect(m).toBeLessThanOrEqual(12);
           }
         }
       }

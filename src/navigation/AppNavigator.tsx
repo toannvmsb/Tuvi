@@ -35,6 +35,7 @@ import DaiVanScreen from '../screens/DaiVanScreen';
 import TieuVanScreen from '../screens/TieuVanScreen';
 import WealthChartScreen from '../screens/WealthChartScreen';
 import AnnualEventsScreen from '../screens/AnnualEventsScreen';
+import MonthEventsScreen from '../screens/MonthEventsScreen';
 import { COLORS } from '../constants/theme';
 import { t } from '../i18n';
 
@@ -141,6 +142,7 @@ const ROUTE_TITLES: Record<string, string> = {
   Portrait: 'Chân dung tương hợp',
   EditChart: 'Sửa lá số',
   AnnualEvents: 'Luận sự kiện năm',
+  MonthEvents: 'Sự kiện theo tháng',
   CompareCharts: 'So sánh tương hợp',
   Wallet: 'Nạp xu',
   Account: 'Tài khoản',
@@ -188,6 +190,7 @@ export default function AppNavigator() {
         <Stack.Screen name="FullChartAI" component={FullChartAIScreen} options={{ headerShown: false }} />
         <Stack.Screen name="WealthChart" component={WealthChartScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AnnualEvents" component={AnnualEventsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MonthEvents" component={MonthEventsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DailyView" component={DailyScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DayPicker" component={DayPickerScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Tasks" component={TasksScreen} options={{ headerShown: false }} />

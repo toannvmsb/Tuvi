@@ -1,7 +1,7 @@
 export * from './types';
 export { computeAnnualPrediction } from './engine';
 export { generateAnnualOfflineSummary, generateFullAnnualEventsExport } from './offlineSummary';
-export { groupEventsForExport } from './ranking';
+export { groupEventsForExport, primaryMonthOf } from './ranking';
 export { buildAnnualNarrativePrompt } from './narrativePrompt';
 export { analyzeAnnualEventsWithAI } from './ai';
 export { eventTitleOf, categoryTitleOf } from './eventTitles';

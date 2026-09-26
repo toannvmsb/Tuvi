@@ -189,6 +189,7 @@ export type RootStackParamList = {
   Portrait: { result?: AstrologyResult } | undefined;
   EditChart: { row: import('../lib/charts').SavedChartRow };
   AnnualEvents: { result: AstrologyResult; year?: number };
+  MonthEvents: { result: AstrologyResult; year: number; month: number };
   Wallet: undefined;
   Privacy: undefined;
   Terms: undefined;

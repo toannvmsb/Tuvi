@@ -91,3 +91,15 @@ export function groupEventsForExport(all: ScoredEvent[], minStrength = 40): Cate
   }
   return groups;
 }
+
+/**
+ * Tháng âm lịch ĐẠI DIỆN của 1 sự kiện — dùng cho mục "Sự kiện theo tháng" (đếm số sự kiện/tháng +
+ * lọc theo tháng ở màn chi tiết). `peakMonths[0]` LUÔN là cửa sổ có điểm cao nhất (xem
+ * monthlyTiming.ts — mergeAround dựng quanh `sortedAll[0]`, tức mốc "xác suất xảy ra nhiều hơn"),
+ * lấy `startLunarMonth` của cửa sổ đó làm tháng đại diện (cửa sổ có thể trải dài 2 tháng, vd 3–4).
+ * `null` nếu sự kiện chưa xác định được cửa sổ tháng nào (hiếm — mọi sự kiện LUÔN có ít nhất 1
+ * cửa sổ theo Monthly Timing v3 §34, nhưng vẫn phòng hờ).
+ */
+export function primaryMonthOf(e: ScoredEvent): number | null {
+  return e.peakMonths[0]?.startLunarMonth ?? null;
+}
