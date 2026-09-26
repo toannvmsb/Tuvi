@@ -151,15 +151,9 @@ export default function EventDetailScreen({ route, navigation }: Props) {
     [allPackages, allUserEvents],
   );
   const eventIndex = useMemo(() => allUpcoming.findIndex(e => e.key === event.key), [allUpcoming, event.key]);
-  // Vị trí của sự kiện HỆ THỐNG chọn (route.params.event, không đổi khi duyệt tạm) — chỉ cho phép
-  // bấm "‹" khi đang đứng SAU vị trí này (tức đã bấm "›" đi trước đó), không cho lùi về TRƯỚC vị
-  // trí gốc để xem sự kiện đã diễn ra từ trước (theo đúng yêu cầu anh Toàn). "›" thì luôn được đi
-  // tiếp bình thường, không giới hạn.
-  const baseEventIndex = useMemo(
-    () => allUpcoming.findIndex(e => e.key === route.params.event.key),
-    [allUpcoming, route.params.event.key],
-  );
-  const canGoPrevEvent = baseEventIndex >= 0 && eventIndex > baseEventIndex;
+  // "‹" xem được cả sự kiện ĐÃ DIỄN RA trước đó (không giới hạn ở vị trí sự kiện hệ thống chọn) —
+  // chỉ khóa khi đã ở đầu/cuối danh sách. "›" tương tự cho chiều tiến tới tương lai.
+  const canGoPrevEvent = eventIndex > 0;
   const canGoNextEvent = eventIndex >= 0 && eventIndex < allUpcoming.length - 1;
   const goPrevEvent = () => { if (canGoPrevEvent) setEvent(allUpcoming[eventIndex - 1]); };
   const goNextEvent = () => { if (canGoNextEvent) setEvent(allUpcoming[eventIndex + 1]); };
