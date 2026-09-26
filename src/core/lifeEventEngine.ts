@@ -178,21 +178,38 @@ function daysBetween(now: Date, target: Date): number {
  * tuyệt đối" — vd còn 7 tháng nữa tới Giáng Sinh phải thắng Giáng Sinh của 5 tháng TRƯỚC đó, dù
  * xét theo khoảng cách thời gian tuyệt đối thì mốc đã qua đôi khi "gần" hơn.
  */
+type OccurrencePicker = (candidates: Date[], now: Date, graceDaysBack: number) => Date;
+
 function pickNearestUpcoming(candidates: Date[], now: Date, graceDaysBack: number): Date {
   const threshold = new Date(now.getFullYear(), now.getMonth(), now.getDate() - graceDaysBack).getTime();
   const sorted = [...candidates].sort((a, b) => a.getTime() - b.getTime());
   return sorted.find(d => d.getTime() >= threshold) ?? sorted[sorted.length - 1];
 }
 
-/** Ngày xảy ra GẦN NHẤT (sắp tới, hoặc vừa qua trong hạn ân hạn `show_after_days`) của 1 event package. */
-export function resolveOccurrence(pkg: EventPackage, now: Date): Date {
+/**
+ * Mốc GẦN NOW NHẤT theo khoảng cách tuyệt đối (quá khứ hay tương lai đều tính như nhau) — KHÁC
+ * `pickNearestUpcoming` (luôn thiên về tương lai/sắp tới, nhảy sang năm sau nếu mốc gần đây đã
+ * quá hạn ân hạn `show_after_days` riêng của sự kiện đó). Dùng cho `resolveAllUpcomingEvents` (nút
+ * ‹ › duyệt lịch sử): nếu không dùng cách này, 1 sự kiện đã qua khá lâu (vd Lập Thu ~50 ngày
+ * trước, trong khi show_after_days của nó chỉ vài ngày) sẽ bị tính nhầm thành "lần năm sau", xếp
+ * SAU cả những sự kiện gần đây hơn (vd Tết Trung Thu) thay vì đúng vị trí thời gian thực của nó.
+ */
+// Tham số thứ 3 (graceDaysBack) bỏ qua — khớp chữ ký `OccurrencePicker` để truyền thẳng vào
+// resolveOccurrence/resolveUserEventOccurrence mà không cần ép kiểu.
+const pickNearestAbsolute: OccurrencePicker = (candidates, now) =>
+  [...candidates].sort((a, b) => Math.abs(a.getTime() - now.getTime()) - Math.abs(b.getTime() - now.getTime()))[0];
+
+/** Ngày xảy ra GẦN NHẤT (sắp tới, hoặc vừa qua trong hạn ân hạn `show_after_days`) của 1 event
+ *  package. `pick` mặc định ưu tiên tương lai (dùng cho Home/thông báo) — truyền `pickNearestAbsolute`
+ *  khi cần liệt kê đúng thứ tự thời gian thực (xem `resolveAllUpcomingEvents`). */
+export function resolveOccurrence(pkg: EventPackage, now: Date, pick: OccurrencePicker = pickNearestUpcoming): Date {
   if (pkg.calendar_type === 'solarterm') {
     const idx = parseInt(pkg.date_rule, 10);
     const candidates = [-1, 0, 1].map(yOff => {
       const sd = getSolarTermDate(idx, now.getFullYear() + yOff);
       return new Date(sd.year, sd.month - 1, sd.day);
     });
-    return pickNearestUpcoming(candidates, now, pkg.show_after_days);
+    return pick(candidates, now, pkg.show_after_days);
   }
   const [mm, dd] = pkg.date_rule.split('-').map(Number);
   const candidates: Date[] = [];
@@ -208,11 +225,12 @@ export function resolveOccurrence(pkg: EventPackage, now: Date): Date {
     }
   }
   if (!candidates.length) return now;
-  return pickNearestUpcoming(candidates, now, pkg.show_after_days);
+  return pick(candidates, now, pkg.show_after_days);
 }
 
-/** Ngày xảy ra GẦN NHẤT của 1 sự kiện cá nhân — có tính lặp lại hàng năm hay không. */
-export function resolveUserEventOccurrence(ev: UserEvent, now: Date): Date {
+/** Ngày xảy ra GẦN NHẤT của 1 sự kiện cá nhân — có tính lặp lại hàng năm hay không. `pick` xem
+ *  giải thích ở `resolveOccurrence`. */
+export function resolveUserEventOccurrence(ev: UserEvent, now: Date, pick: OccurrencePicker = pickNearestUpcoming): Date {
   const [by, bm, bd] = ev.event_date.split('-').map(Number);
   if (!ev.repeat_yearly) return new Date(by, bm - 1, bd);
   if (ev.calendar_type === 'lunar') {
@@ -222,13 +240,13 @@ export function resolveUserEventOccurrence(ev: UserEvent, now: Date): Date {
         const sd = lunarToSolar(lunarBase.day, lunarBase.month, now.getFullYear() + yOff, lunarBase.isLeapMonth);
         return new Date(sd.year, sd.month - 1, sd.day);
       });
-      return pickNearestUpcoming(candidates, now, 0);
+      return pick(candidates, now, 0);
     } catch {
       // rơi vào trường hợp hiếm (tháng nhuận lệch) — dùng lại tháng/ngày dương gốc làm phương án dự phòng.
     }
   }
   const candidates = [-1, 0, 1].map(yOff => new Date(now.getFullYear() + yOff, bm - 1, bd));
-  return pickNearestUpcoming(candidates, now, 0);
+  return pick(candidates, now, 0);
 }
 
 // Hoist ra module-scope để dùng chung cho pickUpcomingEvent, resolveEventsOnDate,
@@ -336,9 +354,14 @@ export function resolveEventsOnDate(
 }
 
 /**
- * Toàn bộ sự kiện (package + cá nhân), mỗi package đúng 1 lần xuất hiện gần `now` nhất (không
- * giới hạn cửa sổ show_before/show_after như pickUpcomingEvent), sắp theo thời gian xảy ra tăng
- * dần — dùng cho nút duyệt ‹ › (xem sự kiện trước/sau) ở box "Sự kiện sắp tới" tại Home.
+ * Toàn bộ sự kiện (package + cá nhân), mỗi package đúng 1 lần xuất hiện GẦN `now` NHẤT THEO
+ * KHOẢNG CÁCH TUYỆT ĐỐI — dùng `pickNearestAbsolute`, KHÁC với `resolveOccurrence` mặc định (luôn
+ * thiên về tương lai, nhảy sang năm sau nếu mốc gần đây đã quá hạn ân hạn riêng của sự kiện đó).
+ * Nếu dùng mặc định, 1 sự kiện đã qua khá lâu (vd Lập Thu ~50 ngày trước, ân hạn chỉ vài ngày) sẽ
+ * bị tính nhầm thành mốc NĂM SAU, khiến nó biến mất khỏi vị trí đúng (trước cả Trung Thu) khi bấm
+ * "‹" duyệt lịch sử. Không giới hạn cửa sổ show_before/show_after như pickUpcomingEvent — sắp theo
+ * thời gian xảy ra tăng dần — dùng cho nút duyệt ‹ › (xem sự kiện trước/sau) ở box "Sự kiện sắp
+ * tới".
  */
 export function resolveAllUpcomingEvents(
   packages: EventPackage[],
@@ -347,11 +370,11 @@ export function resolveAllUpcomingEvents(
 ): ResolvedEvent[] {
   const results: ResolvedEvent[] = [];
   for (const pkg of packages) {
-    const occursOn = resolveOccurrence(pkg, now);
+    const occursOn = resolveOccurrence(pkg, now, pickNearestAbsolute);
     results.push(fromPackage(pkg, occursOn, daysBetween(now, occursOn)));
   }
   for (const ev of userEvents) {
-    const occursOn = resolveUserEventOccurrence(ev, now);
+    const occursOn = resolveUserEventOccurrence(ev, now, pickNearestAbsolute);
     results.push(fromUserEvent(ev, occursOn, daysBetween(now, occursOn)));
   }
   results.sort((a, b) => a.occursOn.getTime() - b.occursOn.getTime());

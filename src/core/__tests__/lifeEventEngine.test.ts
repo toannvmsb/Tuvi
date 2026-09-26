@@ -169,12 +169,29 @@ describe('resolveAllUpcomingEvents — dùng cho nút duyệt ‹ › ở Home, 
     expect(results.map(r => r.key)).toContain('far');
   });
 
-  it('sắp xếp theo thời gian xảy ra TĂNG DẦN', () => {
-    const now = new Date(2026, 0, 1);
-    const late = pkg({ event_key: 'late', calendar_type: 'solar', date_rule: '11-01' });
-    const early = pkg({ event_key: 'early', calendar_type: 'solar', date_rule: '02-01' });
-    const results = resolveAllUpcomingEvents([late, early], [], now);
-    expect(results.map(r => r.key)).toEqual(['early', 'late']);
+  it('sắp xếp theo thời gian xảy ra TĂNG DẦN — tính theo mốc GẦN NOW NHẤT tuyệt đối (có thể là quá khứ gần đây), không thiên về tương lai như pickUpcomingEvent', () => {
+    const now = new Date(2026, 0, 1); // 1/1/2026
+    // Mốc gần nhất của "recentPast" là 1/11/2025 (đã qua 61 ngày) — gần now hơn nhiều so với năm
+    // sau (1/11/2026, còn ~304 ngày) nên phải lấy đúng mốc quá khứ này.
+    const recentPast = pkg({ event_key: 'recentPast', calendar_type: 'solar', date_rule: '11-01' });
+    // Mốc gần nhất của "soonFuture" là 1/2/2026 (còn 31 ngày tới) — gần now hơn năm trước.
+    const soonFuture = pkg({ event_key: 'soonFuture', calendar_type: 'solar', date_rule: '02-01' });
+    const results = resolveAllUpcomingEvents([soonFuture, recentPast], [], now);
+    // recentPast (1/11/2025) đứng TRƯỚC soonFuture (1/2/2026) vì xảy ra sớm hơn theo thời gian thực.
+    expect(results.map(r => r.key)).toEqual(['recentPast', 'soonFuture']);
+  });
+
+  it('sự kiện đã quá hạn ân hạn (show_after_days) riêng của nó vẫn hiện đúng LẦN GẦN ĐÂY, KHÔNG bị nhảy sang năm sau (khác resolveOccurrence mặc định)', () => {
+    // Mô phỏng đúng tình huống thực tế: xem màn "Sự kiện sắp tới" ngày 26/9, Lập Thu (đầu tháng 8)
+    // đã qua ~50 ngày — vượt xa hạn ân hạn riêng (chỉ 2 ngày) của nó.
+    const now = new Date(2026, 8, 26); // 26/9/2026
+    const lapThu = pkg({ event_key: 'lapThu', calendar_type: 'solar', date_rule: '08-07', show_after_days: 2 });
+    const results = resolveAllUpcomingEvents([lapThu], [], now);
+    const found = results.find(r => r.key === 'lapThu')!;
+    // Đúng: vẫn là lần 7/8/2026 (~50 ngày TRƯỚC now) — không nhảy sang 7/8/2027 (~315 ngày SAU now).
+    expect(found.occursOn.getFullYear()).toBe(2026);
+    expect(found.occursOn.getMonth()).toBe(7); // tháng 8 dương lịch (0-based)
+    expect(found.daysUntil).toBeLessThan(0);
   });
 
   it('gồm cả sự kiện cá nhân', () => {
