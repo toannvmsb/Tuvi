@@ -151,7 +151,15 @@ export default function EventDetailScreen({ route, navigation }: Props) {
     [allPackages, allUserEvents],
   );
   const eventIndex = useMemo(() => allUpcoming.findIndex(e => e.key === event.key), [allUpcoming, event.key]);
-  const canGoPrevEvent = eventIndex > 0;
+  // Vị trí của sự kiện HỆ THỐNG chọn (route.params.event, không đổi khi duyệt tạm) — chỉ cho phép
+  // bấm "‹" khi đang đứng SAU vị trí này (tức đã bấm "›" đi trước đó), không cho lùi về TRƯỚC vị
+  // trí gốc để xem sự kiện đã diễn ra từ trước (theo đúng yêu cầu anh Toàn). "›" thì luôn được đi
+  // tiếp bình thường, không giới hạn.
+  const baseEventIndex = useMemo(
+    () => allUpcoming.findIndex(e => e.key === route.params.event.key),
+    [allUpcoming, route.params.event.key],
+  );
+  const canGoPrevEvent = baseEventIndex >= 0 && eventIndex > baseEventIndex;
   const canGoNextEvent = eventIndex >= 0 && eventIndex < allUpcoming.length - 1;
   const goPrevEvent = () => { if (canGoPrevEvent) setEvent(allUpcoming[eventIndex - 1]); };
   const goNextEvent = () => { if (canGoNextEvent) setEvent(allUpcoming[eventIndex + 1]); };
@@ -427,10 +435,11 @@ export default function EventDetailScreen({ route, navigation }: Props) {
         )}
 
         {/* 1. Tổng quan — chia 2 nửa bằng nhau: trái = icon+tên (to, đậm), phải = ngày/đếm ngược/chia sẻ.
-            Nút ‹ › 2 bên ngoài box để xem tạm sự kiện trước/sau — không đổi rule chọn của hệ thống. */}
-        <View style={styles.heroNavRow}>
+            Nút ‹ › đặt ở 2 góc trên của box (absolute, không chiếm chỗ layout) để xem tạm sự kiện
+            trước/sau mà không tốn thêm diện tích màn hình ngoài box. */}
+        <View style={styles.heroCard}>
           <TouchableOpacity
-            style={[styles.heroNavBtn, !canGoPrevEvent && styles.heroNavBtnDisabled]}
+            style={[styles.heroNavBtn, styles.heroNavBtnLeft, !canGoPrevEvent && styles.heroNavBtnDisabled]}
             onPress={goPrevEvent}
             disabled={!canGoPrevEvent}
             accessibilityRole="button"
@@ -438,36 +447,8 @@ export default function EventDetailScreen({ route, navigation }: Props) {
           >
             <Text style={styles.heroNavBtnTxt}>‹</Text>
           </TouchableOpacity>
-
-          <View style={[styles.heroCard, { flex: 1 }]}>
-            <View style={styles.heroRow}>
-              <View style={styles.heroLeft}>
-                <Text style={styles.heroIconInline}>{event.icon}</Text>
-                <Text style={styles.heroTitleBig}>{event.displayName}</Text>
-              </View>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroRight}>
-                <Text style={styles.heroDate}>{dateLabel}</Text>
-                <Text style={styles.heroStageBadge}>{stage.label}</Text>
-                <Text style={styles.heroCountdown}>
-                  {event.daysUntil === 0 ? 'Hôm nay!'
-                    : event.daysUntil < 0 ? `Đã qua ${-event.daysUntil} ngày`
-                    : `Còn ${event.daysUntil} ngày`}
-                </Text>
-                <TouchableOpacity style={styles.shareBtn} onPress={() => shareEvent(event, dateLabel)}>
-                  <Text style={styles.shareBtnText}>📤 Chia sẻ</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            {event.userEvent && (
-              <TouchableOpacity style={styles.deleteEventBtn} onPress={removeThisEvent}>
-                <Text style={styles.deleteEventBtnText}>🗑 Xóa sự kiện</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
           <TouchableOpacity
-            style={[styles.heroNavBtn, !canGoNextEvent && styles.heroNavBtnDisabled]}
+            style={[styles.heroNavBtn, styles.heroNavBtnRight, !canGoNextEvent && styles.heroNavBtnDisabled]}
             onPress={goNextEvent}
             disabled={!canGoNextEvent}
             accessibilityRole="button"
@@ -475,6 +456,30 @@ export default function EventDetailScreen({ route, navigation }: Props) {
           >
             <Text style={styles.heroNavBtnTxt}>›</Text>
           </TouchableOpacity>
+          <View style={styles.heroRow}>
+            <View style={styles.heroLeft}>
+              <Text style={styles.heroIconInline}>{event.icon}</Text>
+              <Text style={styles.heroTitleBig}>{event.displayName}</Text>
+            </View>
+            <View style={styles.heroDivider} />
+            <View style={styles.heroRight}>
+              <Text style={styles.heroDate}>{dateLabel}</Text>
+              <Text style={styles.heroStageBadge}>{stage.label}</Text>
+              <Text style={styles.heroCountdown}>
+                {event.daysUntil === 0 ? 'Hôm nay!'
+                  : event.daysUntil < 0 ? `Đã qua ${-event.daysUntil} ngày`
+                  : `Còn ${event.daysUntil} ngày`}
+              </Text>
+              <TouchableOpacity style={styles.shareBtn} onPress={() => shareEvent(event, dateLabel)}>
+                <Text style={styles.shareBtnText}>📤 Chia sẻ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {event.userEvent && (
+            <TouchableOpacity style={styles.deleteEventBtn} onPress={removeThisEvent}>
+              <Text style={styles.deleteEventBtnText}>🗑 Xóa sự kiện</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Thời tiết ngày sự kiện (nếu nằm trong 16 ngày tới) */}
@@ -864,14 +869,17 @@ const styles = StyleSheet.create({
     padding: SPACING.lg, gap: SPACING.sm,
     paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
   },
-  heroNavRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   heroNavBtn: {
-    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.35)',
+    position: 'absolute', top: 10, zIndex: 2,
+    width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.35)',
   },
-  heroNavBtnDisabled: { opacity: 0.3 },
-  heroNavBtnTxt: { fontFamily: FONTS.displayBold, fontSize: 22, lineHeight: 24, color: COLORS.goldLight },
+  heroNavBtnLeft: { left: 10 },
+  heroNavBtnRight: { right: 10 },
+  heroNavBtnDisabled: { opacity: 0.25 },
+  heroNavBtnTxt: { fontFamily: FONTS.displayBold, fontSize: 18, lineHeight: 20, color: COLORS.goldLight },
   heroCard: {
+    position: 'relative',
     backgroundColor: 'rgba(226,194,133,0.13)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(226,194,133,0.38)',
     padding: 20, gap: SPACING.sm,
   },
