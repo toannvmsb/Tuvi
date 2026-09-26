@@ -6,7 +6,9 @@
  *
  * Luồng:
  *   1. Đối tác ký 1 JWT ngắn hạn (HS256, secret ở cột `partners.secret`, `sub` =
- *      external_user_id của họ, `iat`/`exp` bắt buộc, tuổi token ≤120s) rồi mở
+ *      external_user_id của họ, `iat`/`exp` bắt buộc, tuổi token ≤120s; có thể kèm
+ *      claim tuỳ chọn `employeeCode` — mã nhân viên của đối tác, cho các đối tác cần
+ *      quản lý tới cấp nhân viên, xem bước 3b) rồi mở
  *      `https://tuzi.vn/embed?partner=<code>&token=<jwt>` (webview/iframe).
  *   2. Web Tuzi gọi function này với `{ partnerCode, token }`.
  *   3. Function verify token bằng secret của đúng đối tác, map external_user_id
@@ -21,9 +23,9 @@
  *   5. Trả `{ access_token, refresh_token }` — client tự `setSession(...)`.
  *
  * ── TRIỂN KHAI ──
- *   -- chạy file supabase_partner_sso.sql trong SQL Editor trước.
+ *   -- chạy file supabase_partner_sso.sql rồi supabase_partner_admin.sql trong SQL Editor trước.
  *   supabase functions deploy partner-sso --no-verify-jwt
- *   -- thêm 1 dòng vào bảng `partners` cho MỖI đối tác mới (code/name/secret/bonus_xu).
+ *   -- thêm đối tác mới qua trang "Đối tác" trong tuvi-admin (không cần sửa code/SQL tay nữa).
  * (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY do nền tảng tự cấp sẵn.)
  *
  * Xem CLAUDE.md mục "Partner SSO" để biết quy trình đầy đủ thêm 1 đối tác mới.
@@ -80,6 +82,7 @@ Deno.serve(async (req) => {
   // 2) Verify chữ ký + hạn dùng JWT đối tác gửi lên.
   let externalUserId: string;
   let displayName: string | undefined;
+  let employeeCode: string | undefined;
   try {
     const secretKey = new TextEncoder().encode(partner.secret);
     const { payload } = await jwtVerify(token, secretKey, { algorithms: ['HS256'] });
@@ -87,8 +90,12 @@ Deno.serve(async (req) => {
     if (Date.now() / 1000 - payload.iat > MAX_TOKEN_AGE_SEC) throw new Error('token_too_old');
     externalUserId = String(payload.sub ?? '');
     if (!externalUserId) throw new Error('missing_sub');
-    const name = (payload as Record<string, unknown>).name;
-    displayName = typeof name === 'string' ? name : undefined;
+    const claims = payload as Record<string, unknown>;
+    displayName = typeof claims.name === 'string' ? claims.name : undefined;
+    // Mã nhân viên đối tác (tuỳ chọn) — vd đối tác ngân hàng cần biết nhân viên nào dẫn khách vào
+    // dùng Tuzi. Lưu lại ở bước 3b/5b, KHÔNG ảnh hưởng gì tới việc map/tạo user (vẫn dựa hoàn toàn
+    // vào external_user_id).
+    employeeCode = typeof claims.employeeCode === 'string' ? claims.employeeCode.trim().slice(0, 100) || undefined : undefined;
   } catch (e) {
     console.error('[partner-sso] token không hợp lệ:', e instanceof Error ? e.message : e);
     return json({ error: 'invalid_token' }, 401);
@@ -156,6 +163,16 @@ Deno.serve(async (req) => {
       p_link_id: linkId, p_user: userId, p_xu: partner.bonus_xu, p_partner_code: partner.code,
     });
     if (creditErr) console.error('[partner-sso] credit_partner_bonus lỗi:', creditErr.message);
+  }
+
+  // 6) Ghi lịch sử đăng nhập kèm mã nhân viên (nếu có) — dữ liệu cho báo cáo cấp nhân viên sau
+  //    này, không chặn response nếu lỗi (không quan trọng bằng việc đăng nhập thành công).
+  await supa.from('partner_sso_logins').insert({
+    partner_id: partner.id, external_user_id: externalUserId, employee_code: employeeCode ?? null, user_id: userId,
+  }).then(({ error }) => { if (error) console.error('[partner-sso] ghi partner_sso_logins lỗi:', error.message); });
+  if (employeeCode) {
+    await supa.from('partner_user_links').update({ employee_code: employeeCode }).eq('id', linkId)
+      .then(({ error }) => { if (error) console.error('[partner-sso] cập nhật employee_code lỗi:', error.message); });
   }
 
   return json({

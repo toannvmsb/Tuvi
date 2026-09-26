@@ -357,8 +357,16 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
   (map external_user_id ↔ user Supabase) + RPC `credit_partner_bonus` (idempotent, theo đúng
   pattern `credit_iap`/`credit_topup`). Cả 2 bảng deny-by-default cho client (RLS bật, không tạo
   policy nào) — chỉ service_role (Edge Function) đọc/ghi được.
+- `supabase_partner_admin.sql` — thêm cột pháp lý cho `partners` (`business_reg_no`, `address`,
+  `contact_email`, `website`), cột `employee_code` trên `partner_user_links`, bảng
+  `partner_sso_logins` (log MỖI LẦN đăng nhập SSO kèm mã nhân viên — nguồn dữ liệu cho báo cáo cấp
+  nhân viên sau này, chưa có UI xem), và 4 RPC `admin_list_partners` / `admin_create_partner` /
+  `admin_update_partner` / `admin_set_partner_active` (security definer, tự check `is_admin()`,
+  đúng khuôn `admin_create_broadcast`). `code` KHÔNG đổi được sau khi tạo (đối tác đã dùng trong
+  URL nhúng thật).
 - `supabase/functions/partner-sso/index.ts` — verify JWT bằng `npm:jose`, tạo/map user, phát
-  session, cấp bonus.
+  session, cấp bonus. Đọc thêm claim tuỳ chọn `employeeCode` (mã nhân viên đối tác) từ JWT, ghi vào
+  `partner_sso_logins` mỗi lần đăng nhập + cập nhật giá trị GẦN NHẤT vào `partner_user_links`.
 - `src/lib/partnerAuth.ts` — `signInViaPartner(partnerCode, token)` gọi function trên rồi
   `supabase.auth.setSession(...)`.
 - `App.tsx` — `useEmbedParams()` + logic SSO trong `Boot()` (đọc `window.location.pathname ===
@@ -366,19 +374,22 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
   độc lập với React Navigation).
 - `netlify.toml` — block `[[headers]] for = "/embed"` nới CSP `frame-ancestors` riêng cho path này
   (path khác vẫn giữ `X-Frame-Options: SAMEORIGIN` như cũ).
+- `tuvi-admin/src/pages/Partners.tsx` — trang "🤝 Đối tác" trong dashboard admin để tự tạo/sửa/bật-tắt
+  đối tác (không cần vào SQL Editor nữa), có nút sinh secret ngẫu nhiên + copy URL nhúng.
 
-**Thêm 1 đối tác mới** (không cần sửa code):
-1. Insert 1 dòng vào bảng `partners` (`code`, `name`, `secret` — sinh ngẫu nhiên đủ mạnh, gửi
-   riêng cho đối tác qua kênh an toàn, `bonus_xu` theo đàm phán, `active=true`).
+**Thêm 1 đối tác mới**:
+1. Vào `tuvi-admin` → trang "🤝 Đối tác" → tạo mới (mã, tên, secret sinh sẵn, bonus xu, thông tin
+   pháp lý). Secret hiện nguyên văn trong danh sách để copy gửi lại cho đối tác bất cứ lúc nào.
 2. Sửa `netlify.toml`, thêm domain thật của đối tác vào dòng `Content-Security-Policy:
    frame-ancestors` của block `/embed`, rồi build + deploy lại web.
-3. Gửi đối tác: URL `https://tuzi.vn/embed?partner=<code>` + hướng dẫn ký JWT (HS256, secret đã
-   cấp, `sub`=ID user của họ, `iat`=thời điểm hiện tại, `exp`≤120s sau `iat`).
+3. Gửi đối tác: URL `https://tuzi.vn/embed?partner=<code>` (copy sẵn trong trang Đối tác) + hướng
+   dẫn ký JWT (HS256, secret đã cấp, `sub`=ID user của họ, `iat`=thời điểm hiện tại, `exp`≤120s sau
+   `iat`, tuỳ chọn thêm `employeeCode` nếu đối tác cần theo dõi tới cấp nhân viên).
 
-**Việc CHƯA làm** (chờ có đối tác thật mới cần): dashboard quản lý đối tác (hiện thêm/sửa qua SQL
-trực tiếp), chống phát lại bằng nonce-store riêng (hiện dựa vào `exp` ngắn làm lớp phòng thủ
-chính), white-label/theme riêng theo đối tác.
+**Việc CHƯA làm** (chờ có đối tác thật mới cần): UI báo cáo/thống kê theo `employee_code` (dữ liệu
+đã ghi vào `partner_sso_logins`, chỉ chưa có màn hình xem), chống phát lại bằng nonce-store riêng
+(hiện dựa vào `exp` ngắn làm lớp phòng thủ chính), white-label/theme riêng theo đối tác.
 
 ---
 
-_Cập nhật lần cuối: 27/09/2026, sau khi thêm Partner SSO._
+_Cập nhật lần cuối: 27/09/2026, sau khi thêm trang quản lý đối tác trong Admin + mã nhân viên._
