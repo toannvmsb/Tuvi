@@ -1,12 +1,18 @@
 /**
  * Khung màn hình thiết kế mới: nền đêm sao (gradient) + vùng an toàn + cuộn.
  * `tabBarSpace` chừa chỗ cho thanh tab dưới cùng (tab chính) và nút chat nổi.
+ *
+ * Dùng KeyboardAwareScreen (thay ScrollView trần) để mọi ô nhập trong các màn dùng Screen (vd ô
+ * ghi chú nhanh ở Tổng quan) tự cuộn lên trên bàn phím khi gõ, không bị che — trên web hành vi
+ * giữ NGUYÊN như trước (KeyboardAwareScreen tự fallback về KeyboardAvoidingView + ScrollView y hệt
+ * cũ ở nhánh web), chỉ NATIVE (iOS/Android) mới đổi sang KeyboardAwareScrollView.
  */
 import React from 'react';
-import { ScrollView, View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
+import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 
 export const TAB_BAR_HEIGHT = 64;
 
@@ -33,9 +39,9 @@ export default function Screen({
       />
       {topOverlay}
       {scroll ? (
-        <ScrollView contentContainerStyle={inner} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScreen contentContainerStyle={inner} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {children}
-        </ScrollView>
+        </KeyboardAwareScreen>
       ) : (
         <View style={[{ flex: 1 }, ...inner]}>{children}</View>
       )}

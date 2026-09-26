@@ -1,15 +1,15 @@
 /**
  * Nền động theo thời tiết cho màn Tổng quan (Home): từ đầu trang tới hết box "Hỏi Tuzi" nền
- * sáng/tối theo đúng thời tiết hiện tại (nắng ấm áp, mưa dịu tối, mây trung tính, đêm quang ánh
- * trăng...), rồi MỜ DẦN về đúng nền tối mặc định (COLORS.background/gradient của Screen) ở phía
- * dưới — không sáng chói toàn trang, chỉ vùng đầu trang.
+ * sáng/tối theo đúng thời tiết hiện tại, kèm hình ảnh minh họa đúng kiểu thời tiết (nắng: mặt
+ * trời + mây trôi; mây: nhiều mây; mưa: mây + hạt mưa rơi; đêm quang: trăng + sao lấp lánh) —
+ * rồi MỜ DẦN về đúng nền tối mặc định (COLORS.background/gradient của Screen) ở phía dưới, không
+ * sáng chói toàn trang, chỉ vùng đầu trang.
  * Không có mạng / chưa có dữ liệu thời tiết → không hiện gì (giữ nguyên nền mặc định).
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useWeather } from '../lib/weather';
-import { describeWeather } from '../lib/weather';
+import { useWeather, describeWeather } from '../lib/weather';
 
 /** Vùng nền phía trên cao bao nhiêu (áng chừng tới hết box "Hỏi Tuzi" ở đầu Tổng quan). */
 const OVERLAY_HEIGHT = 380;
@@ -25,28 +25,118 @@ const MOOD_COLORS: Record<Mood, [string, string, string]> = {
   other: ['rgba(160,170,185,0.24)', 'rgba(150,160,175,0.10)', 'rgba(150,160,175,0)'],
 };
 
-function moodOf(code: number, isDay: boolean, kind: ReturnType<typeof describeWeather>['kind']): Mood {
+function moodOf(kind: ReturnType<typeof describeWeather>['kind'], isDay: boolean): Mood {
   if (kind === 'nắng') return isDay ? 'sunnyDay' : 'sunnyNight';
   if (kind === 'mây') return 'cloudy';
   if (kind === 'mưa') return 'rain';
   return 'other';
 }
 
+/** Sao lấp lánh (đêm quang) — vị trí cố định (%), tự nhấp nháy mờ/rõ lệch nhịp nhau. */
+const STAR_POS = [
+  { top: 18, left: '10%', size: 11 }, { top: 46, left: '28%', size: 7 },
+  { top: 14, left: '52%', size: 9 }, { top: 70, left: '68%', size: 6 },
+  { top: 30, left: '82%', size: 10 }, { top: 92, left: '18%', size: 6 },
+  { top: 58, left: '42%', size: 5 }, { top: 100, left: '78%', size: 8 },
+] as const;
+
+function Star({ top, left, size, delay }: { top: number; left: string; size: number; delay: number }) {
+  const opacity = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 1400, delay, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 1400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [delay, opacity]);
+  return <Animated.Text style={[s.star, { top, left: left as any, fontSize: size, opacity }]}>✦</Animated.Text>;
+}
+
+/** Hạt mưa rơi — lặp vô hạn, mỗi hạt lệch vị trí/tốc độ cho tự nhiên. */
+const RAIN_POS = [
+  { left: '6%', delay: 0, duration: 900 }, { left: '18%', delay: 260, duration: 1100 },
+  { left: '30%', delay: 120, duration: 950 }, { left: '44%', delay: 400, duration: 1050 },
+  { left: '58%', delay: 60, duration: 900 }, { left: '70%', delay: 320, duration: 1150 },
+  { left: '82%', delay: 180, duration: 1000 }, { left: '92%', delay: 480, duration: 1080 },
+] as const;
+
+function Raindrop({ left, delay, duration }: { left: string; delay: number; duration: number }) {
+  const y = useRef(new Animated.Value(-24)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(y, { toValue: OVERLAY_HEIGHT * 0.7, duration, delay, easing: Easing.linear, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [delay, duration, y]);
+  return (
+    <Animated.View
+      style={[s.raindrop, { left: left as any, transform: [{ translateY: y }, { rotate: '12deg' }] }]}
+    />
+  );
+}
+
+function Cloud({ top, left, size, opacity }: { top: number; left: string; size: number; opacity: number }) {
+  return <Text style={[s.cloud, { top, left: left as any, fontSize: size, opacity }]}>☁️</Text>;
+}
+
 export default function WeatherBackdrop() {
   const { weather } = useWeather();
   if (!weather) return null;
   const d = describeWeather(weather.now.code, weather.now.isDay);
-  const mood = moodOf(weather.now.code, weather.now.isDay, d.kind);
+  const mood = moodOf(d.kind, weather.now.isDay);
   const colors = MOOD_COLORS[mood];
 
   return (
-    <View style={[StyleSheet.absoluteFill, { height: OVERLAY_HEIGHT }]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { height: OVERLAY_HEIGHT, overflow: 'hidden' }]} pointerEvents="none">
       <LinearGradient colors={colors} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-      <Text style={s.emoji}>{d.emoji}</Text>
+
+      {mood === 'sunnyDay' && (
+        <>
+          <Text style={s.sun}>☀️</Text>
+          <Cloud top={210} left="4%" size={58} opacity={0.32} />
+          <Cloud top={250} left="52%" size={46} opacity={0.26} />
+          <Cloud top={160} left="70%" size={38} opacity={0.20} />
+        </>
+      )}
+
+      {mood === 'sunnyNight' && (
+        <>
+          <Text style={s.moon}>🌙</Text>
+          {STAR_POS.map((p, i) => <Star key={i} top={p.top} left={p.left} size={p.size} delay={i * 210} />)}
+        </>
+      )}
+
+      {mood === 'cloudy' && (
+        <>
+          <Cloud top={30} left="6%" size={64} opacity={0.30} />
+          <Cloud top={110} left="46%" size={52} opacity={0.24} />
+          <Cloud top={190} left="14%" size={44} opacity={0.20} />
+          <Cloud top={70} left="74%" size={40} opacity={0.18} />
+        </>
+      )}
+
+      {mood === 'rain' && (
+        <>
+          <Cloud top={16} left="8%" size={60} opacity={0.32} />
+          <Cloud top={40} left="56%" size={44} opacity={0.24} />
+          {RAIN_POS.map((p, i) => <Raindrop key={i} left={p.left} delay={p.delay} duration={p.duration} />)}
+        </>
+      )}
+
+      {mood === 'other' && <Text style={s.plainEmoji}>{d.emoji}</Text>}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  emoji: { position: 'absolute', top: 8, right: -6, fontSize: 130, opacity: 0.16 },
+  sun: { position: 'absolute', top: 4, right: -8, fontSize: 130, opacity: 0.22 },
+  moon: { position: 'absolute', top: 8, right: -4, fontSize: 110, opacity: 0.20 },
+  cloud: { position: 'absolute' },
+  star: { position: 'absolute', color: '#FFF7DE' },
+  raindrop: { position: 'absolute', top: 0, width: 2, height: 18, borderRadius: 1, backgroundColor: 'rgba(210,228,255,0.55)' },
+  plainEmoji: { position: 'absolute', top: 8, right: -6, fontSize: 120, opacity: 0.16 },
 });
