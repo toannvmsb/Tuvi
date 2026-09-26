@@ -13,10 +13,12 @@ const DIRECTION_LABEL: Record<ScoredEvent['direction'], string> = {
   POSITIVE: 'Xu hướng thuận lợi', NEGATIVE: 'Xu hướng cần thận trọng', MIXED: 'Biến động hai chiều',
 };
 
-function eventBlock(e: ScoredEvent): string {
+/** `index` (tùy chọn): số thứ tự hiển thị trước tiêu đề — chỉ dùng ở bản "Xuất đầy đủ" để người
+ *  đọc PDF dễ theo dõi/tham chiếu thứ tự (vd "Sự kiện #12"), bản tóm tắt Nâng cao không cần. */
+function eventBlock(e: ScoredEvent, index?: number): string {
   const ex = explainEvent(e);
   const out: string[] = [];
-  out.push(`## ${categoryTitleOf(e.category)} — ${e.title}`);
+  out.push(`## ${index != null ? `${index}. ` : ''}${categoryTitleOf(e.category)} — ${e.title}`);
   out.push(`**${DIRECTION_LABEL[e.direction]}**${e.isMajorEvent ? ' · ⭐ Đáng chú ý trong năm' : ''} (${CONFIDENCE_VN[e.confidence]})`);
   if (ex.facts.length) {
     out.push('**Dữ kiện:**');
@@ -70,9 +72,10 @@ export function generateFullAnnualEventsExport(pred: AnnualPrediction, minStreng
   if (groups.length === 0) {
     out.push(`Không có sự kiện nào đạt từ ${minStrength} điểm trở lên trong năm ${pred.targetYear} — năm tương đối bình ổn theo các lĩnh vực đã xét.`);
   } else {
+    let idx = 0;
     for (const g of groups) {
       out.push(`# ${g.label}`);
-      for (const e of g.events) { out.push(eventBlock(e)); out.push(''); }
+      for (const e of g.events) { idx++; out.push(eventBlock(e, idx)); out.push(''); }
     }
   }
   if (pred.composites.length) {

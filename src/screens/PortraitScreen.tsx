@@ -88,7 +88,10 @@ export default function PortraitScreen() {
       setImageUrl(saved.uri);
       setGallery(await listPortraits(galleryKey));
     } catch (e: any) {
-      setError(e?.message || 'Không vẽ được chân dung, vui lòng thử lại.');
+      // Không hiện chi tiết lỗi kỹ thuật (API/server) lên màn hình cho người dùng — chỉ log để
+      // debug, còn màn hình luôn hiện 1 câu thân thiện, mời thử lại.
+      if (__DEV__) console.warn('[portrait] lỗi vẽ chân dung:', e?.message);
+      setError('Hệ thống chưa tạo được ảnh, mời bạn thử tạo lại.');
     } finally {
       setBusy(false);
     }

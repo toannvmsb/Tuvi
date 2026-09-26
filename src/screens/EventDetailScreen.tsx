@@ -25,7 +25,7 @@ import { personalizeEvent } from '../core/eventPersonalization';
 import { canChiForBasis, personalizeDirectionGods, directionGodsForDay } from '../core/directionGods';
 import { suggestXongDat } from '../core/xongDatEngine';
 import { createUserEvent, deleteUserEvent, lifeEventErrorMessage, fetchEventPackages, listMyUserEvents } from '../lib/lifeEvents';
-import { resolveEventsOnDate, eventStage } from '../core/lifeEventEngine';
+import { resolveEventsOnDate, resolveAllUpcomingEvents, eventStage } from '../core/lifeEventEngine';
 import type { UserEventType, ResolvedEvent, EventPackage, UserEvent } from '../core/lifeEventEngine';
 import { createLifeNote, listLifeNotes, deleteLifeNote, type LifeNote } from '../lib/lifeNotes';
 import { getNotifyPref, setNotifyEnabled, setNotifyDays, resetNotifyPref } from '../lib/eventNotifyPrefs';
@@ -142,6 +142,19 @@ export default function EventDetailScreen({ route, navigation }: Props) {
     () => resolveEventsOnDate(allPackages, allUserEvents, occursOn),
     [allPackages, allUserEvents, occursOn],
   );
+
+  // Nút ‹ › ở box trên cùng — duyệt qua TOÀN BỘ sự kiện (không chỉ trùng ngày), sắp theo thời gian
+  // xảy ra. Chỉ đổi `event` (state tại chỗ, xem giải thích ở khai báo state) — KHÔNG ghi gì lại,
+  // nên thoát màn rồi vào lại vẫn đúng route.params.event ban đầu (đúng rule chọn của hệ thống).
+  const allUpcoming = useMemo(
+    () => resolveAllUpcomingEvents(allPackages, allUserEvents),
+    [allPackages, allUserEvents],
+  );
+  const eventIndex = useMemo(() => allUpcoming.findIndex(e => e.key === event.key), [allUpcoming, event.key]);
+  const canGoPrevEvent = eventIndex > 0;
+  const canGoNextEvent = eventIndex >= 0 && eventIndex < allUpcoming.length - 1;
+  const goPrevEvent = () => { if (canGoPrevEvent) setEvent(allUpcoming[eventIndex - 1]); };
+  const goNextEvent = () => { if (canGoNextEvent) setEvent(allUpcoming[eventIndex + 1]); };
 
   const dateLabel = formatVN(occursOn);
   const advice = useMemo(
@@ -413,32 +426,55 @@ export default function EventDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* 1. Tổng quan — chia 2 nửa bằng nhau: trái = icon+tên (to, đậm), phải = ngày/đếm ngược/chia sẻ */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroRow}>
-            <View style={styles.heroLeft}>
-              <Text style={styles.heroIconInline}>{event.icon}</Text>
-              <Text style={styles.heroTitleBig}>{event.displayName}</Text>
+        {/* 1. Tổng quan — chia 2 nửa bằng nhau: trái = icon+tên (to, đậm), phải = ngày/đếm ngược/chia sẻ.
+            Nút ‹ › 2 bên ngoài box để xem tạm sự kiện trước/sau — không đổi rule chọn của hệ thống. */}
+        <View style={styles.heroNavRow}>
+          <TouchableOpacity
+            style={[styles.heroNavBtn, !canGoPrevEvent && styles.heroNavBtnDisabled]}
+            onPress={goPrevEvent}
+            disabled={!canGoPrevEvent}
+            accessibilityRole="button"
+            accessibilityLabel="Xem sự kiện trước đó"
+          >
+            <Text style={styles.heroNavBtnTxt}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.heroCard, { flex: 1 }]}>
+            <View style={styles.heroRow}>
+              <View style={styles.heroLeft}>
+                <Text style={styles.heroIconInline}>{event.icon}</Text>
+                <Text style={styles.heroTitleBig}>{event.displayName}</Text>
+              </View>
+              <View style={styles.heroDivider} />
+              <View style={styles.heroRight}>
+                <Text style={styles.heroDate}>{dateLabel}</Text>
+                <Text style={styles.heroStageBadge}>{stage.label}</Text>
+                <Text style={styles.heroCountdown}>
+                  {event.daysUntil === 0 ? 'Hôm nay!'
+                    : event.daysUntil < 0 ? `Đã qua ${-event.daysUntil} ngày`
+                    : `Còn ${event.daysUntil} ngày`}
+                </Text>
+                <TouchableOpacity style={styles.shareBtn} onPress={() => shareEvent(event, dateLabel)}>
+                  <Text style={styles.shareBtnText}>📤 Chia sẻ</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroRight}>
-              <Text style={styles.heroDate}>{dateLabel}</Text>
-              <Text style={styles.heroStageBadge}>{stage.label}</Text>
-              <Text style={styles.heroCountdown}>
-                {event.daysUntil === 0 ? 'Hôm nay!'
-                  : event.daysUntil < 0 ? `Đã qua ${-event.daysUntil} ngày`
-                  : `Còn ${event.daysUntil} ngày`}
-              </Text>
-              <TouchableOpacity style={styles.shareBtn} onPress={() => shareEvent(event, dateLabel)}>
-                <Text style={styles.shareBtnText}>📤 Chia sẻ</Text>
+            {event.userEvent && (
+              <TouchableOpacity style={styles.deleteEventBtn} onPress={removeThisEvent}>
+                <Text style={styles.deleteEventBtnText}>🗑 Xóa sự kiện</Text>
               </TouchableOpacity>
-            </View>
+            )}
           </View>
-          {event.userEvent && (
-            <TouchableOpacity style={styles.deleteEventBtn} onPress={removeThisEvent}>
-              <Text style={styles.deleteEventBtnText}>🗑 Xóa sự kiện</Text>
-            </TouchableOpacity>
-          )}
+
+          <TouchableOpacity
+            style={[styles.heroNavBtn, !canGoNextEvent && styles.heroNavBtnDisabled]}
+            onPress={goNextEvent}
+            disabled={!canGoNextEvent}
+            accessibilityRole="button"
+            accessibilityLabel="Xem sự kiện tiếp theo"
+          >
+            <Text style={styles.heroNavBtnTxt}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Thời tiết ngày sự kiện (nếu nằm trong 16 ngày tới) */}
@@ -828,6 +864,13 @@ const styles = StyleSheet.create({
     padding: SPACING.lg, gap: SPACING.sm,
     paddingBottom: Platform.OS === 'web' ? 300 : SPACING.xxl,
   },
+  heroNavRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  heroNavBtn: {
+    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.35)',
+  },
+  heroNavBtnDisabled: { opacity: 0.3 },
+  heroNavBtnTxt: { fontFamily: FONTS.displayBold, fontSize: 22, lineHeight: 24, color: COLORS.goldLight },
   heroCard: {
     backgroundColor: 'rgba(226,194,133,0.13)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(226,194,133,0.38)',
     padding: 20, gap: SPACING.sm,
