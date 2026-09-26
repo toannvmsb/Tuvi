@@ -13,7 +13,7 @@ import { buildAnnualContext } from './signals';
 import { scoreEventPass1, finalizeEvent, intensityLevelOf, type ScoreEventResult } from './scorer';
 import { buildCategoryAggregates, evaluateSpecialRules } from './specialRules';
 import { computeMonthlyTiming } from './monthlyTiming';
-import { rankEvents } from './ranking';
+import { rankEvents, groupFeaturedEvents } from './ranking';
 import { CONFLICT_RULES } from './conflictRules';
 import { CROSS_EVENT_RULES } from './crossEventRules';
 import { eventTitleOf, categoryTitleOf } from './eventTitles';
@@ -89,6 +89,7 @@ export function computeAnnualPrediction(result: AstrologyResult, targetYear: num
   const composites = applyCrossEventRules(scored);
 
   const top = rankEvents(scored);
+  const featuredGroups = groupFeaturedEvents(scored);
   const overallIntensity = intensityLevelOf(top.length ? Math.round(top.reduce((s, e) => s + e.strength, 0) / top.length) : 0);
   const annualTheme = top.map(e => `${categoryTitleOf(e.category)} — ${e.title} (${e.direction === 'POSITIVE' ? 'thuận' : e.direction === 'NEGATIVE' ? 'cần lưu ý' : 'hai chiều'})`);
   const { stem, branch } = yearCanChi(targetYear);
@@ -102,6 +103,8 @@ export function computeAnnualPrediction(result: AstrologyResult, targetYear: num
     annualTheme,
     overallIntensity,
     events: top,
+    featuredGroups,
+    allEvents: scored,
     composites,
     engineVersion: ENGINE_VERSION,
     ruleVersion: RULE_VERSION,

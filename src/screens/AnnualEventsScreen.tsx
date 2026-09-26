@@ -11,14 +11,16 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-nati
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import SimpleMarkdown from '../components/SimpleMarkdown';
+import ExportPdfButton from '../components/ExportPdfButton';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, SectionTitle, ScoreRing, Segmented, GoldButton } from '../ui';
 import Icon from '../ui/Icon';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import {
   computeAnnualPrediction, analyzeAnnualEventsWithAI, explainEvent, explainMonthWindow,
-  INTENSITY_VN, categoryTitleOf, type AnnualPrediction, type ScoredEvent,
+  generateFullAnnualEventsExport, INTENSITY_VN, categoryTitleOf, type AnnualPrediction, type ScoredEvent,
 } from '../core/annualEvents';
+import { chartHeaderLines } from '../utils/pdfExport';
 import { PREMIUM, costNote } from '../constants/premium';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -193,16 +195,30 @@ export default function AnnualEventsScreen() {
 
         {mode === 'advanced' && pred && (
           showAdvancedContent ? (
-            pred.events.length > 0 ? (
+            pred.featuredGroups.length > 0 ? (
               <View style={{ gap: 10 }}>
-                <SectionTitle title="Sự kiện nổi bật" sub={`${pred.events.length}/${pred.debugCandidateCount} nhóm đã xét`} />
-                {pred.events.map(e => <EventCard key={e.eventId} e={e} />)}
+                <SectionTitle title="Sự kiện nổi bật" sub={`${pred.featuredGroups.length} lĩnh vực`} />
+                {pred.featuredGroups.map(g => (
+                  <View key={g.category} style={{ gap: 8 }}>
+                    <Eyebrow color={COLORS.goldLight}>{g.label}</Eyebrow>
+                    {g.events.map(e => <EventCard key={e.eventId} e={e} />)}
+                  </View>
+                ))}
                 {pred.composites.length > 0 && (
                   <Card style={{ gap: 6 }}>
                     <Eyebrow color={COLORS.purple}>Liên hệ giữa các nhóm</Eyebrow>
                     {pred.composites.map(c => <Body key={c.id} size={12.5}>{c.narrativeHint}</Body>)}
                   </Card>
                 )}
+                <ExportPdfButton
+                  label="Xuất đầy đủ các sự kiện"
+                  title={`Toàn bộ sự kiện năm ${year}`}
+                  subtitle={`${pred.yearCanChi} · ${pred.targetAge} tuổi`}
+                  headerLines={chartHeaderLines(result)}
+                  badge="TOÀN BỘ SỰ KIỆN"
+                  fileName={`su-kien-nam-${year}`}
+                  getContent={() => generateFullAnnualEventsExport(pred)}
+                />
               </View>
             ) : (
               <Card><Body>Chưa ghi nhận sự kiện nào nổi bật đạt ngưỡng đáng chú ý trong năm {year}.</Body></Card>

@@ -55,23 +55,29 @@ function Star({ top, left, size, delay }: { top: number; left: string; size: num
   return <Animated.Text style={[s.star, { top, left: left as any, fontSize: size, opacity }]}>✦</Animated.Text>;
 }
 
-/** Hạt mưa rơi — lặp vô hạn, mỗi hạt lệch vị trí/tốc độ cho tự nhiên. */
+/**
+ * Hạt mưa rơi — vị trí rải rác (không thẳng hàng), mỗi hạt bắt đầu ở độ cao khác nhau (startTop
+ * âm khác nhau) để không rơi đồng loạt trông như một "hàng" — lặp vô hạn, lệch tốc độ cho tự nhiên.
+ */
 const RAIN_POS = [
-  { left: '6%', delay: 0, duration: 900 }, { left: '18%', delay: 260, duration: 1100 },
-  { left: '30%', delay: 120, duration: 950 }, { left: '44%', delay: 400, duration: 1050 },
-  { left: '58%', delay: 60, duration: 900 }, { left: '70%', delay: 320, duration: 1150 },
-  { left: '82%', delay: 180, duration: 1000 }, { left: '92%', delay: 480, duration: 1080 },
+  { left: '5%', startTop: -10, delay: 0, duration: 950 }, { left: '21%', startTop: -70, delay: 340, duration: 1150 },
+  { left: '9%', startTop: -140, delay: 620, duration: 1000 }, { left: '35%', startTop: -30, delay: 120, duration: 1080 },
+  { left: '61%', startTop: -100, delay: 500, duration: 900 }, { left: '44%', startTop: -180, delay: 180, duration: 1220 },
+  { left: '78%', startTop: -50, delay: 260, duration: 1000 }, { left: '88%', startTop: -160, delay: 420, duration: 1100 },
+  { left: '68%', startTop: -20, delay: 700, duration: 950 }, { left: '15%', startTop: -200, delay: 60, duration: 1180 },
+  { left: '95%', startTop: -90, delay: 380, duration: 1050 }, { left: '53%', startTop: -60, delay: 560, duration: 970 },
 ] as const;
 
-function Raindrop({ left, delay, duration }: { left: string; delay: number; duration: number }) {
-  const y = useRef(new Animated.Value(-24)).current;
+function Raindrop({ left, startTop, delay, duration }: { left: string; startTop: number; delay: number; duration: number }) {
+  const y = useRef(new Animated.Value(startTop)).current;
   useEffect(() => {
+    y.setValue(startTop);
     const loop = Animated.loop(
       Animated.timing(y, { toValue: OVERLAY_HEIGHT * 0.7, duration, delay, easing: Easing.linear, useNativeDriver: true }),
     );
     loop.start();
     return () => loop.stop();
-  }, [delay, duration, y]);
+  }, [delay, duration, startTop, y]);
   return (
     <Animated.View
       style={[s.raindrop, { left: left as any, transform: [{ translateY: y }, { rotate: '12deg' }] }]}
@@ -123,7 +129,9 @@ export default function WeatherBackdrop() {
         <>
           <Cloud top={16} left="8%" size={60} opacity={0.32} />
           <Cloud top={40} left="56%" size={44} opacity={0.24} />
-          {RAIN_POS.map((p, i) => <Raindrop key={i} left={p.left} delay={p.delay} duration={p.duration} />)}
+          {RAIN_POS.map((p, i) => (
+            <Raindrop key={i} left={p.left} startTop={p.startTop} delay={p.delay} duration={p.duration} />
+          ))}
         </>
       )}
 
@@ -137,6 +145,6 @@ const s = StyleSheet.create({
   moon: { position: 'absolute', top: 8, right: -4, fontSize: 110, opacity: 0.20 },
   cloud: { position: 'absolute' },
   star: { position: 'absolute', color: '#FFF7DE' },
-  raindrop: { position: 'absolute', top: 0, width: 2, height: 18, borderRadius: 1, backgroundColor: 'rgba(210,228,255,0.55)' },
+  raindrop: { position: 'absolute', top: 0, width: 2, height: 16, borderRadius: 1, backgroundColor: 'rgba(210,228,255,0.30)' },
   plainEmoji: { position: 'absolute', top: 8, right: -6, fontSize: 120, opacity: 0.16 },
 });

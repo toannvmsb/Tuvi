@@ -140,6 +140,14 @@ export interface CompositeEvent {
   memberEventIds: string[];
 }
 
+/** 1 nhóm sự kiện lớn (vd "Sự nghiệp") kèm các sự kiện con thuộc nhóm đó — dùng cho cả hiển thị
+ *  "Sự kiện nổi bật" trên app (ranking.ts groupFeaturedEvents) và xuất PDF đầy đủ (groupEventsForExport). */
+export interface CategoryEventGroup {
+  category: string;
+  label: string;
+  events: ScoredEvent[];
+}
+
 export interface AnnualPrediction {
   targetYear: number;
   targetAge: number;
@@ -149,6 +157,10 @@ export interface AnnualPrediction {
   annualTheme: string[];
   overallIntensity: IntensityLevel;
   events: ScoredEvent[];
+  /** "Sự kiện nổi bật" — 10 nhóm lớn, mỗi nhóm tối đa 3 sự kiện mạnh nhất, KHÔNG chặn điểm tối thiểu. */
+  featuredGroups: CategoryEventGroup[];
+  /** Toàn bộ ~85 sự kiện đã chấm điểm (chưa lọc/xếp hạng) — dùng để xuất PDF đầy đủ theo ngưỡng riêng. */
+  allEvents: ScoredEvent[];
   composites: CompositeEvent[];
   engineVersion: string;
   ruleVersion: string;

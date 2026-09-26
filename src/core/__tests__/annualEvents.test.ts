@@ -1,11 +1,13 @@
 // Import trực tiếp từng module thay vì barrel '../annualEvents' — barrel còn re-export ai.ts
 // (kéo theo utils/aiAnalysis.ts → lib/supabase.ts → AsyncStorage native), không cần cho test thuần offline.
 import { computeAnnualPrediction } from '../annualEvents/engine';
-import { generateAnnualOfflineSummary } from '../annualEvents/offlineSummary';
+import { generateAnnualOfflineSummary, generateFullAnnualEventsExport } from '../annualEvents/offlineSummary';
 import { buildAnnualNarrativePrompt } from '../annualEvents/narrativePrompt';
 import { buildAnnualContext } from '../annualEvents/signals';
 import { tieuHanEventPriorMultiplier } from '../annualEvents/tieuHanFocus';
 import { PALACE_EVENT_BOOST } from '../annualEvents/tieuHanDomains';
+import { groupEventsForExport } from '../annualEvents/ranking';
+import { CATEGORY_VN } from '../annualEvents/eventTitles';
 import { allSampleResults, sampleResult } from './fixtures';
 
 describe('annualEvents engine', () => {
@@ -131,5 +133,47 @@ describe('annualEvents engine', () => {
         expect(propertyCount).toBeLessThanOrEqual(1);
       }
     }
+  });
+
+  test('featuredGroups: luôn đủ 10 nhóm lớn, mỗi nhóm tối đa 3 sự kiện, xếp giảm dần, KHÔNG chặn điểm tối thiểu', () => {
+    for (const result of allSampleResults()) {
+      for (const year of [2024, 2026, 2030]) {
+        const pred = computeAnnualPrediction(result, year);
+        // 85 sự kiện luôn đủ >=3 định nghĩa/nhóm (nhóm ít nhất là CHILDREN với 5) → luôn đủ 10 nhóm.
+        expect(pred.featuredGroups.length).toBe(Object.keys(CATEGORY_VN).length);
+        for (const g of pred.featuredGroups) {
+          expect(g.events.length).toBeLessThanOrEqual(3);
+          expect(g.events.length).toBeGreaterThan(0);
+          expect(g.events.every(e => e.category === g.category)).toBe(true);
+          for (let i = 1; i < g.events.length; i++) {
+            expect(g.events[i].strength).toBeLessThanOrEqual(g.events[i - 1].strength);
+          }
+        }
+      }
+    }
+  });
+
+  test('groupEventsForExport: chỉ giữ sự kiện >= ngưỡng, nhóm theo lĩnh vực, không giới hạn số lượng/nhóm', () => {
+    const pred = computeAnnualPrediction(sampleResult(), 2026);
+    const groups = groupEventsForExport(pred.allEvents, 40);
+    for (const g of groups) {
+      expect(g.events.length).toBeGreaterThan(0);
+      for (const e of g.events) {
+        expect(e.strength).toBeGreaterThanOrEqual(40);
+        expect(e.category).toBe(g.category);
+      }
+      for (let i = 1; i < g.events.length; i++) {
+        expect(g.events[i].strength).toBeLessThanOrEqual(g.events[i - 1].strength);
+      }
+    }
+    // allEvents chứa toàn bộ ứng viên đã chấm điểm (kể cả điểm thấp) — khớp debugCandidateCount.
+    expect(pred.allEvents.length).toBe(pred.debugCandidateCount);
+  });
+
+  test('bản xuất PDF đầy đủ dựng được văn bản không lỗi', () => {
+    const pred = computeAnnualPrediction(sampleResult(), 2026);
+    const md = generateFullAnnualEventsExport(pred);
+    expect(typeof md).toBe('string');
+    expect(md.length).toBeGreaterThan(10);
   });
 });

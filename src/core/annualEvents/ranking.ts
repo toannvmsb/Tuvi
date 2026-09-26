@@ -1,22 +1,26 @@
 /**
- * Xếp hạng hiển thị. Theo yêu cầu của anh Toàn (thay ENGINE_SPEC §21 "tối đa 5 sự kiện/năm, tối
- * đa 2 sự kiện/nhóm"): hiện sự kiện đạt strength >= 50, tối đa 10 sự kiện/năm — KHÔNG còn giới
- * hạn riêng theo từng nhóm (nếu 1 nhóm có nhiều sự kiện mạnh, có thể chiếm nhiều hơn 2 chỗ, miễn
- * tổng không quá 10). Ngưỡng 50 từng thử ở mức 45 nhưng ra quá nhiều (có lá số lên tới 66/85 sự
- * kiện) — nâng lên 50 + trần 10 để danh sách vẫn gọn, "nổi bật" đúng nghĩa.
+ * Xếp hạng hiển thị — 2 cơ chế song song, phục vụ 2 mục đích khác nhau:
  *
- * Sàn tối thiểu 5 (anh Toàn không muốn có lá số/năm KHÔNG có sự kiện nào): nếu số sự kiện đạt
- * ngưỡng 50 chưa đủ 5, HẠ DẦN xuống các sự kiện điểm thấp hơn (vẫn theo thứ tự mạnh nhất trước)
- * cho tới khi đủ 5, hoặc hết ứng viên. Ngưỡng 50 vẫn là chuẩn khi năm đó đủ sự kiện mạnh — chỉ
- * "mềm" khi năm quá bình lặng.
+ * 1) `rankEvents()` — tóm tắt "Nhìn chung"/prompt AI/bản Nâng cao offline (KHÔNG đổi so với trước):
+ *    hiện sự kiện đạt strength >= 50, tối đa 10 sự kiện/năm, sàn tối thiểu 5 (hạ ngưỡng dần nếu
+ *    năm quá bình lặng), gộp trùng ý nghĩa qua ROLLUP_GROUPS. Xem lịch sử quyết định ở dưới.
+ *
+ * 2) `groupFeaturedEvents()` / `groupEventsForExport()` — mục "Sự kiện nổi bật" hiển thị trên app
+ *    (theo yêu cầu mới của anh Toàn): gom TẤT CẢ sự kiện theo 10 nhóm lớn (CATEGORY_VN), mỗi nhóm
+ *    LUÔN lấy đúng 3 sự kiện mạnh nhất trong nhóm, xếp giảm dần — KHÔNG chặn điểm tối thiểu, KHÔNG
+ *    gộp trùng (ROLLUP_GROUPS không áp dụng ở đây: có nhóm như "Tài sản" mà toàn bộ 9 sự kiện con
+ *    đều chung 1 rollup key, gộp sẽ chỉ còn lại 1/3 chỗ — sai yêu cầu "mỗi nhóm 3 sự kiện con").
+ *    `groupEventsForExport()` dùng ngưỡng riêng (mặc định 40 điểm), không giới hạn số lượng/nhóm —
+ *    chỉ dùng để xuất PDF đầy đủ (nút "Xuất đầy đủ các sự kiện"), không hiển thị hết trên app.
+ *
+ * — Lịch sử `rankEvents()`: thay ENGINE_SPEC §21 "tối đa 5 sự kiện/năm, tối đa 2 sự kiện/nhóm".
+ * Ngưỡng 50 từng thử ở mức 45 nhưng ra quá nhiều (có lá số lên tới 66/85 sự kiện) — nâng lên 50 +
+ * trần 10. Sàn tối thiểu 5 vì anh Toàn không muốn có lá số/năm KHÔNG có sự kiện nào ở phần tóm tắt.
  *
  * Toàn bộ ứng viên (kể cả dưới ngưỡng) vẫn giữ nguyên trong debug (engine.ts trả `debugCandidateCount`).
- *
- * Gộp trùng ý nghĩa: chỉ giữ lại sự kiện MẠNH NHẤT trong 1 nhóm ý nghĩa gần nhau, nhường chỗ cho
- * nhóm khác đa dạng hơn (không hiện 8-9/10 chỗ đều là biến thể "Tài sản" như trước). Có thể bổ
- * sung thêm nhóm khác khi có nhu cầu — chưa phủ hết 85 sự kiện.
  */
-import type { ScoredEvent } from './types';
+import type { CategoryEventGroup, ScoredEvent } from './types';
+import { CATEGORY_VN, categoryTitleOf } from './eventTitles';
 
 const ROLLUP_GROUPS: { ids: string[]; label: string }[] = [
   { ids: ['CAREER_ROLE_CHANGE', 'CAREER_INTERNAL_TRANSFER', 'CAREER_JOB_CHANGE'], label: 'Biến động công việc' },
@@ -52,4 +56,38 @@ export function rankEvents(all: ScoredEvent[], maxTotal = 10, minStrength = 50, 
     out.push(ev);
   }
   return out;
+}
+
+function groupByCategory(all: ScoredEvent[]): Map<string, ScoredEvent[]> {
+  const map = new Map<string, ScoredEvent[]>();
+  for (const ev of all) {
+    if (!map.has(ev.category)) map.set(ev.category, []);
+    map.get(ev.category)!.push(ev);
+  }
+  return map;
+}
+
+/** "Sự kiện nổi bật" — xem giải thích ở đầu file. */
+export function groupFeaturedEvents(all: ScoredEvent[], perCategory = 3): CategoryEventGroup[] {
+  const byCategory = groupByCategory(all);
+  const groups: CategoryEventGroup[] = [];
+  for (const category of Object.keys(CATEGORY_VN)) {
+    const events = byCategory.get(category);
+    if (!events || events.length === 0) continue;
+    const sorted = [...events].sort((a, b) => b.strength - a.strength).slice(0, perCategory);
+    groups.push({ category, label: categoryTitleOf(category), events: sorted });
+  }
+  return groups;
+}
+
+/** Nhóm đầy đủ để xuất PDF — xem giải thích ở đầu file. */
+export function groupEventsForExport(all: ScoredEvent[], minStrength = 40): CategoryEventGroup[] {
+  const byCategory = groupByCategory(all.filter(e => e.strength >= minStrength));
+  const groups: CategoryEventGroup[] = [];
+  for (const category of Object.keys(CATEGORY_VN)) {
+    const events = byCategory.get(category);
+    if (!events || events.length === 0) continue;
+    groups.push({ category, label: categoryTitleOf(category), events: [...events].sort((a, b) => b.strength - a.strength) });
+  }
+  return groups;
 }

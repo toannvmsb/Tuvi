@@ -7,6 +7,7 @@ import type { AnnualPrediction, ScoredEvent } from './types';
 import { categoryTitleOf } from './eventTitles';
 import { INTENSITY_VN, CONFIDENCE_VN } from './labels';
 import { explainEvent, explainMonthWindow } from './explain';
+import { groupEventsForExport } from './ranking';
 
 const DIRECTION_LABEL: Record<ScoredEvent['direction'], string> = {
   POSITIVE: 'Xu hướng thuận lợi', NEGATIVE: 'Xu hướng cần thận trọng', MIXED: 'Biến động hai chiều',
@@ -51,5 +52,34 @@ export function generateAnnualOfflineSummary(pred: AnnualPrediction): string {
     out.push('');
   }
   out.push('_Đây là xu hướng và mức độ thuận lợi/rủi ro tham khảo theo lá số, không phải phán đoán tuyệt đối. Muốn có lời khuyên hành động chi tiết theo từng tháng, dùng mục Phân tích AI bên dưới._');
+  return out.join('\n');
+}
+
+/**
+ * Bản "Xuất đầy đủ các sự kiện" (nút PDF dưới mục Sự kiện nổi bật) — KHÔNG hiện trên app vì có
+ * thể rất nhiều sự kiện: toàn bộ sự kiện đạt >= minStrength, nhóm theo 10 lĩnh vực lớn, không
+ * giới hạn số lượng/nhóm (khác `featuredGroups` trên app — luôn đúng 3/nhóm, không chặn điểm).
+ */
+export function generateFullAnnualEventsExport(pred: AnnualPrediction, minStrength = 40): string {
+  const groups = groupEventsForExport(pred.allEvents, minStrength);
+  const out: string[] = [];
+  out.push(`# Toàn bộ sự kiện năm ${pred.targetYear} (${pred.yearCanChi}) — tuổi ${pred.targetAge}`);
+  out.push(`Nhìn chung, năm nay có **${INTENSITY_VN[pred.overallIntensity]}**.`);
+  out.push(`_Danh sách đầy đủ các sự kiện đạt từ ${minStrength} điểm trở lên, nhóm theo từng lĩnh vực lớn của lá số — bản đầy đủ, không giới hạn số lượng mỗi nhóm._`);
+  out.push('');
+  if (groups.length === 0) {
+    out.push(`Không có sự kiện nào đạt từ ${minStrength} điểm trở lên trong năm ${pred.targetYear} — năm tương đối bình ổn theo các lĩnh vực đã xét.`);
+  } else {
+    for (const g of groups) {
+      out.push(`# ${g.label}`);
+      for (const e of g.events) { out.push(eventBlock(e)); out.push(''); }
+    }
+  }
+  if (pred.composites.length) {
+    out.push('# Liên hệ giữa các nhóm');
+    for (const c of pred.composites) out.push(`- ${c.narrativeHint}`);
+    out.push('');
+  }
+  out.push('_Đây là xu hướng và mức độ thuận lợi/rủi ro tham khảo theo lá số, không phải phán đoán tuyệt đối hay lời khuyên y tế/pháp lý/tài chính chuyên môn._');
   return out.join('\n');
 }

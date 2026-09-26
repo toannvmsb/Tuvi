@@ -20,9 +20,11 @@ interface Props {
   captureCells?: () => Promise<{ dvCell?: string; tvCell?: string }>;
   daiVanInfo?: PdfDaiVanInfo;
   tieuVanInfo?: PdfTieuVanInfo;
+  /** Chữ hiển thị trên nút khi rảnh (không tải) — mặc định "📄 Xuất / In PDF". */
+  label?: string;
 }
 
-export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart, captureCells, daiVanInfo, tieuVanInfo }: Props) {
+export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart, captureCells, daiVanInfo, tieuVanInfo, label }: Props) {
   const [busy, setBusy] = useState(false);
 
   const onPress = async () => {
@@ -58,7 +60,7 @@ export default function ExportPdfButton({ title, subtitle, headerLines, badge, f
           <Text style={styles.txt}>Đang tạo PDF…</Text>
         </View>
       ) : (
-        <Text style={styles.txt}>📄 Xuất / In PDF</Text>
+        <Text style={styles.txt}>{label ?? '📄 Xuất / In PDF'}</Text>
       )}
     </TouchableOpacity>
   );
