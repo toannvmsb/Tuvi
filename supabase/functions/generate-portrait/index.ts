@@ -223,7 +223,13 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    const bytes = Uint8Array.from(atob(base64Image), (c) => c.charCodeAt(0));
+    // Decode base64 → bytes bằng vòng for thuần (KHÔNG dùng Uint8Array.from(str, cb) — mapFn gọi 1
+    // callback riêng cho MỖI ký tự, với ảnh 1024x1024 (base64 ~1-2 triệu ký tự) tốn CPU-time đáng
+    // kể trên Edge Function runtime, từng gây lỗi WORKER_RESOURCE_LIMIT ngẫu nhiên khi ảnh sinh ra
+    // hơi nặng — vòng for gán thẳng bytes[i] nhanh hơn nhiều lần, không đổi kết quả.
+    const binaryImage = atob(base64Image);
+    const bytes = new Uint8Array(binaryImage.length);
+    for (let i = 0; i < binaryImage.length; i++) bytes[i] = binaryImage.charCodeAt(i);
     const path = `${user.id}/${sessionId ?? "session"}_${Date.now()}.png`;
 
     const { error: uploadError } = await adminClient.storage
