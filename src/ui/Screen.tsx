@@ -1,6 +1,11 @@
 /**
  * Khung màn hình thiết kế mới: nền đêm sao (gradient) + vùng an toàn + cuộn.
- * `tabBarSpace` chừa chỗ cho thanh tab dưới cùng (tab chính) và nút chat nổi.
+ * `tabBarSpace` chừa chỗ cho nút chat nổi "Hỏi Tuzi" (kéo thả được, mount ở App.tsx, có thể nằm
+ * đè gần đáy màn hình). KHÔNG cộng thêm khoảng cho chính thanh tab dưới cùng — AppTabs/TuziTabBar
+ * không đặt `position: 'absolute'` nên thanh tab đã chiếm không gian layout bình thường, vùng nội
+ * dung/cuộn của mỗi tab TỰ ĐỘNG đã ngắn hơn đúng bằng chiều cao thanh tab rồi; cộng thêm
+ * TAB_BAR_HEIGHT + insets.bottom ở đây từng gây khoảng trống thừa y hệt chiều cao thanh tab bên
+ * dưới nội dung mỗi màn (Trang chính/Tổng quan lá số/Vận hạn/Menu).
  *
  * Dùng KeyboardAwareScreen (thay ScrollView trần) để mọi ô nhập trong các màn dùng Screen (vd ô
  * ghi chú nhanh ở Tổng quan) tự cuộn lên trên bàn phím khi gõ, không bị che — trên web hành vi
@@ -29,7 +34,7 @@ export default function Screen({
   topOverlay?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const bottom = (tabBarSpace ? TAB_BAR_HEIGHT + insets.bottom + 72 : insets.bottom + 32);
+  const bottom = (tabBarSpace ? 72 : insets.bottom + 32);
   const inner = [{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: bottom, gap }, contentStyle];
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
