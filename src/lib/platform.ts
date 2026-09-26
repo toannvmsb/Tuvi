@@ -103,6 +103,17 @@ function isIOSWebView(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Macintosh') && typeof document !== 'undefined' && 'ontouchend' in document);
 }
 
+/** true nếu là Safari THẬT (iOS hoặc macOS) — các trình duyệt khác trên iOS (Chrome/Firefox/Edge)
+ *  cũng có "Safari" trong UA vì đều dùng WebKit, nên phải loại trừ riêng. Chỉ Safari mới ưu tiên
+ *  Web Share API; các trình duyệt còn lại (kể cả trên máy tính) tải file trực tiếp bằng `<a download>`
+ *  thay vì bật khay chia sẻ hệ thống ngoài ý muốn (Chrome/Edge trên Windows gần đây cũng hỗ trợ
+ *  navigator.share với file, dễ nhầm là Safari nếu không loại trừ). */
+function isSafariBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Safari/.test(ua) && !/Chrome|CriOS|Chromium|Edg|EdgiOS|FxiOS|OPR|OPiOS/.test(ua);
+}
+
 /** Lỗi DUY NHẤT ở saveImageOrDownload mà người dùng tự xử lý được (vào Cài đặt cấp quyền) — màn
  *  hình gọi hàm này nên hiện nguyên văn message này, còn lỗi khác (kỹ thuật/thư viện) thì không. */
 export const PHOTO_PERMISSION_DENIED_MESSAGE = 'Cần cấp quyền truy cập Thư viện ảnh để lưu.';
@@ -110,9 +121,11 @@ export const PHOTO_PERMISSION_DENIED_MESSAGE = 'Cần cấp quyền truy cập T
 /**
  * Lưu ảnh:
  * - Mobile: expo-media-library.
- * - Web: ưu tiên Web Share API (mở khay chia sẻ có "Lưu vào Ảnh" — dùng được trên iOS Safari,
- *   nơi thuộc tính `<a download>` KHÔNG hoạt động). Không có Web Share (desktop) → tải qua `<a download>`
- *   như trước. Safari iOS mà Share cũng không dùng được → mở ảnh ở tab mới để giữ tay lưu (Save Image).
+ * - Web: CHỈ Safari (iOS/macOS) mới ưu tiên Web Share API (mở khay chia sẻ có "Lưu vào Ảnh" — vì
+ *   Safari không hỗ trợ thuộc tính `<a download>` đáng tin cậy). Trình duyệt khác (Chrome, Edge,
+ *   Firefox...) tải trực tiếp bằng `<a download>`, kể cả khi trình duyệt đó CŨNG hỗ trợ
+ *   navigator.share — tránh bật khay chia sẻ hệ thống ngoài ý muốn trên máy tính. Safari mà Share
+ *   cũng không dùng được → mở ảnh ở tab mới để giữ tay lưu (Save Image).
  */
 export async function saveImageOrDownload(uri: string, fileName: string): Promise<void> {
   if (isWeb) {
@@ -123,7 +136,7 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
 
     if (blob) {
       const nav: any = navigator;
-      if (nav?.share && nav?.canShare) {
+      if (isSafariBrowser() && nav?.share && nav?.canShare) {
         try {
           const file = new File([blob], fileName, { type: blob.type || 'image/png' });
           if (nav.canShare({ files: [file] })) {
