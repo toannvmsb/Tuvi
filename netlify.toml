@@ -23,3 +23,16 @@
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Path /embed — dùng cho Partner SSO (nhúng Tuzi vào app đối tác qua iframe/WebView, xem
+# CLAUDE.md mục "Partner SSO"). Netlify áp header theo path KHỚP CỤ THỂ NHẤT nên path này
+# KHÔNG kế thừa X-Frame-Options: SAMEORIGIN ở trên — thay bằng CSP frame-ancestors riêng.
+# Mặc định chỉ 'self' → CHƯA đối tác nào nhúng được cho tới khi thêm domain của họ vào đây.
+[[headers]]
+  for = "/embed"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "frame-ancestors 'self'"
+    # Khi có đối tác thật, thêm domain của họ vào đây rồi deploy lại, vd:
+    # Content-Security-Policy = "frame-ancestors 'self' https://app.doi-tac.vn"

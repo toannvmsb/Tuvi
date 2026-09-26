@@ -335,4 +335,50 @@ Anh Toàn rất rõ ràng về yêu cầu — nên ưu tiên hỏi (qua AskUserQ
 
 ---
 
-_Cập nhật lần cuối: cuối tháng 5/2026, ngay trước khi mở session web._
+## 10. Partner SSO — nhúng Tuzi vào app đối tác (vd bank)
+
+**Mục đích**: cho phép 1 đối tác ngoài (app ngân hàng, ví điện tử…) nhúng Tuzi (web) vào app của
+họ. Người dùng của đối tác bấm 1 icon là vào thẳng Tuzi, KHÔNG cần tạo tài khoản/đăng nhập riêng —
+Tuzi tự nhận diện qua token đối tác ký sẵn và tự đăng nhập (map sang 1 user Supabase nội bộ, tài
+khoản đầy đủ, lá số/lịch sử lưu lâu dài). Giữ nguyên thương hiệu Tuzi khi nhúng — không có
+white-label/theme riêng theo đối tác.
+
+**Kiến trúc**: đối tác tự ký 1 JWT ngắn hạn (HS256, secret dùng chung, `sub`=external_user_id,
+`iat`/`exp` bắt buộc, tuổi token ≤120s) → mở `https://tuzi.vn/embed?partner=<code>&token=<jwt>`
+(webview/iframe) → `App.tsx`'s `Boot()` phát hiện path `/embed` (web only, đọc thẳng
+`window.location`, KHÔNG qua React Navigation) → gọi Edge Function `partner-sso` → verify token,
+map/tạo user qua bảng `partner_user_links`, cấp bonus xu riêng của đối tác (CỘNG THÊM vào 100 xu
+mặc định của `handle_new_user()`, không thay thế — 1 lần duy nhất, idempotent), phát hành session
+KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay trong function) → client
+`setSession()` → `AuthContext` tự nhận, vào thẳng `AppNavigator`.
+
+**File liên quan**:
+- `supabase_partner_sso.sql` — bảng `partners` (code/secret/bonus_xu/active) + `partner_user_links`
+  (map external_user_id ↔ user Supabase) + RPC `credit_partner_bonus` (idempotent, theo đúng
+  pattern `credit_iap`/`credit_topup`). Cả 2 bảng deny-by-default cho client (RLS bật, không tạo
+  policy nào) — chỉ service_role (Edge Function) đọc/ghi được.
+- `supabase/functions/partner-sso/index.ts` — verify JWT bằng `npm:jose`, tạo/map user, phát
+  session, cấp bonus.
+- `src/lib/partnerAuth.ts` — `signInViaPartner(partnerCode, token)` gọi function trên rồi
+  `supabase.auth.setSession(...)`.
+- `App.tsx` — `useEmbedParams()` + logic SSO trong `Boot()` (đọc `window.location.pathname ===
+  '/embed'`, không cần route/Stack.Screen mới vì `Boot()` vốn đã quyết định LoginScreen/AppNavigator
+  độc lập với React Navigation).
+- `netlify.toml` — block `[[headers]] for = "/embed"` nới CSP `frame-ancestors` riêng cho path này
+  (path khác vẫn giữ `X-Frame-Options: SAMEORIGIN` như cũ).
+
+**Thêm 1 đối tác mới** (không cần sửa code):
+1. Insert 1 dòng vào bảng `partners` (`code`, `name`, `secret` — sinh ngẫu nhiên đủ mạnh, gửi
+   riêng cho đối tác qua kênh an toàn, `bonus_xu` theo đàm phán, `active=true`).
+2. Sửa `netlify.toml`, thêm domain thật của đối tác vào dòng `Content-Security-Policy:
+   frame-ancestors` của block `/embed`, rồi build + deploy lại web.
+3. Gửi đối tác: URL `https://tuzi.vn/embed?partner=<code>` + hướng dẫn ký JWT (HS256, secret đã
+   cấp, `sub`=ID user của họ, `iat`=thời điểm hiện tại, `exp`≤120s sau `iat`).
+
+**Việc CHƯA làm** (chờ có đối tác thật mới cần): dashboard quản lý đối tác (hiện thêm/sửa qua SQL
+trực tiếp), chống phát lại bằng nonce-store riêng (hiện dựa vào `exp` ngắn làm lớp phòng thủ
+chính), white-label/theme riêng theo đối tác.
+
+---
+
+_Cập nhật lần cuối: 27/09/2026, sau khi thêm Partner SSO._
