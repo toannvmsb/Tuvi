@@ -103,6 +103,10 @@ function isIOSWebView(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Macintosh') && typeof document !== 'undefined' && 'ontouchend' in document);
 }
 
+/** Lỗi DUY NHẤT ở saveImageOrDownload mà người dùng tự xử lý được (vào Cài đặt cấp quyền) — màn
+ *  hình gọi hàm này nên hiện nguyên văn message này, còn lỗi khác (kỹ thuật/thư viện) thì không. */
+export const PHOTO_PERMISSION_DENIED_MESSAGE = 'Cần cấp quyền truy cập Thư viện ảnh để lưu.';
+
 /**
  * Lưu ảnh:
  * - Mobile: expo-media-library.
@@ -159,14 +163,17 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
     return;
   }
   let MediaLibrary: any;
-  try { MediaLibrary = require('expo-media-library'); } catch {
+  // SDK 57: export chính ("expo-media-library") đổi sang API class-based mới —
+  // requestPermissionsAsync/saveToLibraryAsync dạng hàm giờ nằm ở "/legacy" (nếu gọi từ export
+  // chính sẽ ném lỗi deprecated ngay khi chạy, không phải chỉ cảnh báo).
+  try { MediaLibrary = require('expo-media-library/legacy'); } catch {
     throw new Error('Thiếu expo-media-library');
   }
   // writeOnly=true — chỉ xin quyền GHI vào thư viện ảnh, không xin quyền đọc
   // (app không cần duyệt/đọc ảnh có sẵn của người dùng, chỉ lưu ảnh mới tạo).
   const perm = await MediaLibrary.requestPermissionsAsync(true);
   if (!(perm.granted || perm.status === 'granted')) {
-    throw new Error('Cần cấp quyền truy cập Thư viện ảnh để lưu.');
+    throw new Error(PHOTO_PERMISSION_DENIED_MESSAGE);
   }
   await MediaLibrary.saveToLibraryAsync(uri);
 }

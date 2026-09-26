@@ -45,7 +45,9 @@ export async function exportChartAsImage(
 /** Lưu 1 ảnh đã chụp vào Thư viện ảnh (gọi khi người dùng bấm "Lưu ảnh"). */
 export async function saveImageToGallery(uri: string): Promise<void> {
   let MediaLibrary: any;
-  try { MediaLibrary = require('expo-media-library'); } catch {
+  // SDK 57: export chính đổi sang API class-based mới — requestPermissionsAsync/saveToLibraryAsync
+  // dạng hàm giờ nằm ở "/legacy" (gọi từ export chính sẽ ném lỗi deprecated ngay khi chạy).
+  try { MediaLibrary = require('expo-media-library/legacy'); } catch {
     throw new Error('Thiếu package expo-media-library. Chạy: npx expo install expo-media-library');
   }
   // writeOnly=true — chỉ xin quyền GHI vào thư viện ảnh, không xin quyền đọc

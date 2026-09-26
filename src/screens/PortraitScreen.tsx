@@ -12,7 +12,7 @@ import { PREMIUM, wallet, chargeAgain } from '../constants/premium';
 import { Card, Body, Segmented, GoldButton, OutlineButton, Eyebrow } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { generatePortrait, buildPortraitContext } from '../lib/portraitGen';
-import { saveImageOrDownload } from '../lib/platform';
+import { saveImageOrDownload, PHOTO_PERMISSION_DENIED_MESSAGE } from '../lib/platform';
 import { webAlert } from '../lib/webAlert';
 import { addPortrait, listPortraits, galleryKeyOf, type SavedPortrait } from '../lib/portraitStore';
 import type { AstrologyResult } from '../types';
@@ -103,7 +103,11 @@ export default function PortraitScreen() {
       await saveImageOrDownload(uri, 'tuzi-chan-dung.png');
       webAlert.alert('Đã lưu', 'Ảnh đã được lưu.');
     } catch (e: any) {
-      webAlert.alert('Chưa lưu được', e?.message || 'Vui lòng thử lại.');
+      // Giữ nguyên câu "cần cấp quyền" (người dùng tự xử lý được) — lỗi khác (kỹ thuật/thư viện)
+      // chỉ hiện 1 câu thân thiện, không lộ chi tiết kỹ thuật lên màn hình.
+      if (__DEV__) console.warn('[portrait] lỗi lưu ảnh:', e?.message);
+      const msg = e?.message === PHOTO_PERMISSION_DENIED_MESSAGE ? e.message : 'Chưa lưu được ảnh, mời bạn thử lại.';
+      webAlert.alert('Chưa lưu được', msg);
     }
   };
 
