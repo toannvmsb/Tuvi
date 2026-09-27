@@ -58,7 +58,9 @@ export default function MenuScreen() {
           <View style={s.avatar}><Text style={s.avatarTxt}>{name.slice(0, 1).toUpperCase()}</Text></View>
           <View style={{ flex: 1 }}>
             <Display size={26}>{name}</Display>
-            <Body size={12.5}>{user?.email ?? (online ? '' : 'Chế độ ngoại tuyến')}</Body>
+            <Body size={12.5}>
+              {user?.isPartnerAccount ? '🔗 Đã liên kết qua đối tác' : (user?.email ?? (online ? '' : 'Chế độ ngoại tuyến'))}
+            </Body>
           </View>
           <Icon name="chev" size={18} color={COLORS.gold} />
         </Card>

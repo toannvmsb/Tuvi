@@ -149,7 +149,11 @@ export default function AccountScreen() {
         {/* Hồ sơ */}
         <View style={styles.card}>
           <Text style={styles.greeting}>Xin chào{user?.displayName ? ` - ${user.displayName}` : (wallet.userName ? ` - ${wallet.userName}` : '')} 👋</Text>
-          {online && user?.email ? <Text style={styles.sub}>📧 {user.email}</Text> : null}
+          {online && user?.email ? (
+            <Text style={styles.sub}>
+              {user.isPartnerAccount ? '🔗 Đã liên kết qua đối tác' : `📧 ${user.email}`}
+            </Text>
+          ) : null}
           <Text style={styles.sub}>💰 Số dư: <Text style={styles.gold}>{wallet.balance.toLocaleString('vi-VN')} xu</Text></Text>
           {!online && (
             <Text style={styles.note}>Đang ở chế độ khách (offline). Đăng nhập để đồng bộ tài khoản, đổi tên & mật khẩu.</Text>
