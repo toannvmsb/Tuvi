@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Partner SSO — Trình giả lập đối tác</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #14101c; color: #eee;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header { padding: 18px 24px; border-bottom: 1px solid #2c2438; }
+  header h1 { margin: 0 0 4px; font-size: 18px; color: #d4af37; }
+  header p { margin: 0; font-size: 13px; color: #999; }
+  .wrap { display: flex; flex: 1; min-height: 0; }
+  .panel {
+    width: 380px; flex-shrink: 0; padding: 20px; overflow-y: auto;
+    border-right: 1px solid #2c2438; background: #1a1526;
+  }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: #bbb; margin-bottom: 4px; }
+  .field input {
+    width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3050;
+    background: #0f0c17; color: #eee; font-size: 14px;
+  }
+  .field .hint { font-size: 11px; color: #777; margin-top: 3px; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 .field { flex: 1; }
+  button {
+    width: 100%; padding: 11px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-weight: 600; margin-top: 4px;
+  }
+  .btn-primary { background: #d4af37; color: #1a1526; }
+  .btn-primary:hover { background: #e6c358; }
+  .btn-ghost { background: transparent; border: 1px solid #3a3050; color: #ccc; margin-top: 8px; }
+  .btn-ghost:hover { border-color: #d4af37; color: #d4af37; }
+  .status { margin-top: 14px; padding: 10px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+  .status.ok { background: #16351f; color: #7fd995; }
+  .status.err { background: #3a1616; color: #ff8b8b; }
+  .status.idle { background: #241c33; color: #999; }
+  .frame-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .frame-bar { padding: 8px 14px; font-size: 12px; color: #999; background: #1a1526; border-bottom: 1px solid #2c2438; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .frame-bar code { color: #d4af37; word-break: break-all; }
+  iframe { flex: 1; border: none; background: #000; }
+  .countdown { font-variant-numeric: tabular-nums; }
+  .countdown.warn { color: #ff8b8b; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤝 Partner SSO — Trình giả lập đối tác</h1>
+  <p>
+    Công cụ DEV để tự ký 1 JWT y như đối tác thật sẽ làm ở backend của họ, rồi mở Tuzi qua
+    <code>/embed?partner=...&amp;token=...</code>. Secret không gửi đi đâu — chỉ dùng ngay trong
+    trình duyệt để ký token.
+  </p>
+</header>
+<div class="wrap">
+  <div class="panel">
+    <div class="field">
+      <label>URL gốc Tuzi (web đang chạy)</label>
+      <input id="baseUrl" value="http://localhost:8094">
+      <div class="hint">Local: http://localhost:8094 (đã build:web) — Production: https://tuzi.vn</div>
+    </div>
+    <div class="field">
+      <label>Mã đối tác (code)</label>
+      <input id="partnerCode" placeholder="vd: bank_x">
+    </div>
+    <div class="field">
+      <label>Secret của đối tác</label>
+      <input id="secret" type="password" placeholder="secret đã cấp trong trang Đối tác (Admin)">
+    </div>
+    <div class="field">
+      <label>External User ID (sub) — ID user bên phía đối tác</label>
+      <input id="externalUserId" placeholder="vd: cust-00123">
+      <div class="hint">Cùng 1 giá trị này → cùng 1 tài khoản Tuzi nội bộ mỗi lần đăng nhập.</div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Tên hiển thị (tuỳ chọn)</label>
+        <input id="displayName" placeholder="Nguyễn Văn A">
+      </div>
+      <div class="field">
+        <label>Mã nhân viên (tuỳ chọn)</label>
+        <input id="employeeCode" placeholder="NV12345">
+      </div>
+    </div>
+    <button class="btn-primary" id="btnGo">🔐 Ký token &amp; Mở Tuzi</button>
+    <button class="btn-ghost" id="btnNewTab">↗ Mở ở tab mới thay vì khung nhúng</button>
+    <div id="status" class="status idle">Điền thông tin rồi bấm "Ký token &amp; Mở Tuzi".</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-bar">
+      <span>Khung nhúng (giả lập app đối tác) — <span class="countdown" id="countdown"></span></span>
+      <code id="urlShown"></code>
+    </div>
+    <iframe id="frame" title="Tuzi embed"></iframe>
+  </div>
+</div>
+<script>
+const MAX_TOKEN_AGE_SEC = 120; // phải khớp MAX_TOKEN_AGE_SEC trong partner-sso/index.ts
+
+function bytesToBase64url(bytes) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function strToBase64url(str) { return bytesToBase64url(new TextEncoder().encode(str)); }
+
+async function signPartnerJwt(secret, payload) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const data = `${strToBase64url(JSON.stringify(header))}.${strToBase64url(JSON.stringify(payload))}`;
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return `${data}.${bytesToBase64url(new Uint8Array(sig))}`;
+}
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status');
+let countdownTimer = null;
+
+function setStatus(kind, msg) {
+  statusEl.className = 'status ' + kind;
+  statusEl.textContent = msg;
+}
+
+function startCountdown(expiresAtMs) {
+  clearInterval(countdownTimer);
+  const el = $('countdown');
+  countdownTimer = setInterval(() => {
+    const left = Math.round((expiresAtMs - Date.now()) / 1000);
+    if (left <= 0) {
+      el.textContent = 'token đã hết hạn — ký lại';
+      el.classList.add('warn');
+      clearInterval(countdownTimer);
+      return;
+    }
+    el.classList.toggle('warn', left <= 15);
+    el.textContent = `token còn hiệu lực ${left}s`;
+  }, 250);
+}
+
+async function buildEmbedUrl() {
+  const baseUrl = $('baseUrl').value.trim().replace(/\/+$/, '');
+  const partnerCode = $('partnerCode').value.trim();
+  const secret = $('secret').value.trim();
+  const externalUserId = $('externalUserId').value.trim();
+  const displayName = $('displayName').value.trim();
+  const employeeCode = $('employeeCode').value.trim();
+
+  if (!baseUrl || !partnerCode || !secret || !externalUserId) {
+    setStatus('err', 'Thiếu thông tin: cần URL gốc, Mã đối tác, Secret, External User ID.');
+    return null;
+  }
+
+  const iat = Math.floor(Date.now() / 1000);
+  const payload = { sub: externalUserId, iat, exp: iat + MAX_TOKEN_AGE_SEC };
+  if (displayName) payload.name = displayName;
+  if (employeeCode) payload.employeeCode = employeeCode;
+
+  try {
+    const token = await signPartnerJwt(secret, payload);
+    const url = `${baseUrl}/embed?partner=${encodeURIComponent(partnerCode)}&token=${encodeURIComponent(token)}`;
+    setStatus('ok', `Đã ký token cho sub="${externalUserId}"${employeeCode ? `, employeeCode="${employeeCode}"` : ''}.\nToken có hiệu lực ${MAX_TOKEN_AGE_SEC}s kể từ lúc ký.`);
+    $('urlShown').textContent = url;
+    startCountdown((iat + MAX_TOKEN_AGE_SEC) * 1000);
+    return url;
+  } catch (e) {
+    setStatus('err', 'Lỗi khi ký token: ' + (e && e.message ? e.message : e));
+    return null;
+  }
+}
+
+$('btnGo').addEventListener('click', async () => {
+  const url = await buildEmbedUrl();
+  if (url) $('frame').src = url;
+});
+
+$('btnNewTab').addEventListener('click', async () => {
+  const url = await buildEmbedUrl();
+  if (url) window.open(url, '_blank');
+});
+</script>
+</body>
+</html>
