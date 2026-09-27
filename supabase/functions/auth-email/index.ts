@@ -1,13 +1,21 @@
 /**
  * Supabase Edge Function — AUTH EMAIL
  *
- * Hai hành động (action):
+ * Các hành động (action):
  *  1) action="welcome": gửi email CHÀO MỪNG sau khi đăng ký, kèm thông tin
  *     đăng nhập (email + mật khẩu vừa đặt). Có kiểm tra CHỐNG LẠM DỤNG: chỉ gửi
  *     nếu thực sự có user với email đó vừa được tạo trong ~15 phút gần đây.
  *  2) action="reset": QUÊN MẬT KHẨU — sinh mật khẩu MỚI ngẫu nhiên, đặt lại cho
  *     user (admin API), rồi gửi mật khẩu mới vào email. Luôn trả về thành công
  *     chung chung (không tiết lộ email có tồn tại hay không — chống dò email).
+ *  3) action="password-changed": thông báo bảo mật sau khi user tự đổi mật khẩu.
+ *  4) action="request_partner_upgrade" / "confirm_partner_upgrade": NÂNG CẤP TÀI
+ *     KHOẢN cho user vào Tuzi qua đối tác (Partner SSO, email giả dạng
+ *     `...@users.tuzi.internal`, KHÔNG có mật khẩu — xem partner-sso/index.ts)
+ *     → tự gắn 1 email thật + đặt mật khẩu để dùng trực tiếp tại tuzi.vn, giữ
+ *     nguyên toàn bộ dữ liệu vì cùng user_id. Xác thực quyền sở hữu email mới
+ *     bằng mã OTP 6 số (bảng `partner_upgrade_otps`, xem supabase_partner_upgrade.sql)
+ *     trước khi đổi — KHÔNG bao giờ đổi email/mật khẩu nếu chưa xác nhận đúng mã.
  *
  * Vì sao không gửi lại mật khẩu CŨ? Supabase băm (bcrypt) mật khẩu, không thể
  * giải ngược — nên "quên mật khẩu" chỉ có thể tạo mật khẩu MỚI.
@@ -17,7 +25,7 @@
  *   supabase secrets set RESEND_API_KEY=<khóa-Resend>
  *   supabase secrets set AUTH_FROM_EMAIL="Tuzi <no-reply@tuzi.vn>"   (tùy chọn)
  *   supabase secrets set APP_NAME="Tuzi — Tử Vi & Bát Tự"            (tùy chọn)
- *   -- chạy file supabase_auth_email.sql trong SQL Editor trước.
+ *   -- chạy file supabase_auth_email.sql RỒI supabase_partner_upgrade.sql trong SQL Editor trước.
  * (SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY do nền tảng tự cấp.)
  *
  * Yêu cầu: tài khoản Resend (resend.com) đã VERIFY domain tuzi.vn để gửi từ
@@ -48,6 +56,32 @@ function genPassword(len = 10): string {
   for (let i = 0; i < len; i++) out += chars[arr[i] % chars.length];
   // Đảm bảo có ít nhất 1 số + 1 chữ hoa (cho chắc chắn ≥ yêu cầu phổ biến).
   return out.slice(0, len - 2) + 'A' + (arr[0] % 9 + 1);
+}
+
+/** Domain email giả dùng cho user vào qua Partner SSO — PHẢI khớp `syntheticEmail()` trong
+ *  partner-sso/index.ts. Dùng làm tín hiệu duy nhất để nhận diện "tài khoản cần nâng cấp". */
+const PARTNER_EMAIL_SUFFIX = '@users.tuzi.internal';
+
+/** Sinh mã OTP 6 số ngẫu nhiên (crypto-safe). */
+function genOtp(): string {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return String(100000 + (arr[0] % 900000));
+}
+
+/** Hash SHA-256 → hex, dùng để lưu mã OTP mà không lưu bản gốc. */
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Lấy user hiện tại từ header Authorization (Bearer <access_token>). */
+async function getUserFromAuthHeader(supa: ReturnType<typeof createClient>, req: Request) {
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+  const { data, error } = await supa.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
 }
 
 function esc(s: string): string {
@@ -118,6 +152,98 @@ Deno.serve(async (req) => {
       <p style="font-size:13px;color:#f0c97a">⚠ Nếu KHÔNG phải bạn thực hiện, hãy dùng chức năng "Quên mật khẩu" ở màn đăng nhập để lấy lại quyền kiểm soát tài khoản ngay và liên hệ hỗ trợ.</p>`);
     const sent = await sendEmail(userEmail, `Mật khẩu vừa thay đổi — ${APP_NAME}`, html);
     return json({ ok: sent });
+  }
+
+  // ─────────────── NÂNG CẤP TÀI KHOẢN (Partner SSO) — bước 1: xin mã OTP ───────────────
+  // Chỉ cho user vào qua đối tác (email giả PARTNER_EMAIL_SUFFIX) — chặn user thường lợi
+  // dụng action này để đổi email tùy tiện (đổi email thường không thuộc phạm vi action này).
+  if (action === 'request_partner_upgrade') {
+    const user = await getUserFromAuthHeader(supa, req);
+    if (!user) return json({ ok: false, error: 'no_auth' }, 401);
+    if (!user.email?.endsWith(PARTNER_EMAIL_SUFFIX)) {
+      return json({ ok: false, error: 'not_partner_account' }, 403);
+    }
+    const newEmail = String(body.newEmail ?? '').trim().toLowerCase();
+    if (!newEmail || !newEmail.includes('@')) return json({ ok: false, error: 'invalid_email' }, 400);
+
+    const { data: existingUid } = await supa.rpc('find_user_id_by_email', { p_email: newEmail });
+    if (existingUid) return json({ ok: false, error: 'email_in_use' }, 409);
+
+    const code = genOtp();
+    const codeHash = await sha256Hex(code);
+    await supa.from('partner_upgrade_otps').delete().eq('user_id', user.id);
+    const { error: insErr } = await supa.from('partner_upgrade_otps').insert({
+      user_id: user.id, new_email: newEmail, code_hash: codeHash,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
+    if (insErr) {
+      console.error('[auth-email] request_partner_upgrade insert lỗi:', insErr.message);
+      return json({ ok: false, error: 'internal' }, 500);
+    }
+    // Debug tạm: chỉ ra ở log Edge Function (supabase functions logs auth-email), KHÔNG trả về client.
+    console.log('[auth-email] OTP debug (request_partner_upgrade):', code, '→', newEmail);
+
+    const html = wrap('Xác nhận email để nâng cấp tài khoản', `
+      <p>Bạn vừa yêu cầu gắn email này vào tài khoản Tuzi của mình để có thể đăng nhập trực tiếp tại
+      <b>tuzi.vn</b> (ngoài việc vào qua đối tác như hiện tại). Mã xác nhận của bạn:</p>
+      <div style="background:#1a1430;border:1px solid #3a2f5a;border-radius:8px;padding:16px;margin:12px 0;text-align:center">
+        <span style="font-size:28px;letter-spacing:6px;color:#e0b341;font-weight:800">${esc(code)}</span>
+      </div>
+      <p style="font-size:13px;color:#bbb">Mã có hiệu lực trong 10 phút. Nếu không phải bạn yêu cầu, hãy bỏ qua email này.</p>`);
+    const sent = await sendEmail(newEmail, `Mã xác nhận nâng cấp tài khoản — ${APP_NAME}`, html);
+    return json({ ok: sent });
+  }
+
+  // ─────────────── NÂNG CẤP TÀI KHOẢN (Partner SSO) — bước 2: xác nhận mã + đặt mật khẩu ──
+  if (action === 'confirm_partner_upgrade') {
+    const user = await getUserFromAuthHeader(supa, req);
+    if (!user) return json({ ok: false, error: 'no_auth' }, 401);
+    if (!user.email?.endsWith(PARTNER_EMAIL_SUFFIX)) {
+      return json({ ok: false, error: 'not_partner_account' }, 403);
+    }
+    const code = String(body.code ?? '').trim();
+    const newPassword = String(body.newPassword ?? '');
+    if (!code || newPassword.length < 6) return json({ ok: false, error: 'invalid_input' }, 400);
+
+    const { data: otp, error: otpErr } = await supa
+      .from('partner_upgrade_otps')
+      .select('id, new_email, code_hash, attempts, expires_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (otpErr || !otp) return json({ ok: false, error: 'no_pending_request' }, 400);
+    if (new Date(otp.expires_at).getTime() < Date.now()) {
+      await supa.from('partner_upgrade_otps').delete().eq('id', otp.id);
+      return json({ ok: false, error: 'expired' }, 400);
+    }
+    if (otp.attempts >= 5) {
+      await supa.from('partner_upgrade_otps').delete().eq('id', otp.id);
+      return json({ ok: false, error: 'too_many_attempts' }, 400);
+    }
+
+    const codeHash = await sha256Hex(code);
+    if (codeHash !== otp.code_hash) {
+      await supa.from('partner_upgrade_otps').update({ attempts: otp.attempts + 1 }).eq('id', otp.id);
+      return json({ ok: false, error: 'invalid_code' }, 400);
+    }
+
+    const { error: upErr } = await supa.auth.admin.updateUserById(user.id, {
+      email: otp.new_email, password: newPassword, email_confirm: true,
+    });
+    if (upErr) {
+      console.error('[auth-email] confirm_partner_upgrade updateUserById lỗi:', upErr.message);
+      return json({ ok: false, error: 'update_failed' }, 500);
+    }
+    await supa.from('partner_upgrade_otps').delete().eq('id', otp.id);
+
+    const html = wrap('Nâng cấp tài khoản thành công 🎉', `
+      <p>Tài khoản Tuzi của bạn đã được gắn email này làm email đăng nhập chính. Từ giờ bạn có thể
+      vào thẳng <b>tuzi.vn</b> hoặc app Tuzi bằng email + mật khẩu vừa đặt, không cần qua đối tác nữa
+      (vẫn có thể tiếp tục vào qua đối tác như bình thường nếu muốn — dữ liệu dùng chung 1 tài khoản).</p>`);
+    void sendEmail(otp.new_email, `Nâng cấp tài khoản thành công — ${APP_NAME}`, html);
+
+    return json({ ok: true, email: otp.new_email });
   }
 
   // Các action còn lại (welcome/reset) BẮT BUỘC có email hợp lệ trong body.

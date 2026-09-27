@@ -376,6 +376,25 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
   (path khác vẫn giữ `X-Frame-Options: SAMEORIGIN` như cũ).
 - `tuvi-admin/src/pages/Partners.tsx` — trang "🤝 Đối tác" trong dashboard admin để tự tạo/sửa/bật-tắt
   đối tác (không cần vào SQL Editor nữa), có nút sinh secret ngẫu nhiên + copy URL nhúng.
+- `tools/partner-sso-simulator.html` — công cụ DEV để tự ký JWT test (Web Crypto SubtleCrypto ngay
+  trong trình duyệt, secret không gửi đi đâu) và mở `/embed?...` local, mô phỏng 1 đối tác thật khi
+  chưa có đối tác thật để test. Chạy qua `http://localhost` (không phải `file://`, vì `crypto.subtle`
+  cần secure context) — cấu hình `partner-sim` trong `.claude/launch.json` (không commit, đã gitignore).
+
+**Nâng cấp tài khoản** (user vào qua đối tác muốn tự ra dùng trực tiếp tuzi.vn): user Partner SSO có
+email GIẢ (`...@users.tuzi.internal`) và KHÔNG có mật khẩu nào, nên màn "Đổi mật khẩu" thường (cần
+mật khẩu cũ) không dùng được. Xây riêng luồng self-service trong `AccountScreen.tsx` (card "🚀 Nâng
+cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu này CHÍNH LÀ domain
+`@users.tuzi.internal`, không cần cột/metadata riêng, tự hết hiệu lực khi đã gắn email thật):
+1. `request_partner_upgrade` (action mới trong `auth-email`): xác thực Bearer token đúng là tài
+   khoản Partner SSO, tra trùng email mới qua `find_user_id_by_email`, sinh mã OTP 6 số (hash SHA-256
+   lưu vào bảng `partner_upgrade_otps` — xem `supabase_partner_upgrade.sql`, KHÔNG lưu password ở
+   bước này), gửi mã qua Resend.
+2. `confirm_partner_upgrade`: xác nhận mã đúng (tối đa 5 lần sai, hết hạn 10 phút) rồi
+   `admin.updateUserById(userId, {email, password, email_confirm:true})` — giữ nguyên `userId` nên
+   toàn bộ dữ liệu (lá số/xu/`partner_user_links`) tự động giữ nguyên; vẫn dùng được cả 2 lối vào
+   (qua đối tác lẫn trực tiếp) sau khi nâng cấp.
+- `src/lib/auth.ts`: `AuthUser.isPartnerAccount`, `requestPartnerUpgrade()`, `confirmPartnerUpgrade()`.
 
 **Thêm 1 đối tác mới**:
 1. Vào `tuvi-admin` → trang "🤝 Đối tác" → tạo mới (mã, tên, secret sinh sẵn, bonus xu, thông tin
@@ -392,4 +411,4 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
 
 ---
 
-_Cập nhật lần cuối: 27/09/2026, sau khi thêm trang quản lý đối tác trong Admin + mã nhân viên._
+_Cập nhật lần cuối: 28/09/2026, sau khi thêm luồng "Nâng cấp tài khoản" cho user Partner SSO._

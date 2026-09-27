@@ -7,7 +7,15 @@ import {
   wallet, seedWallet, seedUnlocked, setWalletListeners,
 } from '../constants/premium';
 
-export interface AuthUser { id: string; email: string | null; displayName: string; }
+/** Domain email giả cho user vào qua Partner SSO — PHẢI khớp `syntheticEmail()` trong
+ *  supabase/functions/partner-sso/index.ts. Dùng làm tín hiệu "tài khoản cần nâng cấp". */
+const PARTNER_EMAIL_SUFFIX = '@users.tuzi.internal';
+
+export interface AuthUser {
+  id: string; email: string | null; displayName: string;
+  /** true nếu tài khoản được tạo qua Partner SSO và CHƯA gắn email thật (xem PARTNER_EMAIL_SUFFIX). */
+  isPartnerAccount: boolean;
+}
 
 /** Đăng ký tài khoản mới (email + mật khẩu). */
 export async function signUp(email: string, password: string, displayName: string) {
@@ -137,7 +145,53 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const { data } = await supabase.auth.getUser();
   const u = data.user;
   if (!u) return null;
-  return { id: u.id, email: u.email ?? null, displayName: (u.user_metadata?.display_name as string) || (u.email?.split('@')[0] ?? 'Bạn') };
+  return {
+    id: u.id,
+    email: u.email ?? null,
+    displayName: (u.user_metadata?.display_name as string) || (u.email?.split('@')[0] ?? 'Bạn'),
+    isPartnerAccount: !!u.email?.endsWith(PARTNER_EMAIL_SUFFIX),
+  };
+}
+
+/**
+ * NÂNG CẤP TÀI KHOẢN (Partner SSO) — bước 1: gửi mã OTP tới email thật muốn gắn vào tài
+ * khoản. Chỉ dùng được cho tài khoản vào qua đối tác (`isPartnerAccount`); server tự kiểm
+ * tra lại điều kiện này (xem action "request_partner_upgrade" trong auth-email).
+ */
+export async function requestPartnerUpgrade(newEmail: string): Promise<void> {
+  const clean = newEmail.trim().toLowerCase();
+  if (!clean || !clean.includes('@')) throw new Error('Email chưa hợp lệ.');
+  const { data, error } = await supabase.functions.invoke('auth-email', {
+    body: { action: 'request_partner_upgrade', newEmail: clean },
+  });
+  if (error) throw new Error('Không gửi được mã xác nhận. Vui lòng thử lại.');
+  if (data && (data as any).ok === false) {
+    const code = (data as any).error;
+    if (code === 'email_in_use') throw new Error('Email này đã được dùng cho tài khoản khác.');
+    if (code === 'not_partner_account') throw new Error('Tài khoản này không thuộc diện nâng cấp.');
+    throw new Error('Không gửi được mã xác nhận. Vui lòng thử lại.');
+  }
+}
+
+/**
+ * NÂNG CẤP TÀI KHOẢN — bước 2: xác nhận mã OTP + đặt mật khẩu, gắn email thật vào tài
+ * khoản hiện tại (giữ nguyên toàn bộ dữ liệu vì cùng user_id). Trả về email vừa gắn.
+ */
+export async function confirmPartnerUpgrade(code: string, newPassword: string): Promise<string> {
+  if (newPassword.length < 6) throw new Error('Mật khẩu mới tối thiểu 6 ký tự.');
+  const { data, error } = await supabase.functions.invoke('auth-email', {
+    body: { action: 'confirm_partner_upgrade', code: code.trim(), newPassword },
+  });
+  if (error) throw new Error('Không xác nhận được. Vui lòng thử lại.');
+  if (!data || (data as any).ok === false) {
+    const errCode = data && (data as any).error;
+    if (errCode === 'invalid_code') throw new Error('Mã xác nhận không đúng.');
+    if (errCode === 'expired') throw new Error('Mã xác nhận đã hết hạn. Vui lòng gửi lại mã.');
+    if (errCode === 'too_many_attempts') throw new Error('Nhập sai quá nhiều lần. Vui lòng gửi lại mã.');
+    if (errCode === 'no_pending_request') throw new Error('Chưa có yêu cầu nào đang chờ. Vui lòng gửi lại mã.');
+    throw new Error('Không xác nhận được. Vui lòng thử lại.');
+  }
+  return (data as any).email as string;
 }
 
 /**

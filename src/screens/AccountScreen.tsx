@@ -15,7 +15,7 @@ import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import AnimatedAvatar from '../components/AnimatedAvatar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
-import { updateDisplayName, updatePassword, deleteMyAccount } from '../lib/auth';
+import { updateDisplayName, updatePassword, deleteMyAccount, requestPartnerUpgrade, confirmPartnerUpgrade } from '../lib/auth';
 import { wallet } from '../constants/premium';
 import { APP_VERSION, COPYRIGHT } from '../constants/appInfo';
 import { AVATAR_OPTIONS } from '../core/avatarCatalog';
@@ -39,6 +39,43 @@ export default function AccountScreen() {
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
   const [savingPw, setSavingPw] = useState(false);
+
+  // Nâng cấp tài khoản (Partner SSO → email thật + mật khẩu tự đặt).
+  const [upgradeStep, setUpgradeStep] = useState<'form' | 'otp'>('form');
+  const [upgEmail, setUpgEmail] = useState('');
+  const [upgPw1, setUpgPw1] = useState('');
+  const [upgPw2, setUpgPw2] = useState('');
+  const [upgCode, setUpgCode] = useState('');
+  const [upgSending, setUpgSending] = useState(false);
+  const [upgConfirming, setUpgConfirming] = useState(false);
+
+  const onRequestUpgrade = async () => {
+    const email = upgEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) { Alert.alert('Email chưa hợp lệ', 'Vui lòng nhập email thật của bạn.'); return; }
+    if (upgPw1.length < 6) { Alert.alert('Mật khẩu yếu', 'Mật khẩu mới tối thiểu 6 ký tự.'); return; }
+    if (upgPw1 !== upgPw2) { Alert.alert('Không khớp', 'Hai lần nhập mật khẩu mới chưa khớp.'); return; }
+    setUpgSending(true);
+    try {
+      await requestPartnerUpgrade(email);
+      setUpgradeStep('otp');
+      Alert.alert('✓', `Đã gửi mã xác nhận tới ${email}. Mã có hiệu lực 10 phút.`);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e?.message || 'Không gửi được mã xác nhận.');
+    } finally { setUpgSending(false); }
+  };
+
+  const onConfirmUpgrade = async () => {
+    if (!upgCode.trim()) { Alert.alert('Thiếu mã', 'Vui lòng nhập mã xác nhận đã gửi tới email.'); return; }
+    setUpgConfirming(true);
+    try {
+      const email = await confirmPartnerUpgrade(upgCode, upgPw1);
+      setUpgCode(''); setUpgPw1(''); setUpgPw2(''); setUpgEmail(''); setUpgradeStep('form');
+      await refresh();
+      Alert.alert('🎉 Nâng cấp thành công', `Từ giờ bạn có thể đăng nhập trực tiếp tại tuzi.vn bằng email ${email} và mật khẩu vừa đặt.`);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e?.message || 'Không xác nhận được mã.');
+    } finally { setUpgConfirming(false); }
+  };
 
   const onSaveName = async () => {
     if (!name.trim()) { Alert.alert('Thiếu tên', 'Vui lòng nhập tên hiển thị.'); return; }
@@ -156,37 +193,99 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Đổi mật khẩu */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>🔑 Đổi mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                value={pwOld}
-                onChangeText={setPwOld}
-                placeholder="Mật khẩu hiện tại"
-                placeholderTextColor={COLORS.textMuted}
-                secureTextEntry autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.input}
-                value={pw1}
-                onChangeText={setPw1}
-                placeholder="Mật khẩu mới (≥ 6 ký tự, khác mật khẩu cũ)"
-                placeholderTextColor={COLORS.textMuted}
-                secureTextEntry autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.input}
-                value={pw2}
-                onChangeText={setPw2}
-                placeholder="Nhập lại mật khẩu mới"
-                placeholderTextColor={COLORS.textMuted}
-                secureTextEntry autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.btn} onPress={onSavePassword} disabled={savingPw} activeOpacity={0.85}>
-                {savingPw ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Đổi mật khẩu</Text>}
-              </TouchableOpacity>
-            </View>
+            {/* Đổi mật khẩu — không áp dụng cho tài khoản vào qua đối tác (chưa có mật khẩu cũ) */}
+            {!user.isPartnerAccount && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>🔑 Đổi mật khẩu</Text>
+                <TextInput
+                  style={styles.input}
+                  value={pwOld}
+                  onChangeText={setPwOld}
+                  placeholder="Mật khẩu hiện tại"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={pw1}
+                  onChangeText={setPw1}
+                  placeholder="Mật khẩu mới (≥ 6 ký tự, khác mật khẩu cũ)"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={pw2}
+                  onChangeText={setPw2}
+                  placeholder="Nhập lại mật khẩu mới"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry autoCapitalize="none"
+                />
+                <TouchableOpacity style={styles.btn} onPress={onSavePassword} disabled={savingPw} activeOpacity={0.85}>
+                  {savingPw ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Đổi mật khẩu</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Nâng cấp tài khoản — chỉ hiện cho user vào qua đối tác (Partner SSO) */}
+            {user.isPartnerAccount && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>🚀 Nâng cấp tài khoản</Text>
+                <Text style={styles.note}>
+                  Bạn đang vào Tuzi qua đối tác. Gắn email thật + đặt mật khẩu để có thể đăng nhập
+                  trực tiếp tại tuzi.vn — dữ liệu, lá số, xu hiện có vẫn được giữ nguyên.
+                </Text>
+                {upgradeStep === 'form' ? (
+                  <>
+                    <TextInput
+                      style={styles.input}
+                      value={upgEmail}
+                      onChangeText={setUpgEmail}
+                      placeholder="Email thật của bạn"
+                      placeholderTextColor={COLORS.textMuted}
+                      keyboardType="email-address" autoCapitalize="none"
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={upgPw1}
+                      onChangeText={setUpgPw1}
+                      placeholder="Mật khẩu muốn đặt (≥ 6 ký tự)"
+                      placeholderTextColor={COLORS.textMuted}
+                      secureTextEntry autoCapitalize="none"
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={upgPw2}
+                      onChangeText={setUpgPw2}
+                      placeholder="Nhập lại mật khẩu"
+                      placeholderTextColor={COLORS.textMuted}
+                      secureTextEntry autoCapitalize="none"
+                    />
+                    <TouchableOpacity style={styles.btn} onPress={onRequestUpgrade} disabled={upgSending} activeOpacity={0.85}>
+                      {upgSending ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Gửi mã xác nhận</Text>}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.note}>Mã xác nhận đã gửi tới {upgEmail}, hết hạn sau 10 phút.</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={upgCode}
+                      onChangeText={setUpgCode}
+                      placeholder="Mã xác nhận (6 số)"
+                      placeholderTextColor={COLORS.textMuted}
+                      keyboardType="number-pad"
+                    />
+                    <TouchableOpacity style={styles.btn} onPress={onConfirmUpgrade} disabled={upgConfirming} activeOpacity={0.85}>
+                      {upgConfirming ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Xác nhận &amp; Hoàn tất</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => { setUpgradeStep('form'); setUpgCode(''); }} activeOpacity={0.7}>
+                      <Text style={styles.linkText}>Đổi email khác</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
           </>
         )}
 
@@ -252,6 +351,7 @@ const styles = StyleSheet.create({
   },
   btn: { backgroundColor: COLORS.gold, borderRadius: 8, padding: SPACING.sm, alignItems: 'center' },
   btnText: { color: '#1a0a00', fontWeight: '800', fontSize: FONTS.size.md },
+  linkText: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700', textAlign: 'center' },
   langRow: { flexDirection: 'row', gap: SPACING.sm },
   langBtn: {
     flex: 1, padding: SPACING.sm, borderRadius: 8,
