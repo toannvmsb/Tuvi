@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, ActivityIndicator, Pressable, Modal, StyleSheet } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { COLORS, FONTS } from '../constants/theme';
@@ -20,6 +20,21 @@ import type { AstrologyResult } from '../types';
 type PGender = 'male' | 'female';
 type Hair = 'short' | 'medium' | 'long';
 
+/** Ảnh chân dung: ưu tiên file đã lưu trên máy; nếu file cục bộ không mở được thì tự dùng lại ảnh gốc trên server. */
+function PortraitImg({ item, style, resizeMode, label }: { item: SavedPortrait; style: any; resizeMode: 'cover' | 'contain'; label?: string }) {
+  const [useRemote, setUseRemote] = useState(false);
+  const uri = useRemote && item.remote ? item.remote : item.uri;
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      resizeMode={resizeMode}
+      accessibilityLabel={label}
+      onError={() => { if (!useRemote && item.remote && item.remote !== item.uri) setUseRemote(true); }}
+    />
+  );
+}
+
 export default function PortraitScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -31,12 +46,17 @@ export default function PortraitScreen() {
   const [age, setAge] = useState('28');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [drawn, setDrawn] = useState<SavedPortrait | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<SavedPortrait[]>([]);
   const [viewing, setViewing] = useState<SavedPortrait | null>(null);
   const galleryKey = galleryKeyOf(result?.birthInfo.chartId);
-  React.useEffect(() => { if (result) listPortraits(galleryKey).then(setGallery); }, [result, galleryKey]);
+  // Đọc lại kho ảnh của lá số này mỗi khi màn được mở/quay lại (và khi đổi lá số) — luôn lấy bản mới nhất đã lưu.
+  useFocusEffect(React.useCallback(() => {
+    let cancelled = false;
+    if (result) listPortraits(galleryKey).then(list => { if (!cancelled) setGallery(list); });
+    return () => { cancelled = true; };
+  }, [result, galleryKey]));
 
   // Mặc định giới tính người tương hợp = khác giới với chủ lá số (vẫn đổi được).
   // Ghi chú mặc định = "người [nơi sinh]" (nơi ở/nơi sinh đã gắn cho lá số, không có thì Hà Nội) —
@@ -85,7 +105,7 @@ export default function PortraitScreen() {
       chargeAgain(`portrait:${Date.now()}`, 'ai', cost);
       // Tự lưu offline vào máy (mobile) + ghi vào kho "Chân dung đã vẽ" của lá số này.
       const saved = await addPortrait(galleryKey, url);
-      setImageUrl(saved.uri);
+      setDrawn(saved);
       setGallery(await listPortraits(galleryKey));
     } catch (e: any) {
       // Không hiện chi tiết lỗi kỹ thuật (API/server) lên màn hình cho người dùng — chỉ log để
@@ -97,10 +117,16 @@ export default function PortraitScreen() {
     }
   };
 
-  const save = async (uri: string | null = imageUrl) => {
-    if (!uri) return;
+  const save = async (item: SavedPortrait | null = drawn) => {
+    if (!item) return;
     try {
-      await saveImageOrDownload(uri, 'tuzi-chan-dung.png');
+      try {
+        await saveImageOrDownload(item.uri, 'tuzi-chan-dung.png');
+      } catch (e: any) {
+        // File cục bộ không còn → thử lại bằng ảnh gốc trên server (không áp dụng khi thiếu quyền ảnh).
+        if (!item.remote || item.remote === item.uri || e?.message === PHOTO_PERMISSION_DENIED_MESSAGE) throw e;
+        await saveImageOrDownload(item.remote, 'tuzi-chan-dung.png');
+      }
       webAlert.alert('Đã lưu', 'Ảnh đã được lưu.');
     } catch (e: any) {
       // Giữ nguyên câu "cần cấp quyền" (người dùng tự xử lý được) — lỗi khác (kỹ thuật/thư viện)
@@ -133,16 +159,16 @@ export default function PortraitScreen() {
           <Text style={s.hint}>Đã điền sẵn nơi sinh để AI vẽ đúng vùng miền — anh/chị có thể sửa hoặc xóa.</Text>
         </Card>
 
-        <GoldButton label={busy ? 'Đang vẽ…' : imageUrl ? `Vẽ lại (${cost} xu)` : `Vẽ chân dung (${cost} xu)`} onPress={busy ? undefined : run} disabled={busy} />
+        <GoldButton label={busy ? 'Đang vẽ…' : drawn ? `Vẽ lại (${cost} xu)` : `Vẽ chân dung (${cost} xu)`} onPress={busy ? undefined : run} disabled={busy} />
         {busy && (
           <View style={s.busy}><ActivityIndicator color={COLORS.gold} /><Text style={s.busyTxt}>Tuzi đang vẽ, khoảng 10–20 giây…</Text></View>
         )}
         {error && <Text style={s.error}>{error}</Text>}
 
-        {imageUrl && (
+        {drawn && (
           <Card style={{ gap: 12, padding: 12 }}>
-            <Image source={{ uri: imageUrl }} style={s.img} resizeMode="cover" accessibilityLabel="Chân dung người tương hợp" />
-            <OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(imageUrl)} />
+            <PortraitImg item={drawn} style={s.img} resizeMode="cover" label="Chân dung người tương hợp" />
+            <OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(drawn)} />
           </Card>
         )}
 
@@ -152,8 +178,9 @@ export default function PortraitScreen() {
             <Text style={s.galTitle}>Chân dung đã vẽ</Text>
             <Text style={s.galCount}>{gallery.length} ảnh</Text>
           </View>
+          <Text style={s.galFor}>Lá số: {result.birthInfo.name?.trim() || '(không tên)'}</Text>
           {gallery.length === 0 ? (
-            <Body size={13}>Chưa có ảnh nào. Mỗi ảnh vẽ xong sẽ tự lưu tại đây trên máy này.</Body>
+            <Body size={13}>Lá số này chưa có ảnh nào. Mỗi ảnh vẽ xong sẽ tự lưu tại đây trên máy này.</Body>
           ) : (
             <View style={{ gap: 8 }}>
               {Array.from({ length: Math.ceil(gallery.length / 3) }, (_, r) => (
@@ -162,7 +189,7 @@ export default function PortraitScreen() {
                     const it = gallery[r * 3 + c];
                     return it ? (
                       <Pressable key={it.id} style={s.thumbWrap} onPress={() => setViewing(it)} accessibilityRole="button" accessibilityLabel="Xem ảnh chân dung đã vẽ">
-                        <Image source={{ uri: it.uri }} style={s.thumb} resizeMode="cover" />
+                        <PortraitImg item={it} style={s.thumb} resizeMode="cover" />
                       </Pressable>
                     ) : <View key={`e${c}`} style={s.thumbWrap} />;
                   })}
@@ -170,7 +197,7 @@ export default function PortraitScreen() {
               ))}
             </View>
           )}
-          <Text style={s.galNote}>Ảnh chỉ lưu trên máy đã vẽ. Đổi máy hoặc xóa dữ liệu ứng dụng sẽ không còn ảnh.</Text>
+          <Text style={s.galNote}>Mỗi lá số có kho ảnh riêng: đổi lá số "Của tôi" sẽ hiện kho ảnh của lá số đó, ảnh của lá số cũ vẫn được giữ lại và xem lại được khi quay về lá số cũ. Ảnh chỉ lưu trên máy đã vẽ — đổi máy hoặc xóa dữ liệu ứng dụng sẽ không còn ảnh.</Text>
         </Card>
       </KeyboardAwareScreen>
 
@@ -179,9 +206,9 @@ export default function PortraitScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setViewing(null)} accessibilityLabel="Đóng" />
           {viewing && (
             <View style={s.viewerBox}>
-              <Image source={{ uri: viewing.uri }} style={s.viewerImg} resizeMode="contain" />
+              <PortraitImg item={viewing} style={s.viewerImg} resizeMode="contain" />
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(viewing.uri)} /></View>
+                <View style={{ flex: 1 }}><OutlineButton label="Lưu ảnh vào thư viện" onPress={() => save(viewing)} /></View>
                 <View style={{ flex: 1 }}><GoldButton label="Đóng" onPress={() => setViewing(null)} /></View>
               </View>
             </View>
@@ -207,6 +234,7 @@ const s = StyleSheet.create({
   galHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   galTitle: { fontFamily: FONTS.display, fontSize: 24, color: COLORS.textPrimary },
   galCount: { fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
+  galFor: { fontFamily: FONTS.bodySemi, fontSize: 12.5, color: COLORS.goldLight, marginTop: -6 },
   galRow: { flexDirection: 'row', gap: 8 },
   thumbWrap: { flex: 1, aspectRatio: 1 },
   thumb: { width: '100%', height: '100%', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.24)' },

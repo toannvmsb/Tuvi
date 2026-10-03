@@ -16,6 +16,8 @@ import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE, type DayPickGroup, type DayPickTask
 import { pickGoodDays, pickGoodDaysGeneric, type DayPickOutput } from '../core/dayPicker';
 import { analyzeNumber, minDigitsFor, NUMBER_PURPOSES, type NumberAnalysis } from '../core/numberAnalysis';
 import { promptPersonalize } from '../lib/personalizePrompt';
+import { useWeather, dayForecast } from '../lib/weather';
+import { WeatherForDate } from '../components/WeatherCards';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DayPicker'>;
 
@@ -52,6 +54,9 @@ export default function DayPickerScreen({ route, navigation }: Props) {
   const [modal, setModal] = useState<ModalType>(null);
 
   const [output, setOutput] = useState<DayPickOutput | null>(null);
+
+  // Thời tiết cho các ngày gợi ý (Open-Meteo, dự báo 16 ngày tới, theo nơi ở của lá số "của tôi").
+  const { weather, loading: weatherLoading } = useWeather();
 
   // ── Chế độ "Xem số hợp mệnh" ──
   const isNumberMode = group?.code === NUMBER_GROUP_CODE;
@@ -157,7 +162,7 @@ export default function DayPickerScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScreenHeader title="Xem ngày tốt" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Xem ngày tốt cho sự kiện" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hàng giới thiệu: lá số đang xem, hoặc báo chế độ cơ bản nếu chưa gắn lá số */}
@@ -257,6 +262,15 @@ export default function DayPickerScreen({ route, navigation }: Props) {
                       <Text style={styles.dayHead}>{medal}  {d.dateLabel}</Text>
                       <Text style={styles.dayLunar}>{d.lunarLabel}</Text>
                       <Text style={styles.dayCanChi}>{d.canChiLabel}  ·  <Text style={{ color: COLORS.gold }}>{d.rating}</Text>  ·  <Text style={{ color: COLORS.gold, fontWeight: '800' }}>{d.score100}/100</Text></Text>
+
+                      {/* Thời tiết của ngày (chỉ có khi ngày nằm trong 16 ngày dự báo) */}
+                      {dayForecast(weather, d.date) ? (
+                        <WeatherForDate date={d.date} weather={weather} />
+                      ) : (!weatherLoading && (
+                        <Text style={styles.weatherNote}>
+                          🌤️ {weather ? 'Chưa có dự báo thời tiết cho ngày này (chỉ dự báo được trong 16 ngày tới).' : 'Chưa tải được dự báo thời tiết.'}
+                        </Text>
+                      ))}
 
                       {/* Trực · Lục Diệu · Hoàng/Hắc Đạo · 28 Tú */}
                       <View style={styles.chipRow}>
@@ -476,6 +490,7 @@ const styles = StyleSheet.create({
   chipGreen: { borderColor: '#22c55e' },
   chipGray: { borderColor: '#475569' },
   dayWarning: { color: '#fca5a5', fontSize: FONTS.size.xs, fontWeight: '700', marginTop: 2 },
+  weatherNote: { color: COLORS.textMuted, fontSize: FONTS.size.xs, fontStyle: 'italic', marginTop: 2 },
 
   // Chế độ xem số
   numInput: {

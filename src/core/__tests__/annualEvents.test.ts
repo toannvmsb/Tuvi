@@ -172,27 +172,48 @@ describe('annualEvents engine', () => {
     }
   });
 
-  test('groupEventsForExport: chỉ giữ sự kiện >= ngưỡng, nhóm theo lĩnh vực, không giới hạn số lượng/nhóm', () => {
-    const pred = computeAnnualPrediction(sampleResult(), 2026);
-    const groups = groupEventsForExport(pred.allEvents, 40);
-    for (const g of groups) {
-      expect(g.events.length).toBeGreaterThan(0);
-      for (const e of g.events) {
-        expect(e.strength).toBeGreaterThanOrEqual(40);
-        expect(e.category).toBe(g.category);
+  test('groupEventsForExport: gồm toàn bộ sự kiện nổi bật + sự kiện >= 45 điểm, nhóm theo lĩnh vực, không giới hạn số lượng/nhóm', () => {
+    for (const result of allSampleResults()) {
+      const pred = computeAnnualPrediction(result, 2026);
+      const groups = groupEventsForExport(pred.allEvents, 45, pred.featuredGroups);
+      const featuredIds = new Set(pred.featuredGroups.flatMap(g => g.events.map(e => e.eventId)));
+      const exported = groups.flatMap(g => g.events);
+      const exportedIds = new Set(exported.map(e => e.eventId));
+
+      // (1) Mọi sự kiện đang hiện ở "Sự kiện nổi bật" đều có mặt trong PDF (kể cả điểm thấp hơn 45).
+      for (const id of featuredIds) expect(exportedIds.has(id)).toBe(true);
+      // (2) Sự kiện KHÔNG nổi bật chỉ có mặt nếu đạt >= 45 điểm; và mọi sự kiện >= 45 đều có mặt.
+      for (const e of exported) {
+        if (!featuredIds.has(e.eventId)) expect(e.strength).toBeGreaterThanOrEqual(45);
       }
-      for (let i = 1; i < g.events.length; i++) {
-        expect(g.events[i].strength).toBeLessThanOrEqual(g.events[i - 1].strength);
+      for (const e of pred.allEvents) {
+        if (e.strength >= 45) expect(exportedIds.has(e.eventId)).toBe(true);
       }
+      // (3) Nhóm đúng lĩnh vực, xếp giảm dần theo điểm trong nhóm, không trùng sự kiện.
+      expect(exportedIds.size).toBe(exported.length);
+      for (const g of groups) {
+        expect(g.events.length).toBeGreaterThan(0);
+        for (const e of g.events) expect(e.category).toBe(g.category);
+        for (let i = 1; i < g.events.length; i++) {
+          expect(g.events[i].strength).toBeLessThanOrEqual(g.events[i - 1].strength);
+        }
+      }
+      // allEvents chứa toàn bộ ứng viên đã chấm điểm (kể cả điểm thấp) — khớp debugCandidateCount.
+      expect(pred.allEvents.length).toBe(pred.debugCandidateCount);
     }
-    // allEvents chứa toàn bộ ứng viên đã chấm điểm (kể cả điểm thấp) — khớp debugCandidateCount.
-    expect(pred.allEvents.length).toBe(pred.debugCandidateCount);
   });
 
-  test('bản xuất PDF đầy đủ dựng được văn bản không lỗi', () => {
+  test('bản xuất PDF đầy đủ: đánh số thứ tự liên tục và ghi điểm từng sự kiện', () => {
     const pred = computeAnnualPrediction(sampleResult(), 2026);
     const md = generateFullAnnualEventsExport(pred);
     expect(typeof md).toBe('string');
     expect(md.length).toBeGreaterThan(10);
+
+    const groups = groupEventsForExport(pred.allEvents, 45, pred.featuredGroups);
+    const flat = groups.flatMap(g => g.events);
+    const headings = md.split('\n').filter(l => /^## \d+\. /.test(l));
+    expect(headings.length).toBe(flat.length);
+    headings.forEach((h, i) => expect(h.startsWith(`## ${i + 1}. `)).toBe(true));
+    for (const e of flat) expect(md).toContain(`**Điểm: ${e.strength}/100**`);
   });
 });

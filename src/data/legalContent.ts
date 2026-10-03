@@ -9,7 +9,7 @@
 export const LEGAL_UPDATED = '26/09/2026';
 
 export const CONTACT = {
-  appName: 'Tuzi — Trợ lý thông minh của bạn',
+  appName: 'Tuzi — Trợ lý tử vi của bạn',
   publisher: 'Tuzi.vn',
   website: 'https://tuzi.vn',
   email: 'tuzi.vn@gmail.com',

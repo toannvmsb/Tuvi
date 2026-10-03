@@ -1,6 +1,6 @@
 export default {
   // App
-  appName: 'Trợ lý thông minh của bạn',
+  appName: 'Trợ lý tử vi của bạn',
   loading: 'Đang tính toán...',
   calculate: 'Lưu và Xem lá số',
   back: 'Quay lại',
@@ -9,7 +9,7 @@ export default {
   cancel: 'Hủy',
 
   // Home
-  homeTitle: 'Trợ lý thông minh của bạn',
+  homeTitle: 'Trợ lý tử vi của bạn',
   homeSubtitle: 'Đồng hành mỗi ngày · Tử Vi và Bát Tự chuyên sâu',
   newChart: 'Lập lá số mới',
   recentCharts: 'Lá số gần đây',
@@ -17,7 +17,7 @@ export default {
   homeFeatureBatTu: 'Bát Tự Tứ Trụ\nNgũ Hành Vượng Suy',
   homeFeatureAI: 'Phân tích lá số theo\nModel AI hiện đại nhất',
   homeFeatureWealth: 'Biểu đồ Tài Lộc\ntheo Đại Vận 100 tuổi',
-  homeCredit: 'Tuzi — Trợ lý thông minh của bạn',
+  homeCredit: 'Tuzi — Trợ lý tử vi của bạn',
 
   // Input Form
   inputTitle: 'Tạo mới Lá số',

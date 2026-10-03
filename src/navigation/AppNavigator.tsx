@@ -134,7 +134,7 @@ const ROUTE_TITLES: Record<string, string> = {
   FullChartAI: 'Phân tích AI toàn lá số',
   WealthChart: 'Tài Lộc',
   DailyView: 'Xem theo ngày',
-  DayPicker: 'Xem ngày tốt',
+  DayPicker: 'Xem ngày tốt cho sự kiện',
   Tasks: 'Việc & Mục tiêu',
   Notes: 'Ghi chú nhanh',
   EventDetail: 'Sự kiện sắp tới',
@@ -152,7 +152,7 @@ const ROUTE_TITLES: Record<string, string> = {
   About: 'Giới thiệu',
 };
 
-const BRAND = 'Tuzi — Trợ lý thông minh của bạn';
+const BRAND = 'Tuzi — Trợ lý tử vi của bạn';
 
 export default function AppNavigator() {
   usePushNotificationTap();

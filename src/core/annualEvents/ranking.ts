@@ -10,8 +10,9 @@
  *    LUÔN lấy đúng 3 sự kiện mạnh nhất trong nhóm, xếp giảm dần — KHÔNG chặn điểm tối thiểu, KHÔNG
  *    gộp trùng (ROLLUP_GROUPS không áp dụng ở đây: có nhóm như "Tài sản" mà toàn bộ 9 sự kiện con
  *    đều chung 1 rollup key, gộp sẽ chỉ còn lại 1/3 chỗ — sai yêu cầu "mỗi nhóm 3 sự kiện con").
- *    `groupEventsForExport()` dùng ngưỡng riêng (mặc định 40 điểm), không giới hạn số lượng/nhóm —
- *    chỉ dùng để xuất PDF đầy đủ (nút "Xuất đầy đủ các sự kiện"), không hiển thị hết trên app.
+ *    `groupEventsForExport()`: toàn bộ sự kiện đang hiện ở "Sự kiện nổi bật" + các sự kiện khác đạt
+ *    từ 45 điểm (ngưỡng riêng, không giới hạn số lượng/nhóm) — chỉ dùng để xuất PDF đầy đủ (nút
+ *    "Xuất đầy đủ các sự kiện"), không hiển thị hết trên app.
  *
  * — Lịch sử `rankEvents()`: thay ENGINE_SPEC §21 "tối đa 5 sự kiện/năm, tối đa 2 sự kiện/nhóm".
  * Ngưỡng 50 từng thử ở mức 45 nhưng ra quá nhiều (có lá số lên tới 66/85 sự kiện) — nâng lên 50 +
@@ -80,9 +81,14 @@ export function groupFeaturedEvents(all: ScoredEvent[], perCategory = 3): Catego
   return groups;
 }
 
-/** Nhóm đầy đủ để xuất PDF — xem giải thích ở đầu file. */
-export function groupEventsForExport(all: ScoredEvent[], minStrength = 40): CategoryEventGroup[] {
-  const byCategory = groupByCategory(all.filter(e => e.strength >= minStrength));
+/**
+ * Nhóm đầy đủ để xuất PDF — xem giải thích ở đầu file. Gồm: (1) TOÀN BỘ sự kiện đang hiện ở mục
+ * "Sự kiện nổi bật" (`featured`, bất kể điểm) + (2) mọi sự kiện khác đạt >= `minStrength` (mặc định 45).
+ * Trong mỗi nhóm xếp giảm dần theo điểm.
+ */
+export function groupEventsForExport(all: ScoredEvent[], minStrength = 45, featured: CategoryEventGroup[] = []): CategoryEventGroup[] {
+  const featuredIds = new Set(featured.flatMap(g => g.events.map(e => e.eventId)));
+  const byCategory = groupByCategory(all.filter(e => e.strength >= minStrength || featuredIds.has(e.eventId)));
   const groups: CategoryEventGroup[] = [];
   for (const category of Object.keys(CATEGORY_VN)) {
     const events = byCategory.get(category);

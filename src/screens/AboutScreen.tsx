@@ -10,7 +10,7 @@ import BrandLogo from '../components/BrandLogo';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { APP_VERSION } from '../constants/appInfo';
 
-const APP_NAME = 'Tuzi — Trợ lý thông minh của bạn';
+const APP_NAME = 'Tuzi — Trợ lý tử vi của bạn';
 // Lấy từ app.json (qua Constants.expoConfig) — KHÔNG hardcode riêng ở đây nữa để tránh lệch
 // phiên bản với app.json mỗi lần bump (đã từng xảy ra: app.json ghi 1.0.1 nhưng đây vẫn giữ bản cũ).
 const VERSION = APP_VERSION;

@@ -157,7 +157,7 @@ export default function SettingsScreen() {
         <Text style={sx.groupTitle}>VỀ ỨNG DỤNG</Text>
         <Card>
           <Body>
-            {'Tuzi — Trợ lý thông minh của bạn\nPhương pháp tính theo Tử Vi Nam Phái của thầy Lê Quang Lăng.\n\nPhân tích AI sử dụng Claude Sonnet 4.5 của Anthropic.'}
+            {'Tuzi — Trợ lý tử vi của bạn\nPhương pháp tính theo Tử Vi Nam Phái của thầy Lê Quang Lăng.\n\nPhân tích AI sử dụng Claude Sonnet 4.5 của Anthropic.'}
           </Body>
         </Card>
 
