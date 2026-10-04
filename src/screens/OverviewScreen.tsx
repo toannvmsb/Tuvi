@@ -283,6 +283,31 @@ export default function OverviewScreen() {
               <Eyebrow>{`Nguyệt vận · Tháng ${lunarNow.month} âm`}</Eyebrow>
               <Text style={s.tierText}>Tháng này kích hoạt phần nào của Đại vận và Tiểu vận</Text>
             </Pressable>
+            <View style={s.hr} />
+            {/* Nghiệm quá khứ (2/5) · Vận hạn diễn ra trong năm (1/5) · Luận tương lai (2/5) */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                style={[s.lifeBtn, { flex: 2, backgroundColor: COLORS.purple + '17', borderColor: COLORS.purple + '4D' }]}
+                onPress={() => navigation.navigate('PastReview', { result: myResult })}
+                accessibilityRole="button" accessibilityLabel="Nghiệm quá khứ"
+              >
+                <Text style={s.lifeTxt} numberOfLines={2}>Nghiệm quá khứ</Text>
+              </Pressable>
+              <Pressable
+                style={[s.lifeBtn, { flex: 1, backgroundColor: COLORS.gold + '26', borderColor: COLORS.gold + '99' }]}
+                onPress={() => navigation.navigate('AnnualEvents', { result: myResult, year: y })}
+                accessibilityRole="button" accessibilityLabel={`Vận hạn diễn ra trong năm ${y}`}
+              >
+                <Text style={s.lifeYear}>{y}</Text>
+              </Pressable>
+              <Pressable
+                style={[s.lifeBtn, { flex: 2, backgroundColor: COLORS.green + '17', borderColor: COLORS.green + '4D' }]}
+                onPress={() => navigation.navigate('FutureReview', { result: myResult })}
+                accessibilityRole="button" accessibilityLabel="Luận tương lai"
+              >
+                <Text style={s.lifeTxt} numberOfLines={2}>Luận tương lai</Text>
+              </Pressable>
+            </View>
             <Pressable style={s.linkRow} onPress={() => navigation.navigate('VanHub')} accessibilityRole="button">
               <Text style={s.linkTxt}>Xem toàn bộ vận hạn</Text>
               <Icon name="arrow" size={18} color="#F5E0AE" />
@@ -392,5 +417,8 @@ const s = StyleSheet.create({
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
   shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
   shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  lifeBtn: { minHeight: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 4 },
+  lifeTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, lineHeight: 18, color: COLORS.textPrimary, textAlign: 'center' },
+  lifeYear: { fontFamily: FONTS.display, fontSize: 20, lineHeight: 24, color: COLORS.goldLight },
   shortcutTxt: { fontFamily: FONTS.bodySemi, fontSize: 12, lineHeight: 15, paddingHorizontal: 2, color: COLORS.textPrimary, textAlign: 'center' },
 });

@@ -76,14 +76,31 @@ export default function VanHubScreen() {
         onPress={() => navigation.navigate('PastReview', { result })}
         accessibilityRole="button" accessibilityLabel={`Nghiệm quá khứ: những năm đã qua của ${result.birthInfo.name || 'bạn'}`}
       >
-        <Card style={s.pastBox}>
-          <View style={s.pastIcon}><Icon name="wave" size={24} color={COLORS.purple} /></View>
+        <Card hero style={s.annualBox}>
+          <View style={s.annualIcon}><Icon name="wave" size={26} color="#1E1230" /></View>
           <View style={{ flex: 1, gap: 3 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Eyebrow>Nghiệm quá khứ</Eyebrow>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Eyebrow>{`Nghiệm quá khứ của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
               <View style={s.betaPill}><Text style={s.betaTxt}>Thử nghiệm</Text></View>
             </View>
-            <Display size={18} numberOfLines={2}>Những năm đã qua có thể đã xảy ra gì, và vì sao</Display>
+            <Display size={20} numberOfLines={2}>Những năm đã qua có thể đã xảy ra gì, và vì sao</Display>
+          </View>
+          <Icon name="arrow" size={20} color={COLORS.goldLight} />
+        </Card>
+      </Pressable>
+
+      <Pressable
+        onPress={() => navigation.navigate('FutureReview', { result })}
+        accessibilityRole="button" accessibilityLabel={`Luận tương lai: những năm sắp tới của ${result.birthInfo.name || 'bạn'}`}
+      >
+        <Card hero style={s.annualBox}>
+          <View style={s.annualIcon}><Icon name="chart" size={26} color="#1E1230" /></View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Eyebrow>{`Luận tương lai của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
+              <View style={s.betaPill}><Text style={s.betaTxt}>Thử nghiệm</Text></View>
+            </View>
+            <Display size={20} numberOfLines={2}>Những năm sắp tới có xu hướng gì, nên chuẩn bị ra sao</Display>
           </View>
           <Icon name="arrow" size={20} color={COLORS.goldLight} />
         </Card>
@@ -131,8 +148,6 @@ export default function VanHubScreen() {
 
 const s = StyleSheet.create({
   annualBox: { flexDirection: 'row', alignItems: 'center', gap: 14, borderColor: 'rgba(226,194,133,0.55)', borderWidth: 1.5 },
-  pastBox: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  pastIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(183,156,255,0.16)' },
   betaPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(183,156,255,0.55)', backgroundColor: 'rgba(183,156,255,0.14)' },
   betaTxt: { fontFamily: FONTS.bodySemi, fontSize: 10.5, color: COLORS.purple },
   annualIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.gold },

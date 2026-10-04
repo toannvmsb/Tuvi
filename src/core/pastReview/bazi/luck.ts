@@ -12,7 +12,7 @@ import { getSolarTermDate } from '../../solarTerms';
 import { BRANCHES, STEMS, isYangStem } from './tables';
 
 export interface BaziLuckPillar {
-  index: number;       // 1..9
+  index: number;       // 1..12
   startYear: number;   // năm dương lịch bắt đầu
   endYear: number;
   startAge: number;    // tuổi (năm − năm sinh + 1) lúc bắt đầu
@@ -66,7 +66,7 @@ export function computeBaziLuck(result: AstrologyResult): BaziLuck {
   const bi = BRANCHES.indexOf(bt.pillars[1].branch);
   const dir = forward ? 1 : -1;
   const pillars: BaziLuckPillar[] = [];
-  for (let k = 1; k <= 9; k++) {
+  for (let k = 1; k <= 12; k++) {   // 12 vận ≈ 120 năm: đủ cho Luận tương lai tới 100 tuổi
     const startYear = by + startYearsAfterBirth + 10 * (k - 1);
     pillars.push({
       index: k,
@@ -80,7 +80,7 @@ export function computeBaziLuck(result: AstrologyResult): BaziLuck {
   return { forward, startYearsAfterBirth, pillars };
 }
 
-/** Vận đang đi của một năm (null nếu chưa vào vận đầu tiên hoặc đã quá vận thứ 9). */
+/** Vận đang đi của một năm (null nếu chưa vào vận đầu tiên hoặc đã quá vận thứ 12). */
 export function luckAtYear(luck: BaziLuck, year: number): BaziLuckPillar | null {
   return luck.pillars.find(p => year >= p.startYear && year <= p.endYear) ?? null;
 }

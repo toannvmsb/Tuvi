@@ -3,7 +3,8 @@
  *  - trục ngang = tuổi, dải nền xen kẽ theo ĐẠI HẠN (nhãn cung ở đáy);
  *  - đường tổng (vàng) + bốn đường mảng (sự nghiệp / tài lộc / tình duyên / gia đạo) bật–tắt được;
  *    KHÔNG có đường sức khỏe, "chỗ ở" chỉ nằm ở danh sách mốc;
- *  - phần tương lai bị làm mờ và ghi rõ "chưa xét" (không dự đoán);
+ *  - phần tương lai bị làm mờ và ghi rõ "chưa xét" (không dự đoán). Ở chế độ `mode="future"` (màn Luận tương lai) thì ngược lại:
+ *    trục kéo tới ~100 tuổi, không làm mờ, chỉ là xu hướng;
  *  - chấm trên đường tổng: mốc đã chọn (vòng vàng) và năm người xem đã xác nhận Đúng (chấm xanh);
  *  - chạm vào biểu đồ → chọn năm gần nhất (onSelectYear).
  */
@@ -30,9 +31,9 @@ const PAD = { l: 30, r: 10, t: 12, b: 34 };
 const FUTURE_AGES = 8; // chiều rộng vùng "tương lai" làm mờ (tuổi)
 
 export default function PastLifeChart({
-  timeline, width, height = 230, active, confirmedYears, selectedYear, onSelectYear,
+  timeline, width, height = 230, active, confirmedYears, selectedYear, onSelectYear, mode = 'past',
 }: {
-  timeline: Timeline; width: number; height?: number;
+  timeline: Timeline; width: number; height?: number; mode?: 'past' | 'future';
   active: Record<SeriesKey, boolean>;
   confirmedYears: Set<number>;
   selectedYear?: number | null;
@@ -43,7 +44,7 @@ export default function PastLifeChart({
     if (!yrs.length) return null;
     const minAge = yrs[0].age;
     const nowAge = timeline.currentAge;
-    const maxAge = nowAge + FUTURE_AGES;
+    const maxAge = mode === 'future' ? yrs[yrs.length - 1].age + 1 : nowAge + FUTURE_AGES;
     const w = width - PAD.l - PAD.r;
     const h = height - PAD.t - PAD.b;
     const x = (age: number) => PAD.l + ((age - minAge) / Math.max(1, maxAge - minAge)) * w;
@@ -55,7 +56,7 @@ export default function PastLifeChart({
     maxAbs = Math.min(100, Math.ceil(maxAbs / 10) * 10);
     const yScale = (v: number) => PAD.t + h / 2 - (v / maxAbs) * (h / 2);
     return { yrs, minAge, nowAge, maxAge, w, h, x, yScale, maxAbs };
-  }, [timeline, width, height]);
+  }, [timeline, width, height, mode]);
 
   if (!geo) return null;
   const { yrs, minAge, nowAge, x, yScale, maxAbs } = geo;
@@ -82,7 +83,7 @@ export default function PastLifeChart({
       <Pressable
         onPress={onPress}
         accessibilityRole="image"
-        accessibilityLabel={`Biểu đồ thăng trầm từ tuổi ${minAge} đến tuổi ${nowAge}. Chạm vào một năm để xem chi tiết.`}
+        accessibilityLabel={`Biểu đồ ${mode === 'future' ? 'xu hướng' : 'thăng trầm'} từ tuổi ${minAge} đến tuổi ${mode === 'future' ? geo.maxAge - 1 : nowAge}. Chạm vào một năm để xem chi tiết.`}
       >
         <Svg width={width} height={height}>
           {/* dải đại hạn xen kẽ */}
@@ -93,19 +94,25 @@ export default function PastLifeChart({
               <G key={c.key}>
                 <Rect x={x(a0)} y={PAD.t} width={x(a1) - x(a0)} height={plotBottom - PAD.t}
                   fill={i % 2 ? 'rgba(226,194,133,0.05)' : 'rgba(183,156,255,0.06)'} />
-                <SvgText x={(x(a0) + x(a1)) / 2} y={height - 6} fontSize={9.5} fill={COLORS.textMuted} textAnchor="middle">
-                  {c.palaceName ?? `${c.startAge}-${c.endAge}`}
-                </SvgText>
+                {x(a1) - x(a0) >= 36 && (
+                  <SvgText x={(x(a0) + x(a1)) / 2} y={height - 6} fontSize={9.5} fill={COLORS.textMuted} textAnchor="middle">
+                    {c.palaceName ?? `${c.startAge}-${c.endAge}`}
+                  </SvgText>
+                )}
               </G>
             );
           })}
 
-          {/* tương lai: làm mờ, không vẽ đường */}
-          <Rect x={x(nowAge + 0.5)} y={PAD.t} width={Math.max(0, x(geo.maxAge) - x(nowAge + 0.5))} height={plotBottom - PAD.t}
-            fill="rgba(18,19,43,0.72)" />
-          <SvgText x={(x(nowAge + 0.5) + x(geo.maxAge)) / 2} y={PAD.t + 14} fontSize={9.5} fill={COLORS.textMuted} textAnchor="middle">
-            chưa xét
-          </SvgText>
+          {/* tương lai: làm mờ, không vẽ đường (chỉ ở chế độ quá khứ) */}
+          {mode === 'past' && (
+            <>
+              <Rect x={x(nowAge + 0.5)} y={PAD.t} width={Math.max(0, x(geo.maxAge) - x(nowAge + 0.5))} height={plotBottom - PAD.t}
+                fill="rgba(18,19,43,0.72)" />
+              <SvgText x={(x(nowAge + 0.5) + x(geo.maxAge) ) / 2} y={PAD.t + 14} fontSize={9.5} fill={COLORS.textMuted} textAnchor="middle">
+                chưa xét
+              </SvgText>
+            </>
+          )}
 
           {/* trục: 0 và biên */}
           <Line x1={PAD.l} x2={width - PAD.r} y1={yScale(0)} y2={yScale(0)} stroke="rgba(243,235,220,0.35)" strokeDasharray="4 4" strokeWidth={1} />
@@ -113,7 +120,7 @@ export default function PastLifeChart({
           <SvgText x={PAD.l - 4} y={yScale(-maxAbs) + 3} fontSize={9} fill={COLORS.textMuted} textAnchor="end">khó</SvgText>
 
           {/* nhãn tuổi mỗi 10 */}
-          {Array.from({ length: Math.floor(nowAge / 10) + 1 }, (_, i) => i * 10).filter(a => a >= minAge && a <= nowAge).map(a => (
+          {Array.from({ length: Math.floor(geo.maxAge / 10) + 1 }, (_, i) => i * 10).filter(a => a >= minAge && a <= (mode === 'future' ? geo.maxAge : nowAge)).map(a => (
             <SvgText key={a} x={x(a)} y={plotBottom + 12} fontSize={9.5} fill={COLORS.textSecondary} textAnchor="middle">{a}</SvgText>
           ))}
 

@@ -38,6 +38,7 @@ export const PREMIUM = {
     annualEvents: 20,   // Nâng cao Luận sự kiện trong năm (bản offline, không AI)
     aiAnnualEvents: 20,  // Phân tích AI Luận sự kiện trong năm (85 sự kiện + thời điểm tháng)
     pastLife: 50,       // Mở "Dòng đời đã qua" cho một lá số (TẠM 50 xu — chỉnh ở admin: price_past_life); KHÔNG nằm trong combo trọn đời
+    futureLife: 50,     // Mở toàn bộ "Luận tương lai" cho một lá số (TẠM 50 xu — price_future_life); KHÔNG nằm trong combo trọn đời
     aiChat: 1,          // Chat AI nổi — 1 lượt hỏi vượt quota miễn phí/ngày
   },
 };

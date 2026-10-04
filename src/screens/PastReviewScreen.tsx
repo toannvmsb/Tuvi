@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
+import DetailLinkButton from '../components/DetailLinkButton';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
 import { Screen, Card, Eyebrow, Body, Segmented } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
@@ -236,6 +237,7 @@ export default function PastReviewScreen() {
           tháng dương lịch. Tuzi chưa hỗ trợ lá số không rõ giờ sinh. Nội dung chỉ mang tính tham khảo, không thay thế
           lời khuyên chuyên môn.
         </Text>
+        <DetailLinkButton result={result} target="DaiVan" />
       </Screen>
     </View>
   );

@@ -411,11 +411,11 @@ cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu n�
 
 ---
 
-## 11. Nghiệm quá khứ & Dòng đời đã qua (đang làm — 4 giai đoạn, nhãn "Thử nghiệm")
+## 11. Nghiệm quá khứ, Dòng đời đã qua, Luận tương lai (nhãn "Thử nghiệm")
 
-Box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen` → route `PastReview`. Đặc tả gốc của anh Toàn:
+Các box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen` → route `PastReview` (rồi `FutureReview`). Đặc tả gốc của anh Toàn:
 `D:\Lap trinh\Tu vi\tuzi-nghiem-qua-khu-spec.md` (được phép chỉnh). Tiến độ: **GĐ1 bộ máy** + **GĐ2 Nghiệm quá khứ/Vì sao** (đã commit),
-**GĐ3 Dòng đời đã qua** (làm xong, chờ duyệt), GĐ4 Chế độ học + Luận tương lai (chưa làm).
+**GĐ3 Dòng đời đã qua** (đã commit), **GĐ4 Luận tương lai** (làm xong, chờ duyệt).
 
 **Tên hiển thị các tầng "Vì sao" (anh Toàn chốt 04/10/2026):** Bẩm sinh (goc) · Giai đoạn 10 năm (nen) · Trong năm (ngoi) · Tóm lại (ket) — `LAYER_FRIENDLY` trong `explainWhy.ts`; mã nội bộ goc/nen/ngoi giữ nguyên trong code/dữ liệu. Phần "Xem sâu hơn (dành cho người học tử vi)" viết lời thường, KHÔNG hiện mã quy tắc/điểm thô (test chặn); các dòng cùng một sao phục vụ nhiều sự kiện được gộp thành một dòng.
 
@@ -448,6 +448,18 @@ mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); 
   (gitignored) — anh Toàn cần tự sao lưu ra nơi an toàn; mất khóa = mất toàn bộ ghi chú.** Ghi chú không vào AI và không vào thẻ chia sẻ.
 - SQL: `supabase_past_life.sql` (ĐÃ chạy production). Edge Function `review-notes` ĐÃ deploy.
 
+**GĐ4 — Luận tương lai** (`FutureReviewScreen`, route `FutureReview`; box thứ ba ở `VanHubScreen`, ngay sau box Nghiệm quá khứ). Anh Toàn ĐÃ BỎ
+"Chế độ học" (04/10/2026) — đừng làm lại; các bảng/RPC của nó đã gỡ khỏi production (`supabase_future_review.sql`).
+- Phân tích các năm SẮP TỚI (từ năm âm lịch hiện tại tới khi đủ 100 tuổi) bằng ĐÚNG bộ máy của Nghiệm quá khứ (Tử Vi qua engine "Luận sự kiện năm" +
+  Bát Tự, 5 mảng, bốn tầng, cùng `scoreYears`): `pastReview/futureReview.ts` (`computeFutureReview`, `selectFutureMarkers`: ≤12 năm nổi bật, ≤3/mảng, ≤2/đại hạn,
+  mỗi đại hạn có đại diện), `futurePhrases.ts` (xu hướng "Có thể bạn sẽ …"; năm nhạy cảm chỉ nói mảng đời; mỗi năm một GỢI Ý hành động — cơ hội nếu điểm có dấu ≥0,
+  chuẩn bị nếu <0), `timeline.buildFutureTimeline` (chặng theo đại hạn tới ~100 tuổi), `PastLifeChart mode="future"` (trục tới 100 tuổi, không làm mờ).
+- Độ mạnh chuẩn hóa theo CÁC NĂM TƯƠNG LAI của chính lá số (tương đối). Không có phản hồi Đúng/Sai, không ghi chú. `EVENT_MAX_AGE` (config.ts, TẠM) chặn sự kiện vô lý theo
+  tuổi (thăng chức sau 62…, mua nhà sau 80…, sinh con sau ~50); áp cả cho Nghiệm quá khứ nhưng chỉ ảnh hưởng người trên ~50 tuổi. Đại vận Bát Tự kéo dài 12 vận.
+- Xu: miễn phí = danh sách năm nổi bật + biểu đồ + chặng hiện tại; mở khóa 1 lần/lá số các chặng còn lại qua `confirmAndUnlock(fkey(result,'future:full'),'advanced')`,
+  `PREMIUM.COST.futureLife` = 50 (TẠM; `app_config.price_future_life`, whitelist `admin_set_config`, ô nhập ở `tuvi-admin` Settings). Không nằm trong combo trọn đời.
+- Cache bộ nhớ phiên: `lib/futureReviewCache.ts`. Tracking: future_review_open / why_open / unlock.
+
 **Bảng trọng số Bát Tự (`docs/past-review-rulebook.md`, `pr-0.1-tam`) đã được anh Toàn DUYỆT ngày 04/10/2026** (vẫn là giá trị khởi điểm, chỉnh được khi có dữ liệu phản hồi).
 
 **Cổng ra mắt (chưa đạt, nên giữ nhãn "Thử nghiệm"):** chưa có bằng chứng mốc khớp thật hơn năm ngẫu nhiên.
@@ -460,4 +472,4 @@ Cách đo: `docs/past-review-rulebook.md` (anh duyệt bảng quy tắc) +
 
 ---
 
-_Cập nhật lần cuối: 04/10/2026, sau khi thêm Nghiệm quá khứ (GĐ1–3)._
+_Cập nhật lần cuối: 04/10/2026, sau khi thêm Luận tương lai (GĐ4)._

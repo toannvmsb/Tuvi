@@ -191,6 +191,7 @@ export type RootStackParamList = {
   AnnualEvents: { result: AstrologyResult; year?: number };
   PastReview: { result?: AstrologyResult };
   PastLife: { result?: AstrologyResult };
+  FutureReview: { result?: AstrologyResult };
   MonthEvents: { result: AstrologyResult; year: number; month: number };
   Wallet: undefined;
   Privacy: undefined;

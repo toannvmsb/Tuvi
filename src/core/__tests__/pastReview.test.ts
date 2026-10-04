@@ -215,7 +215,7 @@ describe('pastReview — đại vận Bát Tự', () => {
   test('mỗi vận một bước can chi theo chiều đi; 9 vận liên tiếp mỗi 10 năm', () => {
     for (const r of allSampleResults()) {
       const luck = computeBaziLuck(r);
-      expect(luck.pillars).toHaveLength(9);
+      expect(luck.pillars).toHaveLength(12);
       for (let i = 1; i < 9; i++) {
         expect(luck.pillars[i].startYear - luck.pillars[i - 1].startYear).toBe(10);
         expect(luck.pillars[i].endYear).toBe(luck.pillars[i].startYear + 9);

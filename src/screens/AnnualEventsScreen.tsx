@@ -12,6 +12,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import ExportPdfButton from '../components/ExportPdfButton';
+import DetailLinkButton from '../components/DetailLinkButton';
 import AnnualEventCard from '../components/AnnualEventCard';
 import { COLORS, FONTS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, SectionTitle, Segmented, GoldButton } from '../ui';
@@ -187,15 +188,18 @@ export default function AnnualEventsScreen() {
                     {pred.composites.map(c => <Body key={c.id} size={12.5}>{c.narrativeHint}</Body>)}
                   </Card>
                 )}
-                <ExportPdfButton
-                  label="Xuất đầy đủ các sự kiện"
-                  title={`Toàn bộ sự kiện năm ${year}`}
-                  subtitle={`${pred.yearCanChi} · ${pred.targetAge} tuổi`}
-                  headerLines={chartHeaderLines(result)}
-                  badge="TOÀN BỘ SỰ KIỆN"
-                  fileName={`su-kien-nam-${year}`}
-                  getContent={() => generateFullAnnualEventsExport(pred)}
-                />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+                  <ExportPdfButton
+                    label="Xuất đầy đủ các sự kiện"
+                    title={`Toàn bộ sự kiện năm ${year}`}
+                    subtitle={`${pred.yearCanChi} · ${pred.targetAge} tuổi`}
+                    headerLines={chartHeaderLines(result)}
+                    badge="TOÀN BỘ SỰ KIỆN"
+                    fileName={`su-kien-nam-${year}`}
+                    getContent={() => generateFullAnnualEventsExport(pred)}
+                  />
+                  <DetailLinkButton result={result} target="TieuVan" variant="inline" />
+                </View>
               </View>
             ) : (
               <Card><Body>Chưa ghi nhận sự kiện nào nổi bật đạt ngưỡng đáng chú ý trong năm {year}.</Body></Card>

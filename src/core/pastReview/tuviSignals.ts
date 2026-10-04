@@ -9,7 +9,7 @@ import { computeAnnualPrediction } from '../annualEvents/engine';
 import { PALACE_CODE_TO_VN } from '../annualEvents/calendar';
 import type { EvidenceItem, ScoredEvent, TimeSource } from '../annualEvents/types';
 import { currentAgeOf } from '../ageUtil';
-import { AREAS, EVENT_MIN_AGE, PAST_CONFIG, type AreaId } from './config';
+import { AREAS, EVENT_MAX_AGE, EVENT_MIN_AGE, PAST_CONFIG, type AreaId } from './config';
 import { areaOfEvent } from './areaMap';
 import type { Layer, PastSignal } from './types';
 
@@ -56,7 +56,7 @@ export function tuviYearRaw(result: AstrologyResult, year: number): TuviYearRaw 
   for (const a of AREAS) byArea[a] = [];
   for (const e of pred.allEvents) {
     const a = areaOfEvent(e.eventId);
-    if (!a || age < (EVENT_MIN_AGE[e.eventId] ?? 0)) continue;
+    if (!a || age < (EVENT_MIN_AGE[e.eventId] ?? 0) || age > (EVENT_MAX_AGE[e.eventId] ?? 999)) continue;
     byArea[a].push(e);
   }
 

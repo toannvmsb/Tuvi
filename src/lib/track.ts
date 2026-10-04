@@ -13,7 +13,10 @@ export type TrackName =
   | 'past_life_open'          // mở Dòng đời đã qua
   | 'past_life_unlock'        // mở khóa Dòng đời đã qua bằng xu
   | 'past_life_note_save'     // lưu một ghi chú (không ghi nội dung)
-  | 'past_life_share';        // lưu/chia sẻ thẻ Dòng đời
+  | 'past_life_share'         // lưu/chia sẻ thẻ Dòng đời
+  | 'future_review_open'      // mở Luận tương lai
+  | 'future_review_why_open'  // mở phần Vì sao của một năm tương lai
+  | 'future_review_unlock';   // mở khóa toàn bộ Luận tương lai bằng xu
 
 export function track(name: TrackName, props: Record<string, string | number | boolean | null> = {}): void {
   void (async () => {

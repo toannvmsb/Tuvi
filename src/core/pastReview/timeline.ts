@@ -15,6 +15,7 @@ import { tierOf } from './selectMarkers';
 import { yearCanChi } from '../annualEvents/calendar';
 import type { PastMarker, YearScore } from './types';
 import type { PastReview } from './index';
+import type { FutureReview } from './futureReview';
 
 export interface TimelineYear {
   year: number;
@@ -31,7 +32,7 @@ export interface TimelineYear {
   isMarker: boolean;
 }
 
-export type ChapterStatus = 'child' | 'unscored' | 'past' | 'current';
+export type ChapterStatus = 'child' | 'unscored' | 'past' | 'current' | 'future';
 
 export interface TimelineChapter {
   key: string;
@@ -158,3 +159,35 @@ export function buildTimeline(result: AstrologyResult, review: PastReview, now: 
 }
 
 export { CHART_AREAS };
+
+/**
+ * Dòng thời gian TƯƠNG LAI theo đại hạn (tới ~100 tuổi) cho màn Luận tương lai — cùng kiểu dữ liệu với dòng đời đã qua
+ * để dùng lại biểu đồ và 3 câu tóm tắt chặng. Chặng hiện tại miễn phí; các chặng sau thuộc phần mở khóa.
+ */
+export function buildFutureTimeline(result: AstrologyResult, fr: FutureReview, now: Date = new Date()): Timeline {
+  const markerYears = new Set(fr.markers.map(m => m.year));
+  const years = fr.scores.map(s => toYear(s, markerYears));
+  const age = currentAgeOf(result, now);
+  const lastAge = years.length ? years[years.length - 1].age : age;
+  const houses = result.tuViChart.houses;
+
+  const chapters: TimelineChapter[] = [];
+  for (const dv of result.daiVans as DaiVan[]) {
+    if (dv.endAge < age || dv.startAge > lastAge) continue; // chặng đã qua hẳn / vượt quá 100 tuổi
+    const own = years.filter(y => y.daiVanIndex === dv.index);
+    if (!own.length) continue;
+    const status: ChapterStatus = age >= dv.startAge && age <= dv.endAge ? 'current' : 'future';
+    const highlights = [...own]
+      .filter(y => y.hasSignal)
+      .sort((a, b) => b.strength - a.strength || a.year - b.year)
+      .slice(0, 2).map(y => y.year).sort((a, b) => a - b);
+    const base = {
+      key: `fdv${dv.index}`, index: dv.index, startAge: dv.startAge, endAge: dv.endAge,
+      stem: dv.stem, branch: dv.branch,
+      palaceName: houses.find(h => h.daiVanStartAge === dv.startAge)?.palaceName ?? null,
+      status, years: own, highlights,
+    };
+    chapters.push({ ...base, summary: chapterSummary(base), free: status === 'current' });
+  }
+  return { chapters, years, currentLunarYear: fr.currentLunarYear, currentAge: age, rulebookVersion: fr.rulebookVersion };
+}

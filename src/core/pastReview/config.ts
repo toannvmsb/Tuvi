@@ -22,6 +22,18 @@ export const AREA_LABEL: Record<AreaId, string> = {
   family: 'Gia đạo',
 };
 
+/** LUẬN TƯƠNG LAI — các năm từ năm âm lịch hiện tại tới khi đủ `untilAge` tuổi (mọi giá trị TẠM, cùng RULEBOOK_VERSION). */
+export const FUTURE_CONFIG = {
+  untilAge: 100,
+  /** Chặn cứng số năm tính (an toàn hiệu năng). */
+  maxYears: 90,
+  markersMax: 12,
+  maxPerArea: 3,
+  /** Mỗi đại hạn tối đa ngần này năm nổi bật. */
+  maxPerDaiVan: 2,
+  minMarkerStrength: 25,
+} as const;
+
 export const PAST_CONFIG = {
   /** Chỉ xét năm người dùng từ ngần này tuổi trở lên (tuổi theo cách app tính: năm − năm sinh + 1). */
   minAge: 15,
@@ -92,6 +104,20 @@ export const EVENT_MIN_AGE: Record<string, number> = {
   PROPERTY_PURCHASE: 20, PROPERTY_SALE: 20, PROPERTY_INVESTMENT: 20, PROPERTY_LARGE_EXPENSE: 20,
   PROPERTY_RENOVATION: 20, PROPERTY_FAMILY_ASSET: 18, PROPERTY_DISPUTE: 18,
   CHILD_PREGNANCY_SIGNAL: 20, CHILD_BIRTH_SIGNAL: 20, CHILD_EDUCATION_EVENT: 22, CHILD_MAJOR_CHANGE: 22,
+};
+
+/**
+ * Tuổi TỐI ĐA hợp lý cho một số sự kiện (chủ yếu để Luận tương lai không báo "được thăng chức" ở tuổi 90). Chỉ áp cho sự kiện có tên ở đây;
+ * sự kiện không ghi thì không giới hạn (vd được ghi nhận, sum họp gia đình). Giá trị TẠM; chỉ ảnh hưởng người trên ~50 tuổi.
+ */
+export const EVENT_MAX_AGE: Record<string, number> = {
+  RELATIONSHIP_ENGAGEMENT: 65, RELATIONSHIP_MARRIAGE: 70,
+  CAREER_PROMOTION: 62, CAREER_JOB_CHANGE: 65, CAREER_JOB_LOSS: 65, CAREER_ROLE_CHANGE: 65, CAREER_INTERNAL_TRANSFER: 62,
+  CAREER_LEADERSHIP: 68, CAREER_BUSINESS_START: 70, CAREER_BUSINESS_EXPANSION: 70, CAREER_RESPONSIBILITY_INCREASE: 70,
+  CAREER_NEW_PROJECT: 75, CAREER_WORK_CONFLICT: 70, CAREER_WORK_PRESSURE: 70,
+  FINANCE_INVESTMENT: 85, FINANCE_INVESTMENT_GAIN: 85, FINANCE_INVESTMENT_LOSS: 85,
+  PROPERTY_PURCHASE: 80, PROPERTY_INVESTMENT: 80,
+  CHILD_PREGNANCY_SIGNAL: 50, CHILD_BIRTH_SIGNAL: 52, CHILD_EDUCATION_EVENT: 65,
 };
 
 /**

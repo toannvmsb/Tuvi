@@ -147,7 +147,7 @@ export function describeSignal(s: PastSignal): string {
 const supportive = (xs: PastSignal[]) => xs.filter(s => s.supports && s.weight > 0);
 
 function sentence(label: string, parts: string[], empty: string): string {
-  return parts.length ? `${label}: ${parts.join('; ')}.` : `${label}: ${empty}`;
+  return parts.length ? `${label}: ${parts.join('; ')}.` : `${label}: ${empty}.`;
 }
 
 function column(system: System, area: PastMarker['area'], signals: PastSignal[], sensitive: boolean): WhyColumn {
@@ -276,8 +276,9 @@ function tuviDetail(s: PastSignal): string {
   return `${tuviStarName(s)} nằm ở ${loc}. ${nguon ? `${nguon}. ` : ''}Ý nghĩa của dấu hiệu này: ${meaningOf(code)}.`;
 }
 
-function friendlyLabel(label: string): string {
+export function friendlyLabel(label: string): string {
   return label
+    .replace(/ chi (năm|tháng|ngày)$/, ' chi trụ $1')
     .replace(/^Lưu niên/, 'Năm này')
     .replace(/^Chi lưu niên/, 'Chi của năm')
     .replace(/^Đại vận/, 'Giai đoạn 10 năm (đại vận)')
