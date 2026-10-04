@@ -31,6 +31,7 @@ export async function loadAppConfig(): Promise<void> {
     else if (cfg.price_ai     > 0) PREMIUM.COST.aiCompare     = cfg.price_ai;
     if (cfg.price_advanced    > 0) PREMIUM.COST.advanced      = cfg.price_advanced;
     if (cfg.price_advanced_major > 0) PREMIUM.COST.advancedMajor = cfg.price_advanced_major;
+    if (cfg.price_past_life   > 0) PREMIUM.COST.pastLife     = cfg.price_past_life;
 
     // ── Áp dụng vào COMBOS (cost + tính lại priceVnd theo tỉ giá) ──
     const rate = cfg.xu_topup_rate > 0 ? cfg.xu_topup_rate : 100;

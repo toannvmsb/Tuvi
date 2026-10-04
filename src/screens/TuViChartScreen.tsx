@@ -126,7 +126,8 @@ export default function TuViChartScreen({ route, navigation }: Props) {
       });
       const dataUrl = canvas.toDataURL('image/png');
       const name = (birthInfo.name || 'laso').replace(/\s+/g, '-');
-      await saveImageOrDownload(dataUrl, `laso-tuvi-${name}.png`);
+      const saved = await saveImageOrDownload(dataUrl, `laso-tuvi-${name}.png`);
+      if (saved) Alert.alert('Đã lưu', 'Ảnh lá số đã được tạo xong và tải xuống máy của bạn. Nếu trình duyệt mở ảnh ở tab mới, bạn hãy nhấn giữ ảnh để lưu.');
     } catch (e: any) {
       Alert.alert('Lỗi xuất ảnh', e?.message || 'Không tạo được ảnh PNG.');
     } finally {

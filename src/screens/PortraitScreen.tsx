@@ -1,6 +1,7 @@
 /**
  * CHÂN DUNG NGƯỜI TƯƠNG HỢP — AI vẽ ảnh dựa trên cung Phu Thê của lá số (tham khảo, giải trí).
- * Trừ xu SAU khi vẽ thành công (lỗi dịch vụ thì không mất xu).
+ * Trừ xu SAU khi vẽ thành công (lỗi dịch vụ thì không mất xu). Lần vẽ ĐẦU TIÊN của mỗi tài khoản là miễn phí
+ * (lib/portraitFree.ts); từ lần thứ hai tính PREMIUM.COST.portrait.
  */
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, ActivityIndicator, Pressable, Modal, StyleSheet } from 'react-native';
@@ -14,6 +15,7 @@ import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { generatePortrait, buildPortraitContext } from '../lib/portraitGen';
 import { saveImageOrDownload, PHOTO_PERMISSION_DENIED_MESSAGE } from '../lib/platform';
 import { webAlert } from '../lib/webAlert';
+import { isFreePortraitAvailable, claimFreePortrait } from '../lib/portraitFree';
 import { addPortrait, listPortraits, galleryKeyOf, type SavedPortrait } from '../lib/portraitStore';
 import type { AstrologyResult } from '../types';
 
@@ -50,7 +52,14 @@ export default function PortraitScreen() {
   const [error, setError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<SavedPortrait[]>([]);
   const [viewing, setViewing] = useState<SavedPortrait | null>(null);
+  const [freeLeft, setFreeLeft] = useState(false);
   const galleryKey = galleryKeyOf(result?.birthInfo.chartId);
+  // Còn lượt vẽ miễn phí (lần đầu của tài khoản)? Hỏi lại mỗi khi màn lấy focus.
+  useFocusEffect(React.useCallback(() => {
+    let cancelled = false;
+    isFreePortraitAvailable().then(v => { if (!cancelled) setFreeLeft(v); });
+    return () => { cancelled = true; };
+  }, []));
   // Đọc lại kho ảnh của lá số này mỗi khi màn được mở/quay lại (và khi đổi lá số) — luôn lấy bản mới nhất đã lưu.
   useFocusEffect(React.useCallback(() => {
     let cancelled = false;
@@ -76,6 +85,17 @@ export default function PortraitScreen() {
   const cost = PREMIUM.COST.portrait;
 
   const run = () => {
+    if (freeLeft) {
+      webAlert.alert(
+        'Vẽ chân dung',
+        'Lần vẽ đầu tiên của bạn được miễn phí. Từ lần sau, mỗi lần vẽ tốn ' + cost + ' xu (lỗi thì không trừ).',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Vẽ miễn phí', onPress: () => { void doGenerate(true); } },
+        ],
+      );
+      return;
+    }
     if (!PREMIUM.UNLOCKED && wallet.balance < cost) {
       webAlert.alert('Không đủ xu', `Cần ${cost} xu để vẽ chân dung. Số dư: ${wallet.balance} xu.`, [
         { text: 'Để sau', style: 'cancel' },
@@ -93,7 +113,7 @@ export default function PortraitScreen() {
     );
   };
 
-  const doGenerate = async () => {
+  const doGenerate = async (free = false) => {
     setBusy(true); setError(null);
     try {
       const url = await generatePortrait({
@@ -102,7 +122,10 @@ export default function PortraitScreen() {
         ageWanted: Math.min(80, Math.max(18, parseInt(age, 10) || 28)),
         gender, hairLength: hair, note: note.trim() || undefined,
       });
-      chargeAgain(`portrait:${Date.now()}`, 'ai', cost);
+      // Lượt miễn phí chỉ được ghi nhận SAU khi vẽ thành công; nếu lượt đã bị dùng ở nơi khác thì tính xu như thường.
+      const usedFree = free ? await claimFreePortrait() : false;
+      if (usedFree) setFreeLeft(false);
+      else chargeAgain(`portrait:${Date.now()}`, 'ai', cost);
       // Tự lưu offline vào máy (mobile) + ghi vào kho "Chân dung đã vẽ" của lá số này.
       const saved = await addPortrait(galleryKey, url);
       setDrawn(saved);
@@ -159,7 +182,7 @@ export default function PortraitScreen() {
           <Text style={s.hint}>Đã điền sẵn nơi sinh để AI vẽ đúng vùng miền — anh/chị có thể sửa hoặc xóa.</Text>
         </Card>
 
-        <GoldButton label={busy ? 'Đang vẽ…' : drawn ? `Vẽ lại (${cost} xu)` : `Vẽ chân dung (${cost} xu)`} onPress={busy ? undefined : run} disabled={busy} />
+        <GoldButton label={busy ? 'Đang vẽ…' : freeLeft ? 'Vẽ chân dung (miễn phí lần đầu)' : drawn ? `Vẽ lại (${cost} xu)` : `Vẽ chân dung (${cost} xu)`} onPress={busy ? undefined : run} disabled={busy} />
         {busy && (
           <View style={s.busy}><ActivityIndicator color={COLORS.gold} /><Text style={s.busyTxt}>Tuzi đang vẽ, khoảng 10–20 giây…</Text></View>
         )}

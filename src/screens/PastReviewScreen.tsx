@@ -1,6 +1,6 @@
 /**
  * NGHIỆM QUÁ KHỨ — 5–8 mốc sự kiện CÓ THỂ ĐÃ XẢY RA trong quá khứ của lá số đang gắn, mỗi mốc kèm phần
- * "Vì sao" (Tử Vi + Bát Tự, bốn tầng Gốc/Nền/Ngòi/Kết) ở hai mức: người xem và người học ("Xem sâu hơn").
+ * "Vì sao" (Tử Vi + Bát Tự, bốn phần Bẩm sinh / Giai đoạn 10 năm / Trong năm / Tóm lại) ở hai mức: người xem và người học tử vi ("Xem sâu hơn").
  * Bộ máy (src/core/pastReview) hoàn toàn tất định, lời văn ghép từ tín hiệu — KHÔNG gọi AI, miễn phí.
  * Phản hồi Đúng / Gần đúng / Sai / Không nhớ là tùy chọn; mốc Sai giữ nguyên lời luận kèm nhãn.
  * Đang ở giai đoạn THỬ NGHIỆM: bảng quy tắc/trọng số còn tạm (xem docs/past-review-rulebook.md).
@@ -10,19 +10,18 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-nati
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
-import { Screen, Card, Display, Eyebrow, Body, Segmented, Chip } from '../ui';
+import { Screen, Card, Eyebrow, Body, Segmented } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { webAlert } from '../lib/webAlert';
 import { track } from '../lib/track';
 import { listFeedback, saveFeedback, deleteFeedback } from '../lib/pastReviewStore';
 import { yearCanChi } from '../core/annualEvents/calendar';
-import {
-  computePastReview, AREA_LABEL, RULEBOOK_VERSION, type PastReview, type PastMarker,
-} from '../core/pastReview';
+import { AREA_LABEL, type PastReview, type PastMarker } from '../core/pastReview';
+import { getPastReview, cachedPastReview, pastReviewSignature } from '../lib/pastReviewCache';
 import { describeMarker } from '../core/pastReview/phrases';
-import { explainWhy, type WhyColumn } from '../core/pastReview/explainWhy';
+import { WhyBlock, FeedbackRow } from '../components/PastWhy';
 import {
-  FEEDBACK_LABEL, FEEDBACK_ORDER, MISS_LABEL, HINT_BIRTH_HOUR,
+  MISS_LABEL, HINT_BIRTH_HOUR,
   summarizeFeedback, summaryText, solarRangeLabel, type FeedbackValue,
 } from '../core/pastReview/feedback';
 import type { AstrologyResult } from '../types';
@@ -30,35 +29,12 @@ import type { AstrologyResult } from '../types';
 type SortMode = 'strength' | 'time';
 
 const TIER_LABEL = { manh: 'Mạnh', vua: 'Vừa', nhe: 'Nhẹ' } as const;
-const FB_COLOR: Record<FeedbackValue, string> = {
-  dung: TIER_COLORS.great, gan_dung: COLORS.gold, sai: TIER_COLORS.bad, khong_nho: COLORS.textMuted,
-};
-
-/** Kết quả đã tính trong phiên (tránh tính lại khi quay lại màn). */
-const sessionCache = new Map<string, PastReview>();
-const signatureOf = (r: AstrologyResult) => {
-  const b = r.birthInfo;
-  return `${b.chartId ?? 'local'}|${b.year}-${b.month}-${b.day}-${b.hour}|${b.gender}|${b.calendarType}|${RULEBOOK_VERSION}`;
-};
-
-function WhyColumnView({ col }: { col: WhyColumn }) {
-  return (
-    <View style={s.whyCol}>
-      <Text style={s.whyTitle}>{col.title}{col.reports ? '' : ' · không có tín hiệu rõ'}</Text>
-      {[col.goc, col.nen, col.ngoi, col.ket].map((t, i) => (
-        <Text key={i} style={[s.whyLine, i === 3 && s.whyKet]}>{t}</Text>
-      ))}
-    </View>
-  );
-}
-
 function MarkerCard({ marker, value, canSave, openWhy, openLearner, onToggleWhy, onToggleLearner, onFeedback }: {
   marker: PastMarker; value?: FeedbackValue; canSave: boolean;
   openWhy: boolean; openLearner: boolean;
   onToggleWhy: () => void; onToggleLearner: () => void; onFeedback: (v: FeedbackValue) => void;
 }) {
   const phrase = useMemo(() => describeMarker(marker), [marker]);
-  const why = useMemo(() => (openWhy ? explainWhy(marker, { sensitive: phrase.sensitive }) : null), [openWhy, marker, phrase.sensitive]);
   const cc = yearCanChi(marker.year);
   const tierColor = marker.tier === 'manh' ? COLORS.gold : marker.tier === 'vua' ? COLORS.goldLight : COLORS.textMuted;
 
@@ -89,41 +65,9 @@ function MarkerCard({ marker, value, canSave, openWhy, openLearner, onToggleWhy,
         <Text style={s.link}>{openWhy ? '▾ Thu gọn "Vì sao"' : '▸ Vì sao có mốc này?'}</Text>
       </Pressable>
 
-      {why && (
-        <View style={s.whyBox}>
-          <WhyColumnView col={why.viewer.tuvi} />
-          <WhyColumnView col={why.viewer.bazi} />
-          <Text style={s.cross}>{why.viewer.doiChieu}</Text>
+      {openWhy && <WhyBlock marker={marker} sensitive={phrase.sensitive} openLearner={openLearner} onToggleLearner={onToggleLearner} />}
 
-          <Pressable onPress={onToggleLearner} accessibilityRole="button">
-            <Text style={s.link}>{openLearner ? '▾ Thu gọn mức người học' : '▸ Xem sâu hơn (mức người học)'}</Text>
-          </Pressable>
-          {openLearner && (
-            <View style={{ gap: 8 }}>
-              {why.learner.notes.map((n, i) => <Text key={i} style={s.note}>• {n}</Text>)}
-              {why.learner.rows.map((r, i) => (
-                <View key={i} style={[s.row, !r.supports && s.rowAgainst]}>
-                  <Text style={s.rowHead}>
-                    {`${r.layerLabel} · ${r.system === 'tuvi' ? 'Tử Vi' : 'Bát Tự'}${r.supports ? '' : ' · NGƯỢC CHIỀU'}`}
-                  </Text>
-                  <Text style={s.rowBody}>{r.detail}</Text>
-                  <Text style={s.rowMeta}>{`Quy tắc: ${r.ruleName} · mã ${r.ruleId} · vị trí: ${r.where} · sắc thái ${r.toneLabel} · đóng góp ${r.weight.toFixed(1)}`}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
-      <View style={s.fbBox}>
-        <Text style={s.fbLabel}>Mốc này có đúng với bạn không? (tùy chọn)</Text>
-        <View style={s.chipRow}>
-          {FEEDBACK_ORDER.map(v => (
-            <Chip key={v} label={FEEDBACK_LABEL[v]} active={value === v} color={FB_COLOR[v]} onPress={() => onFeedback(v)} />
-          ))}
-        </View>
-        {!canSave && <Text style={s.note}>Cần đăng nhập và lưu lá số để ghi nhận phản hồi.</Text>}
-      </View>
+      <FeedbackRow value={value} canSave={canSave} onFeedback={onFeedback} />
     </Card>
   );
 }
@@ -141,7 +85,7 @@ export default function PastReviewScreen() {
   const [feedback, setFeedback] = useState<Record<number, FeedbackValue>>({});
   const [openWhy, setOpenWhy] = useState<Set<number>>(new Set());
   const [openLearner, setOpenLearner] = useState<Set<number>>(new Set());
-  const sig = result ? signatureOf(result) : '';
+  const sig = result ? pastReviewSignature(result) : '';
   const chartId = result?.birthInfo.chartId;
   const tracked = useRef('');
 
@@ -149,12 +93,12 @@ export default function PastReviewScreen() {
     if (!result) return;
     let cancelled = false;
     setError(null);
-    const cached = sessionCache.get(sig);
+    const cached = cachedPastReview(result);
     if (cached) { setReview(cached); setProgress(null); return; }
     setReview(null);
     setProgress({ done: 0, total: 1 });
-    computePastReview(result, { onProgress: (done, total) => { if (!cancelled) setProgress({ done, total }); } })
-      .then(r => { if (cancelled) return; sessionCache.set(sig, r); setReview(r); setProgress(null); })
+    getPastReview(result, (done, total) => { if (!cancelled) setProgress({ done, total }); })
+      .then(r => { if (cancelled) return; setReview(r); setProgress(null); })
       .catch(e => { if (!cancelled) { setError(e?.message || 'Không tính được các mốc.'); setProgress(null); } });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,6 +178,19 @@ export default function PastReviewScreen() {
           </Body>
         </Card>
 
+        <Pressable
+          onPress={() => navigation.navigate('PastLife', { result })}
+          accessibilityRole="button" accessibilityLabel="Xem dòng đời đã qua"
+        >
+          <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Eyebrow>Dòng đời đã qua</Eyebrow>
+              <Body size={13}>Xem thăng trầm theo từng đại hạn, ghi chú theo năm và thẻ chia sẻ.</Body>
+            </View>
+            <Text style={s.link}>Xem →</Text>
+          </Card>
+        </Pressable>
+
         {progress && (
           <View style={s.loadingBox}>
             <ActivityIndicator color={COLORS.gold} />
@@ -251,7 +208,7 @@ export default function PastReviewScreen() {
         {review && review.markers.length > 0 && (
           <>
             <Segmented<SortMode>
-              options={[{ value: 'strength', label: 'Theo độ mạnh' }, { value: 'time', label: 'Theo thời gian' }]}
+              options={[{ value: 'strength', label: 'Theo độ chính xác' }, { value: 'time', label: 'Theo thời gian' }]}
               value={sort} onChange={setSort}
             />
             {summary.answered > 0 && (
@@ -292,20 +249,7 @@ const s = StyleSheet.create({
   phrase: { fontFamily: FONTS.bodySemi, fontSize: 15, lineHeight: 22, color: COLORS.textPrimary },
   missLabel: { fontFamily: FONTS.bodySemi, fontSize: 12, color: TIER_COLORS.bad },
   link: { fontFamily: FONTS.bodySemi, fontSize: 13, color: COLORS.gold, paddingVertical: 4 },
-  whyBox: { gap: 12, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)' },
-  whyCol: { gap: 5 },
-  whyTitle: { fontFamily: FONTS.bodyBold, fontSize: 12, letterSpacing: 0.6, color: COLORS.gold, textTransform: 'uppercase' },
-  whyLine: { fontFamily: FONTS.body, fontSize: 12.5, lineHeight: 19, color: COLORS.textSecondary, textAlign: 'justify' },
-  whyKet: { color: COLORS.textPrimary, fontFamily: FONTS.bodySemi },
-  cross: { fontFamily: FONTS.bodySemi, fontSize: 12.5, lineHeight: 19, color: COLORS.goldLight },
   note: { fontFamily: FONTS.body, fontSize: 11.5, lineHeight: 17, color: COLORS.textMuted },
-  row: { gap: 3, padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.14)' },
-  rowAgainst: { borderColor: TIER_COLORS.caution + '88' },
-  rowHead: { fontFamily: FONTS.bodyBold, fontSize: 11, letterSpacing: 0.4, color: COLORS.gold, textTransform: 'uppercase' },
-  rowBody: { fontFamily: FONTS.body, fontSize: 12.5, lineHeight: 18, color: COLORS.textPrimary },
-  rowMeta: { fontFamily: FONTS.body, fontSize: 11, lineHeight: 16, color: COLORS.textMuted },
-  fbBox: { gap: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(226,194,133,0.14)' },
-  fbLabel: { fontFamily: FONTS.bodySemi, fontSize: 12, color: COLORS.textSecondary },
   summary: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.goldLight },
   hint: { fontFamily: FONTS.bodySemi, fontSize: 12.5, lineHeight: 19, color: TIER_COLORS.caution },
   loadingBox: { alignItems: 'center', gap: 10, paddingVertical: 20 },

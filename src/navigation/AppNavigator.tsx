@@ -36,6 +36,7 @@ import TieuVanScreen from '../screens/TieuVanScreen';
 import WealthChartScreen from '../screens/WealthChartScreen';
 import AnnualEventsScreen from '../screens/AnnualEventsScreen';
 import PastReviewScreen from '../screens/PastReviewScreen';
+import PastLifeScreen from '../screens/PastLifeScreen';
 import MonthEventsScreen from '../screens/MonthEventsScreen';
 import { COLORS } from '../constants/theme';
 import { t } from '../i18n';
@@ -144,6 +145,7 @@ const ROUTE_TITLES: Record<string, string> = {
   EditChart: 'Sửa lá số',
   AnnualEvents: 'Luận sự kiện năm',
   PastReview: 'Nghiệm quá khứ',
+  PastLife: 'Dòng đời đã qua',
   MonthEvents: 'Sự kiện theo tháng',
   CompareCharts: 'So sánh tương hợp',
   Wallet: 'Nạp xu',
@@ -193,6 +195,7 @@ export default function AppNavigator() {
         <Stack.Screen name="WealthChart" component={WealthChartScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AnnualEvents" component={AnnualEventsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PastReview" component={PastReviewScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="PastLife" component={PastLifeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MonthEvents" component={MonthEventsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DailyView" component={DailyScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DayPicker" component={DayPickerScreen} options={{ headerShown: false }} />

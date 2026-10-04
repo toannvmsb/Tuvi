@@ -127,7 +127,8 @@ export const PHOTO_PERMISSION_DENIED_MESSAGE = 'Cần cấp quyền truy cập T
  *   navigator.share — tránh bật khay chia sẻ hệ thống ngoài ý muốn trên máy tính. Safari mà Share
  *   cũng không dùng được → mở ảnh ở tab mới để giữ tay lưu (Save Image).
  */
-export async function saveImageOrDownload(uri: string, fileName: string): Promise<void> {
+/** Trả về true khi ảnh đã được lưu/tải/chuyển đi; false khi người dùng tự hủy khay chia sẻ (Safari). */
+export async function saveImageOrDownload(uri: string, fileName: string): Promise<boolean> {
   if (isWeb) {
     let blob: Blob | null = null;
     try {
@@ -141,10 +142,10 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
           const file = new File([blob], fileName, { type: blob.type || 'image/png' });
           if (nav.canShare({ files: [file] })) {
             await nav.share({ files: [file] });
-            return;
+            return true;
           }
         } catch (e: any) {
-          if (e?.name === 'AbortError') return; // người dùng tự hủy khay chia sẻ — không phải lỗi
+          if (e?.name === 'AbortError') return false; // người dùng tự hủy khay chia sẻ — không phải lỗi
           // các lỗi khác (vd không có app nhận) → thử cách tải xuống bên dưới
         }
       }
@@ -154,7 +155,7 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
         // Safari iOS: không có API nào chắc chắn tải file — mở tab mới để người dùng giữ tay lưu ảnh.
         window.open(blobUrl, '_blank');
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-        return;
+        return true;
       }
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -163,7 +164,7 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
-      return;
+      return true;
     }
 
     // Không lấy được blob (vd fetch lỗi) → thử cách cũ với chính uri gốc.
@@ -173,7 +174,7 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    return;
+    return true;
   }
   let MediaLibrary: any;
   // SDK 57: export chính ("expo-media-library") đổi sang API class-based mới —
@@ -189,6 +190,7 @@ export async function saveImageOrDownload(uri: string, fileName: string): Promis
     throw new Error(PHOTO_PERMISSION_DENIED_MESSAGE);
   }
   await MediaLibrary.saveToLibraryAsync(uri);
+  return true;
 }
 
 /**

@@ -414,8 +414,10 @@ cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu n�
 ## 11. Nghiệm quá khứ & Dòng đời đã qua (đang làm — 4 giai đoạn, nhãn "Thử nghiệm")
 
 Box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen` → route `PastReview`. Đặc tả gốc của anh Toàn:
-`D:\Lap trinh\Tu vi\tuzi-nghiem-qua-khu-spec.md` (được phép chỉnh). Tiến độ: **GĐ1 bộ máy** (đã commit),
-**GĐ2 Nghiệm quá khứ + Vì sao** (màn hình + phản hồi), GĐ3 Dòng đời đã qua, GĐ4 Chế độ học + Luận tương lai (chưa làm).
+`D:\Lap trinh\Tu vi\tuzi-nghiem-qua-khu-spec.md` (được phép chỉnh). Tiến độ: **GĐ1 bộ máy** + **GĐ2 Nghiệm quá khứ/Vì sao** (đã commit),
+**GĐ3 Dòng đời đã qua** (làm xong, chờ duyệt), GĐ4 Chế độ học + Luận tương lai (chưa làm).
+
+**Tên hiển thị các tầng "Vì sao" (anh Toàn chốt 04/10/2026):** Bẩm sinh (goc) · Giai đoạn 10 năm (nen) · Trong năm (ngoi) · Tóm lại (ket) — `LAYER_FRIENDLY` trong `explainWhy.ts`; mã nội bộ goc/nen/ngoi giữ nguyên trong code/dữ liệu. Phần "Xem sâu hơn (dành cho người học tử vi)" viết lời thường, KHÔNG hiện mã quy tắc/điểm thô (test chặn); các dòng cùng một sao phục vụ nhiều sự kiện được gộp thành một dòng.
 
 **Quyết định của anh Toàn (đừng đảo):** lời văn = **mẫu ghép từ tín hiệu, KHÔNG AI**; giờ sinh không rõ → để sau;
 mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); mỗi giai đoạn dừng cho anh duyệt rồi mới commit.
@@ -432,6 +434,20 @@ mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); 
   (chỉ ghi; admin đọc). Client: `lib/pastReviewStore.ts`, `lib/track.ts` (best-effort, không ghi nội dung riêng tư).
 - Không tính xu ở GĐ2 (miễn phí). Kết quả tính chỉ cache trong bộ nhớ phiên (không cache bền).
 
+**GĐ3 — Dòng đời đã qua** (`PastLifeScreen`, route `PastLife`, vào từ cuối màn Nghiệm quá khứ):
+- `pastReview/timeline.ts` gom các năm ĐÃ CHẤM (cùng điểm với danh sách mốc — không chấm lại) theo đại hạn Tử Vi thành "chặng"; 3 câu tóm
+  tắt bằng mẫu; `markerOfYear()` dựng mốc cho năm bất kỳ để dùng lại `explainWhy`. Chỉ có 30 năm gần nhất, từ 15 tuổi; KHÔNG có đường sức khỏe.
+- `components/PastLifeChart.tsx` (react-native-svg: dải đại hạn, đường tổng + 4 mảng, tương lai làm mờ, chạm chọn năm — web tính vị trí từ
+  `clientX`), `components/PastWhy.tsx` (khối Vì sao + hàng phản hồi dùng chung với màn Nghiệm quá khứ), `lib/captureView.ts` (thẻ chia sẻ PNG:
+  html2canvas trên web, view-shot trên native), `lib/pastReviewCache.ts` (cache bộ nhớ dùng chung hai màn).
+- Xu: `PREMIUM.COST.pastLife` = 50 (TẠM; key `price_past_life` trong `app_config`, whitelist trong `admin_set_config`, ô nhập ở `tuvi-admin` Settings).
+  Miễn phí: biểu đồ, chặng tuổi thơ + chặng hiện tại, nhật ký, thẻ chia sẻ. Mở khóa 1 lần/lá số qua `confirmAndUnlock(fkey(result,'pastLife:full'),'advanced')`.
+  KHÔNG nằm trong combo trọn đời.
+- Ghi chú ≤500 ký tự: Edge Function `review-notes` (AES-GCM, khóa riêng mỗi người = HKDF(secret `REVIEW_NOTES_KEY`, salt=user_id)), bảng
+  `past_review_notes` không có policy (chỉ service_role). Máy chủ giải mã được (không phải mã hóa đầu-cuối). **Bản sao khóa nằm ở `.secrets/review-notes.env`
+  (gitignored) — anh Toàn cần tự sao lưu ra nơi an toàn; mất khóa = mất toàn bộ ghi chú.** Ghi chú không vào AI và không vào thẻ chia sẻ.
+- SQL: `supabase_past_life.sql` (ĐÃ chạy production). Edge Function `review-notes` ĐÃ deploy.
+
 **Bảng trọng số Bát Tự (`docs/past-review-rulebook.md`, `pr-0.1-tam`) đã được anh Toàn DUYỆT ngày 04/10/2026** (vẫn là giá trị khởi điểm, chỉnh được khi có dữ liệu phản hồi).
 
 **Cổng ra mắt (chưa đạt, nên giữ nhãn "Thử nghiệm"):** chưa có bằng chứng mốc khớp thật hơn năm ngẫu nhiên.
@@ -444,4 +460,4 @@ Cách đo: `docs/past-review-rulebook.md` (anh duyệt bảng quy tắc) +
 
 ---
 
-_Cập nhật lần cuối: 04/10/2026, sau khi thêm Nghiệm quá khứ (GĐ1–2)._
+_Cập nhật lần cuối: 04/10/2026, sau khi thêm Nghiệm quá khứ (GĐ1–3)._

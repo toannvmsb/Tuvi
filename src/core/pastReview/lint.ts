@@ -58,6 +58,9 @@ function allowedBlob(signals: PastSignal[]): string {
   const parts: string[] = [];
   for (const s of signals) {
     parts.push(s.label, s.where, ...Object.values(s.param).map(String));
+    // Sao mang Tứ Hóa được viết thành "X hóa Lộc/Quyền/Khoa/Kỵ" (explainWhy.tuviStarName) → cho phép đúng tên hóa đó.
+    const hoa = ({ HOA_LOC: 'Lộc', HOA_QUYEN: 'Quyền', HOA_KHOA: 'Khoa', HOA_KY: 'Kỵ' } as Record<string, string>)[String(s.param.maSao ?? '')];
+    if (hoa) parts.push(`Hóa ${hoa}`);
   }
   return parts.join(' | ');
 }

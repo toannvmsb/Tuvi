@@ -9,7 +9,11 @@ export type TrackName =
   | 'past_review_open'        // mở màn Nghiệm quá khứ
   | 'past_review_why_open'    // mở phần Vì sao của một mốc (người xem)
   | 'past_review_learner_open'// mở mức người học
-  | 'past_review_feedback';   // phản hồi một mốc
+  | 'past_review_feedback'    // phản hồi một mốc
+  | 'past_life_open'          // mở Dòng đời đã qua
+  | 'past_life_unlock'        // mở khóa Dòng đời đã qua bằng xu
+  | 'past_life_note_save'     // lưu một ghi chú (không ghi nội dung)
+  | 'past_life_share';        // lưu/chia sẻ thẻ Dòng đời
 
 export function track(name: TrackName, props: Record<string, string | number | boolean | null> = {}): void {
   void (async () => {

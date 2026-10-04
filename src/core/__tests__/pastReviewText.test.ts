@@ -55,20 +55,33 @@ describe('pastReview — phần Vì sao', () => {
         const ph = describeMarker(m);
         const why = explainWhy(m, { sensitive: ph.sensitive });
         for (const col of [why.viewer.tuvi, why.viewer.bazi]) {
-          expect(col.goc.startsWith('Gốc:')).toBe(true);
-          expect(col.nen.startsWith('Nền:')).toBe(true);
-          expect(col.ngoi.startsWith('Ngòi:')).toBe(true);
-          expect(col.ket.startsWith('Kết:')).toBe(true);
+          expect(col.goc.startsWith('Bẩm sinh:')).toBe(true);
+          expect(col.nen.startsWith('Giai đoạn 10 năm:')).toBe(true);
+          expect(col.ngoi.startsWith('Trong năm:')).toBe(true);
+          expect(col.ket.startsWith('Tóm lại:')).toBe(true);
         }
         expect(why.viewer.doiChieu.startsWith('Đối chiếu:')).toBe(true);
         // Lời văn (mô tả mốc + toàn bộ phần Vì sao mức người xem) không vi phạm: không từ cấm, không tín hiệu ngoài danh sách.
         const bad = lintAll([ph.text, ...viewerTexts(why.viewer)], m.signals);
         expect(bad).toEqual([]);
         // Mức người học liệt kê ĐỦ mọi tín hiệu (kể cả ngược chiều), mỗi dòng có mã quy tắc.
-        expect(why.learner.rows.length).toBe(m.signals.length);
+        // Cùng một sao/quy tắc phục vụ nhiều sự kiện thì gộp thành một dòng → số dòng ≤ số tín hiệu, nhưng mã quy tắc nào cũng còn mặt.
+        expect(why.learner.rows.length).toBeLessThanOrEqual(m.signals.length);
+        expect(why.learner.rows.length).toBeGreaterThan(0);
+        for (const s of m.signals.filter(x => x.system === 'bazi')) {
+          expect(why.learner.rows.some(r => r.ruleId === s.ruleId)).toBe(true);
+        }
         for (const row of why.learner.rows) {
           expect(row.ruleId).toBeTruthy();
           expect(lintText(row.detail, m.signals)).toEqual([]);
+          // Phần dành cho người học: lời thường, có tiêu đề + các dòng thông tin; KHÔNG lộ mã quy tắc/điểm thô ra chữ hiển thị.
+          expect(row.title.length).toBeGreaterThan(3);
+          expect(row.facts.length).toBeGreaterThanOrEqual(3);
+          const shown = [row.title, row.detail, ...row.facts.map(f => f.label + ' ' + f.value)].join(' | ');
+          expect(shown).not.toMatch(/\b(R\d{4}|BZ_[A-Z_]+|[A-Z]{3,}_[A-Z_]+)\b/);   // mã nội bộ
+          expect(shown).not.toMatch(/\d+\.\d/);                                      // điểm thô kiểu 7.1
+          expect(shown).not.toMatch(/\b(Gốc|Nền|Ngòi)\b/);                            // tên tầng cũ
+          expect(lintText(shown, m.signals).filter(i => i.kind !== 'unknown_term')).toEqual([]);
         }
         expect(why.learner.notes.length).toBeGreaterThan(0);
         expect(why.learner.rows.some(x => !x.supports)).toBe(m.signals.some(s => !s.supports));
@@ -84,7 +97,7 @@ describe('pastReview — phần Vì sao', () => {
     expect(explainWhy(tvOnly).viewer.doiChieu).toMatch(/chỉ Tử Vi báo/);
     expect(explainWhy(tvOnly).viewer.doiChieu).toMatch(/Bát Tự không thấy tín hiệu/);
     expect(explainWhy(tvOnly).viewer.bazi.reports).toBe(false);
-    expect(explainWhy(tvOnly).viewer.bazi.ket).toMatch(/không có tín hiệu đủ rõ/);
+    expect(explainWhy(tvOnly).viewer.bazi.ket).toMatch(/không có dấu hiệu đủ rõ/);
 
     const bzOnly: PastMarker = {
       ...tvOnly,

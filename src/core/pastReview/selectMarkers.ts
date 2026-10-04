@@ -20,7 +20,7 @@ interface Cand {
   daiVanIndex: number | null;
 }
 
-function tierOf(agree: boolean, strength: number): MarkerTier {
+export function tierOf(agree: boolean, strength: number): MarkerTier {
   if (agree && strength >= PAST_CONFIG.tier.strong) return 'manh';
   if (agree || strength >= PAST_CONFIG.tier.medium) return 'vua';
   return 'nhe';
