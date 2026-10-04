@@ -57,7 +57,8 @@ const VOLATILITY_SAT = new Set([
 ]);
 const CAREER_PALACES = new Set(['Quan Lộc', 'Tài Bạch', 'Phúc Đức']);
 const PROPERTY_PALACES = new Set(['Điền Trạch', 'Tài Bạch', 'Phúc Đức']);
-const REL_PALACES = new Set(['Hôn Nhân', 'Tử Tức', 'Phúc Đức']);
+// Cung thật của lá số là 'Phu Thê' (tuViEngine); 'Hôn Nhân' chỉ là tên gọi khác ở một số dữ liệu cũ (xem chartValidator.PALACE_ALIASES) — giữ cả hai.
+const REL_PALACES = new Set(['Phu Thê', 'Hôn Nhân', 'Tử Tức', 'Phúc Đức']);
 
 export interface DomainScores {
   career: number;

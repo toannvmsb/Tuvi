@@ -462,13 +462,15 @@ mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); 
 
 **Bảng trọng số Bát Tự (`docs/past-review-rulebook.md`, `pr-0.1-tam`) đã được anh Toàn DUYỆT ngày 04/10/2026** (vẫn là giá trị khởi điểm, chỉnh được khi có dữ liệu phản hồi).
 
-**Cổng ra mắt (chưa đạt, nên giữ nhãn "Thử nghiệm"):** chưa có bằng chứng mốc khớp thật hơn năm ngẫu nhiên.
-Cách đo: `docs/past-review-rulebook.md` (anh duyệt bảng quy tắc) +
-`PAST_REVIEW_EXPORT=1 PAST_REVIEW_BIRTH=YYYY-M-D-H-nam|nu npx jest pastReviewExport` → `exports/` (md / bản mù / đáp án); trong app xem "khớp x/y".
-`PAST_REVIEW_RULEBOOK=1 …` xuất lại bảng quy tắc.
+**Cổng ra mắt (CHƯA đạt — giữ nhãn "Thử nghiệm"):** cần (1) mốc do bộ máy chọn khớp cao hơn RÕ RỆT năm ngẫu nhiên và (2) người có nghề xác nhận phần Vì sao luận đúng phép.
+Công cụ (chạy bằng jest + biến môi trường, file trong `exports/` đã gitignore vì chứa ngày giờ sinh) — xem đầu `src/core/__tests__/pastReviewExport.test.ts`:
+- `PAST_REVIEW_EXPORT=1 PAST_REVIEW_BIRTHS_FILE=nguoi-thu.csv` (mỗi dòng `tên,NĂM-THÁNG-NGÀY-GIỜ-nam|nu`) → mỗi người một bộ thử mù (5 mốc bộ máy + 5 năm ngẫu nhiên CÙNG MẢNG, trộn) + file đáp án.
+- Người thử điền cột "Phản hồi" (Đúng / Gần đúng / Sai / Không nhớ) trong `*-blind.md` → `PAST_REVIEW_SCORE=1` chấm: tỉ lệ khớp hai nhóm, chênh ghép cặp + khoảng tin cậy 95%, chia theo tuổi
+  (logic ở `pastReview/blindTest.ts`, có test). Ngưỡng đạt TẠM: chênh ≥15 điểm %, CI nằm hẳn trên 0, ≥50 người (đổi bằng PAST_REVIEW_PASS_DIFF / PAST_REVIEW_MIN_PERSONS — anh Toàn quyết).
+- `PAST_REVIEW_EXPERT=1` → `past-review-expert-pack.md` cho người luận Tử Vi/Bát Tự đánh dấu Đúng phép / Gượng / Sai phép. `PAST_REVIEW_RULEBOOK=1` xuất lại `docs/past-review-rulebook.md`.
 
-**Lỗi có sẵn phát hiện khi khảo sát (ngoài phạm vi, chưa sửa):** `daiVanScore.ts:60` dùng cung `'Hôn Nhân'` (cung thật là `'Phu Thê'`);
-`daiVanEngine.calculateTieuVan` luôn `solarToLunar` ngày sinh kể cả lá số nhập âm lịch.
+**Hai lỗi có sẵn từng ghi chú — ĐÃ SỬA (04/10/2026, test ở `knownBugFixes.test.ts`):** `daiVanScore.REL_PALACES` dùng 'Hôn Nhân' thay cho cung thật 'Phu Thê' (nay có cả hai);
+`daiVanEngine.calculateTieuVan` đổi nhầm dương→âm cho lá số nhập ÂM lịch (nay lấy chi năm trực tiếp, khớp tuViEngine).
 
 ---
 

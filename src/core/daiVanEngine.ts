@@ -87,9 +87,14 @@ export function calculateTieuVan(
   chart: TuViChart,
   daiVans: DaiVan[],
 ): TieuVan[] {
-  const lunar = solarToLunar(birthInfo.day, birthInfo.month, birthInfo.year);
-  const solarYear = birthInfo.calendarType === 'solar' ? birthInfo.year : lunar.year;
-  const startIdx = tieuHanStartBranchIdx(lunar.yearBranch);
+  // Lá số nhập theo ÂM lịch: ngày/tháng/năm đã là âm lịch → KHÔNG đổi dương→âm lần nữa (trước đây đổi nhầm nên chi năm sinh,
+  // và do đó cung khởi tiểu hạn, bị lệch với những người sinh gần Tết). Cách lấy chi năm khớp tuViEngine.calculateTuViChart.
+  const isSolar = birthInfo.calendarType === 'solar';
+  const yearBranch: EarthlyBranch = isSolar
+    ? solarToLunar(birthInfo.day, birthInfo.month, birthInfo.year).yearBranch
+    : BRANCHES[(birthInfo.year + 8) % 12];
+  const solarYear = birthInfo.year;
+  const startIdx = tieuHanStartBranchIdx(yearBranch);
   const dir = birthInfo.gender === 'nam' ? 1 : -1; // Nam thuận, Nữ nghịch
 
   // map nhanh branchIdx → house (lấy Can của cung)

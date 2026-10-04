@@ -62,3 +62,6 @@ exports/
 
 # bản sao lưu secret (KHÔNG commit)
 .secrets/
+# danh sách người thử có ngày giờ sinh thật (KHÔNG commit; mẫu giả nằm ở docs/thu-nghiem/nguoi-thu-mau.csv)
+nguoi-thu.csv
+docs/thu-nghiem/*.private.*

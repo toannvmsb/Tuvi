@@ -1,0 +1,16 @@
+# MẪU file danh sách người thử cho công cụ thử mù (Nghiệm quá khứ). Dòng bắt đầu bằng # bị bỏ qua.
+# Mỗi dòng MỘT người:  mã,NĂM-THÁNG-NGÀY-GIỜ-nam|nu
+#   - mã: tên gọi ngắn không dấu cách, KHÔNG dùng họ tên thật (vd NT001) — mã này sẽ thành tên file kết quả.
+#   - NĂM-THÁNG-NGÀY: ngày sinh DƯƠNG lịch.  GIỜ: số 0–23 (vd 9 = 9 giờ sáng, 23 = 23 giờ).  giới tính: nam hoặc nu.
+#   - Cột thứ 3 trở đi (nếu thêm, vd nhóm tuổi, kênh mời) công cụ sẽ bỏ qua.
+# ⚠ Dữ liệu dưới đây là GIẢ. File thật hãy lưu thành nguoi-thu.csv (đã được gitignore) — KHÔNG commit ngày giờ sinh thật.
+NT001,1968-04-12-6-nam
+NT002,1975-09-30-14-nu
+NT003,1981-01-05-22-nam
+NT004,1986-07-19-10-nu
+NT005,1990-11-23-3-nam
+NT006,1994-02-08-17-nu
+NT007,1998-06-15-12-nam
+NT008,2001-12-01-8-nu
+NT009,2004-03-27-20-nam
+NT010,2006-10-09-5-nu

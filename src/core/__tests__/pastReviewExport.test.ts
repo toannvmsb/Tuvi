@@ -12,6 +12,16 @@
  *   past-review-<tên>-blind.md  — 10 mục TRỘN LẪN, không ghi nguồn, kèm cột để điền Đúng/Gần đúng/Sai/Không nhớ
  *   past-review-<tên>-key.json  — đáp án: mục nào do bộ máy chọn, mục nào ngẫu nhiên
  *
+ * Chạy hàng loạt cho nhiều người (mỗi dòng một người: `tên,NĂM-THÁNG-NGÀY-GIỜ-nam|nu`):
+ *   PAST_REVIEW_EXPORT=1 PAST_REVIEW_BIRTHS_FILE=nguoi-thu.csv npx jest src/core/__tests__/pastReviewExport.test.ts
+ *
+ * Sau khi mọi người điền xong các file `*-blind.md`, CHẤM bộ thử mù (so tỉ lệ khớp của mốc do bộ máy chọn với năm ngẫu nhiên cùng mảng):
+ *   PAST_REVIEW_SCORE=1 npx jest src/core/__tests__/pastReviewExport.test.ts   → exports/past-review-score.md
+ *   (PAST_REVIEW_PASS_DIFF=0.15 ngưỡng chênh lệch; PAST_REVIEW_MIN_PERSONS=50 số người tối thiểu; PAST_REVIEW_DIR đổi thư mục)
+ *
+ * Gói cho người có nghề đánh giá phần "Vì sao" (đúng phép / gượng / sai phép):
+ *   PAST_REVIEW_EXPERT=1 PAST_REVIEW_BIRTHS_FILE=nguoi-thu.csv npx jest src/core/__tests__/pastReviewExport.test.ts → exports/past-review-expert-pack.md
+ *
  * Tài liệu bảng quy tắc dễ đọc cho người duyệt (sinh từ chính cấu hình, luôn khớp code):
  *   PAST_REVIEW_RULEBOOK=1 npx jest src/core/__tests__/pastReviewExport.test.ts   → docs/past-review-rulebook.md
  */
@@ -25,8 +35,12 @@ import { computePastReviewSync, lunarYearOf, AREAS, AREA_LABEL, PAST_CONFIG, EVE
 import { BZ_RULES, BZ_SCORE, type BzMatcher } from '../pastReview/bazi/rules';
 import { EVENT_TO_AREA } from '../pastReview/areaMap';
 import { EVENT_TITLE_VN } from '../annualEvents/eventTitles';
+import { parseBlindSheet, tallyRows, summarize, type KeyRow, type PersonResult } from '../pastReview/blindTest';
+import { describeMarker } from '../pastReview/phrases';
+import { explainWhy } from '../pastReview/explainWhy';
 
 const run = process.env.PAST_REVIEW_EXPORT ? test : test.skip;
+const OUT = process.env.PAST_REVIEW_DIR ?? 'exports';
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -41,6 +55,22 @@ function mulberry32(seed: number) {
 const hash = (s: string) => [...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 const canChi = (y: number) => { const c = yearCanChi(y); return `${c.stem} ${c.branch}`; };
 
+/** Danh sách người thử: một người từ PAST_REVIEW_BIRTH, nhiều người từ PAST_REVIEW_BIRTHS_FILE (`tên,spec`), hoặc 3 lá số mẫu. */
+function loadPeople(ny: number): { key: string; result: ReturnType<typeof buildResult> }[] {
+  const file = process.env.PAST_REVIEW_BIRTHS_FILE;
+  if (file) {
+    return fs.readFileSync(file, 'utf8').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')).map((l, i) => {
+      const [name, spec] = l.includes(',') ? l.split(',').map(s => s.trim()) : [`nguoi${i + 1}`, l];
+      const key = name.replace(/[^\p{L}\p{N}_-]+/gu, '_');
+      return { key, result: buildResult({ ...parseBirth(spec), name: key }, ny) };
+    });
+  }
+  const spec = process.env.PAST_REVIEW_BIRTH;
+  return spec
+    ? [{ key: process.env.PAST_REVIEW_NAME ?? spec, result: buildResult(parseBirth(spec), ny) }]
+    : allSampleResults().map((r, i) => ({ key: `mau${i + 1}`, result: r }));
+}
+
 function parseBirth(spec: string): BirthInfo {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})-(\d{1,2})-(nam|nu)$/.exec(spec);
   if (!m) throw new Error('PAST_REVIEW_BIRTH phải có dạng NĂM-THÁNG-NGÀY-GIỜ-nam|nu, vd 1990-06-15-10-nam');
@@ -54,12 +84,9 @@ run('xuất mốc + bộ thử mù', () => {
   const nowStr = process.env.PAST_REVIEW_NOW ?? new Date().toISOString().slice(0, 10);
   const [ny, nm, nd] = nowStr.split('-').map(Number);
   const now = new Date(ny, nm - 1, nd);
-  const spec = process.env.PAST_REVIEW_BIRTH;
-  const items = spec
-    ? [{ key: process.env.PAST_REVIEW_NAME ?? spec, result: buildResult(parseBirth(spec), ny) }]
-    : allSampleResults().map((r, i) => ({ key: `mau${i + 1}`, result: r }));
+  const items = loadPeople(ny);
 
-  fs.mkdirSync('exports', { recursive: true });
+  fs.mkdirSync(OUT, { recursive: true });
   for (const { key, result } of items) {
     const pr = computePastReviewSync(result, { now });
     const rnd = mulberry32(hash(`${key}|${result.birthInfo.year}-${result.birthInfo.month}-${result.birthInfo.day}`));
@@ -72,11 +99,15 @@ run('xuất mốc + bộ thử mù', () => {
       if (y.year >= cur || y.age < PAST_CONFIG.minAge || used.has(y.year)) continue;
       for (const a of AREAS) if (!PAST_CONFIG.commonAges[a].includes(y.age)) pool.push({ year: y.year, age: y.age, area: a });
     }
+    // Đối chứng KHỚP MẢNG: mỗi mốc trong 5 mốc đầu có đúng một năm ngẫu nhiên CÙNG MẢNG (không thì lấy mảng bất kỳ),
+    // để chênh lệch phản ánh việc chọn ĐÚNG NĂM chứ không phải mảng nào dễ "đúng" hơn.
     const randoms: typeof pool = [];
     const randYears = new Set<number>();
-    while (randoms.length < 5 && pool.length) {
-      const c = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
-      if (randYears.has(c.year)) continue;
+    for (const mk of pr.markers.slice(0, 5)) {
+      const sameArea = pool.filter(c => c.area === mk.area && !randYears.has(c.year));
+      const cands = sameArea.length ? sameArea : pool.filter(c => !randYears.has(c.year));
+      if (!cands.length) break;
+      const c = cands[Math.floor(rnd() * cands.length)];
       randYears.add(c.year);
       randoms.push(c);
     }
@@ -99,10 +130,10 @@ run('xuất mốc + bộ thử mù', () => {
         md.push('');
       }
     }
-    fs.writeFileSync(path.join('exports', `past-review-${key}.md`), md.join('\n'), 'utf8');
+    fs.writeFileSync(path.join(OUT, `past-review-${key}.md`), md.join('\n'), 'utf8');
 
     // Bộ thử mù: 5 mốc chọn (top theo độ mạnh) + 5 năm ngẫu nhiên, trộn bằng seed cố định.
-    const chosen = pr.markers.slice(0, 5).map(m => ({ year: m.year, age: m.age, area: m.area, source: 'engine' as const }));
+    const chosen = pr.markers.slice(0, 5).map(m => ({ year: m.year, age: m.age, area: m.area, source: 'engine' as const, tier: m.tier, agree: m.agree }));
     const rands = randoms.map(r => ({ year: r.year, age: r.age, area: r.area, source: 'random' as const }));
     const all = [...chosen, ...rands];
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
@@ -110,8 +141,8 @@ run('xuất mốc + bộ thử mù', () => {
       'Với mỗi dòng: năm đó, ở mảng đời này, có biến động đáng kể không?', '',
       '| # | Năm (âm lịch) | Tuổi | Mảng | Phản hồi |', '|---|---|---|---|---|',
       ...all.map((r, i) => `| ${i + 1} | ${r.year} ${canChi(r.year)} | ${r.age} | ${AREA_LABEL[r.area]} |  |`)];
-    fs.writeFileSync(path.join('exports', `past-review-${key}-blind.md`), blind.join('\n'), 'utf8');
-    fs.writeFileSync(path.join('exports', `past-review-${key}-key.json`),
+    fs.writeFileSync(path.join(OUT, `past-review-${key}-blind.md`), blind.join('\n'), 'utf8');
+    fs.writeFileSync(path.join(OUT, `past-review-${key}-key.json`),
       JSON.stringify(all.map((r, i) => ({ stt: i + 1, ...r })), null, 2), 'utf8');
 
     expect(pr.markers.length).toBeGreaterThan(0);
@@ -176,4 +207,85 @@ runDoc('sinh docs/past-review-rulebook.md', () => {
   fs.mkdirSync('docs', { recursive: true });
   fs.writeFileSync(path.join('docs', 'past-review-rulebook.md'), out.join('\n'), 'utf8');
   expect(out.length).toBeGreaterThan(20);
+});
+
+// ───────────────────────── Chấm bộ thử mù ─────────────────────────
+const runScore = process.env.PAST_REVIEW_SCORE ? test : test.skip;
+
+runScore('chấm bộ thử mù: tỉ lệ khớp của mốc do bộ máy chọn so với năm ngẫu nhiên cùng mảng', () => {
+  const files = fs.readdirSync(OUT).filter(f => f.endsWith('-blind.md')).sort();
+  expect(files.length).toBeGreaterThan(0);
+  const persons: PersonResult[] = [];
+  const agreeRows: PersonResult[] = [];
+  const ageBands: Record<string, PersonResult[]> = { '15-24': [], '25-39': [], '40-59': [], '60+': [] };
+  for (const f of files) {
+    const keyFile = path.join(OUT, f.replace('-blind.md', '-key.json'));
+    if (!fs.existsSync(keyFile)) continue;
+    const keys: KeyRow[] = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
+    const replies = parseBlindSheet(fs.readFileSync(path.join(OUT, f), 'utf8'));
+    const id = f.replace(/^past-review-/, '').replace(/-blind\.md$/, '');
+    persons.push({ id, engine: tallyRows(keys, replies, 'engine'), random: tallyRows(keys, replies, 'random') });
+    agreeRows.push({ id, engine: tallyRows(keys, replies, 'engine', k => !!k.agree), random: tallyRows(keys, replies, 'random') });
+    const age = Math.max(...keys.map(k => k.age));
+    const band = age < 25 ? '15-24' : age < 40 ? '25-39' : age < 60 ? '40-59' : '60+';
+    ageBands[band].push(persons[persons.length - 1]);
+  }
+  const opts = {
+    passDiff: process.env.PAST_REVIEW_PASS_DIFF ? Number(process.env.PAST_REVIEW_PASS_DIFF) : 0.15,
+    minPersons: process.env.PAST_REVIEW_MIN_PERSONS ? Number(process.env.PAST_REVIEW_MIN_PERSONS) : 50,
+  };
+  const S = summarize(persons, opts);
+  const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+  const md: string[] = [
+    '# Kết quả thử mù — Nghiệm quá khứ', '',
+    `Bảng quy tắc: **${RULEBOOK_VERSION}** · số file: ${files.length} · số người có trả lời ở cả hai nhóm: **${S.persons}**`, '',
+    `## Kết luận: ${S.verdict === 'DAT' ? '✅ ĐẠT' : S.verdict === 'CHUA_DAT' ? '❌ CHƯA ĐẠT' : '⏳ CHƯA ĐỦ NGƯỜI'}`,
+    ...S.reasons.map(r => `- ${r}`), '',
+    '| Nhóm | Dòng đã trả lời | Khớp (Đúng + Gần đúng) | Tỉ lệ khớp | Chỉ tính "Đúng" |', '|---|---|---|---|---|',
+    `| Mốc do bộ máy chọn | ${S.engine.answered} | ${S.engine.hits} | **${pct(S.engine.rate)}** | ${pct(S.engine.strictRate)} |`,
+    `| Năm ngẫu nhiên cùng mảng | ${S.random.answered} | ${S.random.hits} | **${pct(S.random.rate)}** | ${pct(S.random.strictRate)} |`, '',
+    `- Chênh lệch gộp: **${(S.diffPooled * 100).toFixed(1)} điểm %** (z = ${S.z.toFixed(2)})`,
+    `- Chênh lệch ghép cặp theo từng người: **${(S.diffPaired * 100).toFixed(1)} điểm %**, khoảng tin cậy 95%: [${(S.ci95[0] * 100).toFixed(1)}; ${(S.ci95[1] * 100).toFixed(1)}]`,
+    `- Ngưỡng đạt (TẠM, anh Toàn quyết): chênh ≥ ${(S.passDiff * 100).toFixed(0)} điểm %, khoảng tin cậy nằm hẳn trên 0, ≥ ${S.minPersons} người`, '',
+    '## Chia theo độ tuổi', '', '| Nhóm tuổi (lớn nhất trong 10 dòng) | Số người | Khớp mốc bộ máy | Khớp ngẫu nhiên | Chênh |', '|---|---|---|---|---|',
+    ...Object.entries(ageBands).map(([b, ps]) => { const s = summarize(ps, opts); return `| ${b} | ${s.persons} | ${pct(s.engine.rate)} | ${pct(s.random.rate)} | ${(s.diffPooled * 100).toFixed(1)} |`; }), '',
+  ];
+  const sa = summarize(agreeRows, opts);
+  md.push('## Riêng các mốc "cả hai hệ cùng báo"', '', `Khớp ${pct(sa.engine.rate)} (${sa.engine.hits}/${sa.engine.answered}) so với ngẫu nhiên ${pct(sa.random.rate)} — chênh ${(sa.diffPooled * 100).toFixed(1)} điểm %.`, '');
+  fs.writeFileSync(path.join(OUT, 'past-review-score.md'), md.join('\n'), 'utf8');
+  expect(S.persons).toBeGreaterThanOrEqual(0);
+});
+
+// ───────────────────────── Gói cho người có nghề đánh giá "Vì sao" ─────────────────────────
+const runExpert = process.env.PAST_REVIEW_EXPERT ? test : test.skip;
+
+runExpert('xuất gói đánh giá phần Vì sao cho người luận Tử Vi / Bát Tự', () => {
+  const nowStr = process.env.PAST_REVIEW_NOW ?? new Date().toISOString().slice(0, 10);
+  const [ny, nm, nd] = nowStr.split('-').map(Number);
+  const now = new Date(ny, nm - 1, nd);
+  const perPerson = Number(process.env.PAST_REVIEW_EXPERT_PER_PERSON ?? 3);
+  const md: string[] = [
+    '# Gói đánh giá phần "Vì sao" — Nghiệm quá khứ', '',
+    'Với mỗi mốc bên dưới, xin anh/chị đọc lập luận của Tuzi và đánh dấu MỘT ô: **Đúng phép** · **Gượng** (có lý nhưng nhấn sai trọng tâm) · **Sai phép** (luận trái quy tắc Tử Vi / Bát Tự), rồi ghi ngắn chỗ sai nếu có.', '',
+    'Lưu ý: đây là bản đọc cho người có nghề, không hiển thị ngày giờ sinh. Tử Vi luận theo Nam Phái; Bát Tự dùng năm theo âm lịch, đại vận xấp xỉ.', '',
+  ];
+  let n = 0;
+  for (const { key, result } of loadPeople(ny)) {
+    const pr = computePastReviewSync(result, { now });
+    for (const m of pr.markers.slice(0, perPerson)) {
+      n++;
+      const ph = describeMarker(m);
+      const why = explainWhy(m, { sensitive: ph.sensitive });
+      md.push(`## Mốc ${n} — ${m.year} ${canChi(m.year)} · tuổi ${m.age} · ${AREA_LABEL[m.area]} (${m.tier})`, '', `*Câu mô tả:* ${ph.text}`, '',
+        `**Tử Vi** — ${why.viewer.tuvi.goc} ${why.viewer.tuvi.nen} ${why.viewer.tuvi.ngoi} ${why.viewer.tuvi.ket}`, '',
+        `**Bát Tự** — ${why.viewer.bazi.goc} ${why.viewer.bazi.nen} ${why.viewer.bazi.ngoi} ${why.viewer.bazi.ket}`, '',
+        why.viewer.doiChieu, '',
+        'Chi tiết từng tín hiệu:');
+      for (const r of why.learner.rows) md.push(`- [${r.system === 'tuvi' ? 'Tử Vi' : 'Bát Tự'} · ${r.layerLabel}] ${r.title} — ${r.detail}`);
+      md.push('', '**Đánh giá:** ☐ Đúng phép  ☐ Gượng  ☐ Sai phép', '**Ghi chú:** ', '');
+    }
+  }
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'past-review-expert-pack.md'), md.join('\n'), 'utf8');
+  expect(n).toBeGreaterThan(0);
 });
