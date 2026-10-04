@@ -411,4 +411,37 @@ cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu n�
 
 ---
 
-_Cập nhật lần cuối: 28/09/2026, sau khi thêm luồng "Nâng cấp tài khoản" cho user Partner SSO._
+## 11. Nghiệm quá khứ & Dòng đời đã qua (đang làm — 4 giai đoạn, nhãn "Thử nghiệm")
+
+Box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen` → route `PastReview`. Đặc tả gốc của anh Toàn:
+`D:\Lap trinh\Tu vi\tuzi-nghiem-qua-khu-spec.md` (được phép chỉnh). Tiến độ: **GĐ1 bộ máy** (đã commit),
+**GĐ2 Nghiệm quá khứ + Vì sao** (màn hình + phản hồi), GĐ3 Dòng đời đã qua, GĐ4 Chế độ học + Luận tương lai (chưa làm).
+
+**Quyết định của anh Toàn (đừng đảo):** lời văn = **mẫu ghép từ tín hiệu, KHÔNG AI**; giờ sinh không rõ → để sau;
+mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); mỗi giai đoạn dừng cho anh duyệt rồi mới commit.
+
+**Kiến trúc** (`src/core/pastReview/`, thuần TS, tất định, không UI/Supabase/AI):
+- `config.ts` — MỌI trọng số/ngưỡng đều **TẠM** + `RULEBOOK_VERSION` (đổi trọng số phải tăng version).
+- Tử Vi: tái dùng `annualEvents/engine.computeAnnualPrediction(result, year, { skipMonthly: true })` → ánh xạ 5 mảng
+  (Sự nghiệp/Chỗ ở/Tình duyên/Tài lộc/Gia đạo) qua `areaMap.ts`; `HEALTH_/LEGAL_/EDUCATION_` bị loại (không luận bệnh/tai nạn).
+- Bát Tự: `bazi/` (lưu niên, thập thần, xung/hợp/hình/hại/phá, Dịch Mã/Đào Hoa, đại vận Bát Tự xấp xỉ) + bảng quy tắc `BZ_*`.
+- Bốn tầng **Gốc/Nền/Ngòi/Kết**; hai hệ cùng báo → thưởng; một hệ → ×0.6. Chọn 5–8 mốc (3 nếu <25 tuổi), ≤2/mảng, trải ≥2 đại hạn.
+- Lời văn (GĐ2): `phrases.ts` ("Có thể bạn đã …", sự kiện nhạy cảm chỉ nói ở mức mảng đời), `explainWhy.ts` (2 mức: người xem /
+  người học), `lint.ts` (từ cấm: Mệnh chủ/Thân chủ/chắc chắn…, chạy trong test trên mọi câu mẫu), `feedback.ts` (khớp x/y, nhắc giờ sinh khi >50% Sai).
+- Server: `supabase_past_review.sql` (ĐÃ chạy trên production) — `past_review_feedback` (RLS chính chủ, cascade) + `analytics_events`
+  (chỉ ghi; admin đọc). Client: `lib/pastReviewStore.ts`, `lib/track.ts` (best-effort, không ghi nội dung riêng tư).
+- Không tính xu ở GĐ2 (miễn phí). Kết quả tính chỉ cache trong bộ nhớ phiên (không cache bền).
+
+**Bảng trọng số Bát Tự (`docs/past-review-rulebook.md`, `pr-0.1-tam`) đã được anh Toàn DUYỆT ngày 04/10/2026** (vẫn là giá trị khởi điểm, chỉnh được khi có dữ liệu phản hồi).
+
+**Cổng ra mắt (chưa đạt, nên giữ nhãn "Thử nghiệm"):** chưa có bằng chứng mốc khớp thật hơn năm ngẫu nhiên.
+Cách đo: `docs/past-review-rulebook.md` (anh duyệt bảng quy tắc) +
+`PAST_REVIEW_EXPORT=1 PAST_REVIEW_BIRTH=YYYY-M-D-H-nam|nu npx jest pastReviewExport` → `exports/` (md / bản mù / đáp án); trong app xem "khớp x/y".
+`PAST_REVIEW_RULEBOOK=1 …` xuất lại bảng quy tắc.
+
+**Lỗi có sẵn phát hiện khi khảo sát (ngoài phạm vi, chưa sửa):** `daiVanScore.ts:60` dùng cung `'Hôn Nhân'` (cung thật là `'Phu Thê'`);
+`daiVanEngine.calculateTieuVan` luôn `solarToLunar` ngày sinh kể cả lá số nhập âm lịch.
+
+---
+
+_Cập nhật lần cuối: 04/10/2026, sau khi thêm Nghiệm quá khứ (GĐ1–2)._

@@ -37,6 +37,8 @@ export const PAST_CONFIG = {
   markersUnder25: 3,
   under25Age: 25,
   maxPerArea: 2,
+  /** Cần ít nhất ngần này phản hồi (Đúng/Gần đúng/Sai) mới nhắc kiểm tra lại giờ sinh khi quá nửa là Sai. */
+  birthHourHintMinAnswers: 3,
   /** Tối đa ngần này mốc trong cùng một đại hạn — tránh dồn cục vào một giai đoạn (TẠM). */
   maxPerDaiVan: 4,
   /** Các mốc phải trải trên ít nhất ngần này đại hạn (nếu lá số có đủ ứng viên). */
