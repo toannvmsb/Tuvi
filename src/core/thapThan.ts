@@ -136,22 +136,22 @@ export function computeThapThan(b: BatTuChart): ThapThanTally {
 }
 
 // ─────────────────────────── QUAN HỆ CHI ───────────────────────────
-const BR: EarthlyBranch[] = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'];
+export const BR: EarthlyBranch[] = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'];
 
-const LUC_HOP: [EarthlyBranch, EarthlyBranch, string][] = [
+export const LUC_HOP: [EarthlyBranch, EarthlyBranch, string][] = [
   ['Tý', 'Sửu', 'Thổ'], ['Dần', 'Hợi', 'Mộc'], ['Mão', 'Tuất', 'Hỏa'],
   ['Thìn', 'Dậu', 'Kim'], ['Tị', 'Thân', 'Thủy'], ['Ngọ', 'Mùi', 'Thổ'],
 ];
-const LUC_XUNG: [EarthlyBranch, EarthlyBranch][] = [
+export const LUC_XUNG: [EarthlyBranch, EarthlyBranch][] = [
   ['Tý', 'Ngọ'], ['Sửu', 'Mùi'], ['Dần', 'Thân'], ['Mão', 'Dậu'], ['Thìn', 'Tuất'], ['Tị', 'Hợi'],
 ];
-const LUC_HAI: [EarthlyBranch, EarthlyBranch][] = [
+export const LUC_HAI: [EarthlyBranch, EarthlyBranch][] = [
   ['Tý', 'Mùi'], ['Sửu', 'Ngọ'], ['Dần', 'Tị'], ['Mão', 'Thìn'], ['Thân', 'Hợi'], ['Dậu', 'Tuất'],
 ];
-const LUC_PHA: [EarthlyBranch, EarthlyBranch][] = [
+export const LUC_PHA: [EarthlyBranch, EarthlyBranch][] = [
   ['Tý', 'Dậu'], ['Ngọ', 'Mão'], ['Thân', 'Tị'], ['Dần', 'Hợi'], ['Thìn', 'Sửu'], ['Tuất', 'Mùi'],
 ];
-const TAM_HOP: [EarthlyBranch[], string][] = [
+export const TAM_HOP: [EarthlyBranch[], string][] = [
   [['Thân', 'Tý', 'Thìn'], 'Thủy'], [['Dần', 'Ngọ', 'Tuất'], 'Hỏa'],
   [['Tị', 'Dậu', 'Sửu'], 'Kim'], [['Hợi', 'Mão', 'Mùi'], 'Mộc'],
 ];
@@ -159,13 +159,13 @@ const TAM_HOI: [EarthlyBranch[], string][] = [
   [['Dần', 'Mão', 'Thìn'], 'Mộc (Đông)'], [['Tị', 'Ngọ', 'Mùi'], 'Hỏa (Nam)'],
   [['Thân', 'Dậu', 'Tuất'], 'Kim (Tây)'], [['Hợi', 'Tý', 'Sửu'], 'Thủy (Bắc)'],
 ];
-const HINH_TRIPLE: [EarthlyBranch[], string][] = [
+export const HINH_TRIPLE: [EarthlyBranch[], string][] = [
   [['Dần', 'Tị', 'Thân'], 'vô ân chi hình'], [['Sửu', 'Tuất', 'Mùi'], 'trì thế chi hình'],
 ];
-const HINH_PAIR: [EarthlyBranch, EarthlyBranch, string][] = [
+export const HINH_PAIR: [EarthlyBranch, EarthlyBranch, string][] = [
   ['Tý', 'Mão', 'vô lễ chi hình'],
 ];
-const TU_HINH: EarthlyBranch[] = ['Thìn', 'Ngọ', 'Dậu', 'Hợi']; // tự hình khi trùng
+export const TU_HINH: EarthlyBranch[] = ['Thìn', 'Ngọ', 'Dậu', 'Hợi']; // tự hình khi trùng
 
 const CAN_HOP: [HeavenlyStem, HeavenlyStem, string][] = [
   ['Giáp', 'Kỷ', 'Thổ'], ['Ất', 'Canh', 'Kim'], ['Bính', 'Tân', 'Thủy'], ['Đinh', 'Nhâm', 'Mộc'], ['Mậu', 'Quý', 'Hỏa'],

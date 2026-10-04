@@ -56,3 +56,6 @@ coverage/
 
 # ─── Local Claude Code / agent metadata ───
 .claude/
+
+# Công cụ nội bộ Nghiệm quá khứ — chứa ngày giờ sinh, KHÔNG commit
+exports/

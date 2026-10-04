@@ -22,7 +22,7 @@ function isStemYang(stem: HeavenlyStem): boolean {
 }
 
 // Hidden stems (Tàng Can) for each earthly branch
-const HIDDEN_STEMS: Record<EarthlyBranch, HeavenlyStem[]> = {
+export const HIDDEN_STEMS: Record<EarthlyBranch, HeavenlyStem[]> = {
   Tý: ['Quý'],
   Sửu: ['Kỷ', 'Quý', 'Tân'],
   Dần: ['Giáp', 'Bính', 'Mậu'],

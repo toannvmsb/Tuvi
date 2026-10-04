@@ -61,7 +61,11 @@ function applyCrossEventRules(events: ScoredEvent[]): CompositeEvent[] {
  * Chấm điểm + luận toàn bộ 85 sự kiện cho 1 lá số + 1 năm xem. Trả về sự kiện đã lọc/xếp hạng
  * (tối đa 5, tối đa 2/nhóm) — cùng bản đầy đủ trong `debugCandidateCount` để biết đã xét bao nhiêu.
  */
-export function computeAnnualPrediction(result: AstrologyResult, targetYear: number): AnnualPrediction {
+export function computeAnnualPrediction(
+  result: AstrologyResult,
+  targetYear: number,
+  opts: { skipMonthly?: boolean } = {},
+): AnnualPrediction {
   const ctx = buildAnnualContext(result, targetYear);
   const uniformRules = ALL_RULES.filter(r => isUniform(r.condition));
   const specialRules = ALL_RULES.filter(r => !isUniform(r.condition));
@@ -81,7 +85,9 @@ export function computeAnnualPrediction(result: AstrologyResult, targetYear: num
     const special = evaluateSpecialRules(def, specialRules, pass1, categories, ctx.signals);
     const ev = finalizeEvent(pass1[id], special.extraStructural, special.extraEvidence, special.extraFamilies);
     ev.title = eventTitleOf(id);
-    ev.peakMonths = computeMonthlyTiming(def, ev.strength, RULES_BY_EVENT[id] ?? [], result, ctx);
+    // `skipMonthly`: bỏ tầng tháng (tốn nhất, ~70% thời gian) khi chỉ cần điểm CẢ NĂM — vd "Nghiệm quá
+    // khứ" (core/pastReview) chấm hàng chục năm liên tiếp. Mặc định giữ nguyên hành vi cũ.
+    ev.peakMonths = opts.skipMonthly ? [] : computeMonthlyTiming(def, ev.strength, RULES_BY_EVENT[id] ?? [], result, ctx);
     scored.push(ev);
   }
 
