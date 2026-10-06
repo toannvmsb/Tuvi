@@ -36,6 +36,7 @@ import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import { lunarBirthYear } from '../core/ageUtil';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TieuVan'>;
 
@@ -205,7 +206,7 @@ export default function TieuVanScreen({ route }: Props) {
 
         {dv && (
           <Text style={styles.dvInfo}>
-            Đại vận {dv.stem} {dv.branch} · {result.birthInfo.year + dv.startAge - 1}–{result.birthInfo.year + dv.endAge - 1}
+            Đại vận {dv.stem} {dv.branch} · {lunarBirthYear(result.birthInfo) + dv.startAge - 1}–{lunarBirthYear(result.birthInfo) + dv.endAge - 1}
           </Text>
         )}
 

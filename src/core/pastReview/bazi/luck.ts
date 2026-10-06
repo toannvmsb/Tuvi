@@ -3,13 +3,14 @@
  *  - Chiều: nam Dương niên / nữ Âm niên đi THUẬN; nam Âm niên / nữ Dương niên đi NGHỊCH (theo can trụ năm của app).
  *  - Khởi vận: số ngày từ ngày sinh tới TIẾT (12 tiết, không tính khí) gần nhất theo chiều đi, chia 3 = số năm.
  *  - Bắt đầu từ trụ THÁNG của app, mỗi vận một bước can chi theo chiều.
- * XẤP XỈ có chủ đích: trụ tháng của app lập theo tháng ÂM LỊCH (không theo tiết khí) nên đại vận ở đây
- * cũng chỉ là xấp xỉ, nhất quán với trụ app đang hiển thị. Ghi chú này hiện ở mức người học.
+ * Trụ tháng khởi vận: theo BAZI_BASIS — 'tiet' (mặc định, đúng phép: tháng theo tiết khí) hoặc 'lunar' (trụ tháng ÂM LỊCH của màn Bát Tự).
+ * Tuổi khởi vận luôn tính theo số ngày tới tiết gần nhất ÷ 3. Ghi chú này hiện ở mức người học.
  */
 import type { AstrologyResult, EarthlyBranch, HeavenlyStem } from '../../../types';
 import { lunarToSolar } from '../../lunarCalendar';
 import { getSolarTermDate } from '../../solarTerms';
 import { BRANCHES, STEMS, isYangStem } from './tables';
+import { tuoiMuOfYear } from '../../ageUtil';
 
 export interface BaziLuckPillar {
   index: number;       // 1..12
@@ -28,7 +29,7 @@ export interface BaziLuck {
 
 const JIE_INDEXES = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]; // 12 "tiết" trong SOLAR_TERM_NAMES
 
-function birthSolarDate(result: AstrologyResult): Date {
+export function birthSolarDate(result: AstrologyResult): Date {
   const b = result.birthInfo;
   if (b.calendarType === 'lunar') {
     const s = lunarToSolar(b.day, b.month, b.year, b.isLeapMonth ?? false);
@@ -39,10 +40,14 @@ function birthSolarDate(result: AstrologyResult): Date {
 
 const DAY_MS = 86400000;
 
-export function computeBaziLuck(result: AstrologyResult): BaziLuck {
+/** `pillars` (tùy chọn): bộ trụ năm/tháng dùng để lập đại vận (mặc định = trụ của màn Bát Tự). Với BAZI_BASIS='tiet' truyền trụ theo tiết khí. */
+export function computeBaziLuck(result: AstrologyResult, trueP?: { yearStem: HeavenlyStem; monthStem: HeavenlyStem; monthBranch: EarthlyBranch }): BaziLuck {
   const bt = result.batTuChart;
   const gender = result.birthInfo.gender;
-  const yangYear = isYangStem(bt.pillars[0].stem);
+  const yearStem = trueP?.yearStem ?? bt.pillars[0].stem;
+  const monthStem = trueP?.monthStem ?? bt.pillars[1].stem;
+  const monthBranch = trueP?.monthBranch ?? bt.pillars[1].branch;
+  const yangYear = isYangStem(yearStem);
   const forward = (gender === 'nam') === yangYear;
 
   const birth = birthSolarDate(result);
@@ -62,8 +67,8 @@ export function computeBaziLuck(result: AstrologyResult): BaziLuck {
   const days = target ? Math.abs(Math.round((target.getTime() - t) / DAY_MS)) : 0;
   const startYearsAfterBirth = Math.max(1, Math.round(days / 3));
 
-  const si = STEMS.indexOf(bt.pillars[1].stem);
-  const bi = BRANCHES.indexOf(bt.pillars[1].branch);
+  const si = STEMS.indexOf(monthStem);
+  const bi = BRANCHES.indexOf(monthBranch);
   const dir = forward ? 1 : -1;
   const pillars: BaziLuckPillar[] = [];
   for (let k = 1; k <= 12; k++) {   // 12 vận ≈ 120 năm: đủ cho Luận tương lai tới 100 tuổi
@@ -72,7 +77,7 @@ export function computeBaziLuck(result: AstrologyResult): BaziLuck {
       index: k,
       startYear,
       endYear: startYear + 9,
-      startAge: startYear - result.birthInfo.year + 1,
+      startAge: tuoiMuOfYear(result.birthInfo, startYear),
       stem: STEMS[(((si + dir * k) % 10) + 10) % 10],
       branch: BRANCHES[(((bi + dir * k) % 12) + 12) % 12],
     });

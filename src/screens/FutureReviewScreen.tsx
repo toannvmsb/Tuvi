@@ -9,6 +9,7 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-nati
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import DetailLinkButton from '../components/DetailLinkButton';
+import ChartShareBlock from '../components/ChartShareBlock';
 import PastLifeChart, { ChartLegend, type SeriesKey } from '../components/PastLifeChart';
 import { WhyBlock } from '../components/PastWhy';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
@@ -251,6 +252,11 @@ export default function FutureReviewScreen() {
                     Đường lên là năm có xu hướng thuận hơn, đường xuống là năm có xu hướng nhiều thử thách. Vòng vàng là năm nổi bật. Chạm vào biểu đồ để chọn một năm.
                   </Text>
                 </Card>
+
+                <ChartShareBlock
+                  timeline={timeline} mode="future" width={chartW} name={name} fileName="tuzi-luan-tuong-lai.png"
+                  brand="TUZI · LUẬN TƯƠNG LAI" footnote="Xu hướng tham khảo theo lá số · Tuzi — Trợ lý tử vi của bạn"
+                />
 
                 {timeline.chapters.map(c => {
                   const open = c.free || unlocked;

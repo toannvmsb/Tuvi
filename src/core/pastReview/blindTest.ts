@@ -6,8 +6,10 @@
  *
  *  - "Khớp" = Đúng + Gần đúng, trên số dòng ĐÃ trả lời (Không nhớ / bỏ trống không tính).
  *  - Chênh lệch tính theo từng người (ghép cặp) vì mỗi người có cả hai nhóm → khử khác biệt giữa người dễ tính/khó tính.
- *  - Ngưỡng đạt là cấu hình TẠM (anh Toàn quyết): mặc định chênh ≥ 15 điểm % và khoảng tin cậy 95% nằm hẳn trên 0, ≥ 50 người.
+ *  - Ngưỡng đạt = config.LAUNCH_GATE (đã chốt TẠM 05/10/2026 để chạy thật, sẽ chỉnh sau): chênh ≥ 15 điểm % và khoảng tin cậy 95% nằm hẳn trên 0, ≥ 50 người.
  */
+import { LAUNCH_GATE } from './config';
+
 export type Reply = 'dung' | 'gan_dung' | 'sai' | 'khong_nho' | null;
 
 const strip = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
@@ -77,8 +79,8 @@ export interface BlindSummary {
 const rate = (h: number, n: number) => (n > 0 ? h / n : 0);
 
 export function summarize(persons: PersonResult[], opts: { passDiff?: number; minPersons?: number } = {}): BlindSummary {
-  const passDiff = opts.passDiff ?? 0.15;
-  const minPersons = opts.minPersons ?? 50;
+  const passDiff = opts.passDiff ?? LAUNCH_GATE.passDiff;
+  const minPersons = opts.minPersons ?? LAUNCH_GATE.minPersons;
   const used = persons.filter(p => p.engine.answered > 0 && p.random.answered > 0);
 
   const agg = (key: 'engine' | 'random') => {

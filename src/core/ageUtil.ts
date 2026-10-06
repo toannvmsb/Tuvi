@@ -10,8 +10,22 @@
  * mà tuViEngine.ts dùng cho viewingAge (vy - solarYear + 1) để nhất quán với
  * cách lunarYearForAge/scoreNguyetVan diễn giải tham số `age`.
  */
-import type { AstrologyResult } from '../types';
+import type { AstrologyResult, BirthInfo } from '../types';
+import { solarToLunar } from './lunarCalendar';
+
+/**
+ * NĂM ÂM LỊCH SINH — mốc duy nhất để tính tuổi mụ, Đại hạn, Tiểu hạn. Lá số nhập DƯƠNG lịch: đổi ngày sinh sang âm lịch (người sinh từ 1/1 tới Tết
+ * thuộc năm âm lịch TRƯỚC, nên trước 06/10/2026 họ bị lệch 1 tuổi mụ ở khắp app); lá số nhập ÂM lịch: `year` đã là năm âm lịch.
+ */
+export function lunarBirthYear(b: Pick<BirthInfo, 'day' | 'month' | 'year' | 'calendarType'>): number {
+  return b.calendarType === 'solar' ? solarToLunar(b.day, b.month, b.year).year : b.year;
+}
+
+/** Tuổi mụ của một NĂM (năm − năm âm lịch sinh + 1). Dùng thay cho mọi phép `năm − birthInfo.year`. */
+export function tuoiMuOfYear(b: Pick<BirthInfo, 'day' | 'month' | 'year' | 'calendarType'>, year: number): number {
+  return year - lunarBirthYear(b) + 1;
+}
 
 export function currentAgeOf(result: AstrologyResult, atDate: Date = new Date()): number {
-  return atDate.getFullYear() - result.birthInfo.year + 1;
+  return tuoiMuOfYear(result.birthInfo, atDate.getFullYear());
 }

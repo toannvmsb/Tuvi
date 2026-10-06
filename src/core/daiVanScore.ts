@@ -32,6 +32,7 @@
  */
 
 import type { AstrologyResult, DaiVan, TuViHouse, StarEntry, FiveElement, EarthlyBranch } from '../types';
+import { lunarBirthYear } from './ageUtil';
 
 const CAT_PHU = new Set([
   'Tả Phù', 'Hữu Bật', 'Văn Xương', 'Văn Khúc', 'Thiên Khôi', 'Thiên Việt',
@@ -291,7 +292,7 @@ function nhanHoaOf(menhBo: Bo, dvBo: Bo): { level: 'cao' | 'kha' | 'binh' | 'kem
 }
 
 export function scoreDaiVan(result: AstrologyResult, dv: DaiVan): DaiVanScore {
-  const birthYear = result.birthInfo.year;
+  const birthYear = lunarBirthYear(result.birthInfo);
   const h = result.tuViChart.houses.find(x => x.branch === dv.branch);
   const stars: StarEntry[] = h?.stars ?? [];
   const chinh = stars.filter(s => s.type === 'chinh');

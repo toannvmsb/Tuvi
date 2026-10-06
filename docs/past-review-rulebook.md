@@ -1,6 +1,6 @@
 # Nghiệm quá khứ — Bảng quy tắc để duyệt
 
-Phiên bản bảng: **pr-0.1-tam** — mọi trọng số/ngưỡng dưới đây là **TẠM**, do Claude đặt theo bảng "Tín hiệu theo mảng đời" của đặc tả, **chờ anh Toàn duyệt/chỉnh**.
+Phiên bản bảng: **pr-0.3-tam** — mọi trọng số/ngưỡng dưới đây là **TẠM**, do Claude đặt theo bảng "Tín hiệu theo mảng đời" của đặc tả, **chờ anh Toàn duyệt/chỉnh**.
 File này sinh tự động từ code (`PAST_REVIEW_RULEBOOK=1 npx jest src/core/__tests__/pastReviewExport.test.ts`); cấu hình thật nằm ở `src/core/pastReview/config.ts` và `src/core/pastReview/bazi/rules.ts`. Đổi gì thì tăng `RULEBOOK_VERSION` và cập nhật golden test.
 
 ## 1. Cách chấm một năm
@@ -12,7 +12,10 @@ File này sinh tự động từ code (`PAST_REVIEW_RULEBOOK=1 npx jest src/core
 5. **Độ mạnh 3 mức**: Mạnh = đồng thuận và ≥ 60; Vừa = đồng thuận hoặc ≥ 40; còn lại Nhẹ.
 6. **Chọn mốc**: tối đa 8 mốc (3 nếu dưới 25 tuổi); mỗi năm một mốc; ≤ 2/mảng; ≤ 4/đại hạn; trải ≥ 2 đại hạn; từ 15 tuổi; ưu tiên 20 năm gần nhất (năm xa × 0.85); bỏ năm hiện tại; mốc thứ 6 trở đi cần độ mạnh ≥ 25.
 7. **Tuổi phổ biến bị loại**: Sự nghiệp 21/22/23; Tình duyên 26/27/28.
-8. **Mốc đổi năm**: năm ÂM LỊCH (mùng 1 Tết) cho cả hai hệ — đúng cách app đang lập trụ năm/tháng Bát Tự (không dùng Lập Xuân).
+8. **Mốc đổi năm**: Tử Vi theo NĂM ÂM LỊCH (mùng 1 Tết). Bát Tự (từ pr-0.2): trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết khí (`BAZI_BASIS` = tiet); đặt lunar để quay về cách của màn Bát Tự (tháng âm lịch).
+9. **Sự kiện vô lý theo tuổi** bị loại (`EVENT_MAX_AGE`, vd thăng chức sau 62, mua nhà sau 80, sinh con sau ~50).
+
+*Thay đổi pr-0.3-tam (06/10/2026):* thêm 3 quy tắc năm trùng tuổi / Phục ngâm / Phản ngâm; Bát Tự của cả app nay lập theo tiết khí và dùng chung phép phù ức. *Thay đổi pr-0.2-tam:* dụng/kỵ thần tính theo phép phù ức (thân vượng/nhược, tháng lệnh nặng nhất); trụ năm/tháng theo tiết khí; đại vận Bát Tự khởi từ trụ tháng tiết khí và kéo tới 12 vận; thêm `EVENT_MAX_AGE`.
 
 ## 2. Ánh xạ sự kiện Tử Vi → 5 mảng đời
 
@@ -61,6 +64,9 @@ Chiều: **ủng hộ** = làm tăng khả năng có biến động ở mảng �
 | `BZ_WEA_UNFAV` | Tài lộc | Ngòi | ủng hộ | nghịch | 24 | can/chi lưu niên là Tài tinh và hành của nó là kỵ thần — Lưu niên gặp Tài tinh là kỵ thần |  |
 | `BZ_WEA_ROB` | Tài lộc | Ngòi | ủng hộ | nghịch | 20 | can/chi lưu niên là Tỷ Kiên/Kiếp Tài, và lá số gốc có Tài — Tỷ/Kiếp đoạt tài |  |
 | `BZ_WEA_LUCK_STAR` | Tài lộc | Nền | ủng hộ | trung tính | 10 | đại vận (can hoặc chi) là Chính Tài / Thiên Tài — Đại vận mang Tài tinh |  |
+| `BZ_FAM_TAISUI` | Gia đạo | Ngòi | ủng hộ | trung tính | 15 | chi lưu niên TRÙNG chi trụ năm (năm trùng tuổi) — Năm trùng tuổi (chi lưu niên = chi năm sinh) |  |
+| `BZ_LOV_FUYIN_DAY` | Tình duyên | Ngòi | ủng hộ | nghịch | 20 | can và chi lưu niên trùng hệt can chi trụ ngày (Phục ngâm) — Phục ngâm trụ ngày (can chi lưu niên trùng can chi ngày) |  |
+| `BZ_HOM_FANYIN_DAY` | Chỗ ở & di chuyển | Ngòi | ủng hộ | nghịch | 28 | can lưu niên xung can trụ ngày và chi lưu niên xung chi trụ ngày (Phản ngâm) — Phản ngâm trụ ngày (thiên khắc địa xung) |  |
 | `BZ_FAM_ROOT` | Gia đạo | Gốc | ủng hộ | trung tính | 0 | mô tả trụ năm của lá số (luôn có, chỉ để giải thích) — Trụ năm — gốc gia đình, cha mẹ |  |
 | `BZ_FAM_CLASH_YEAR` | Gia đạo | Ngòi | ủng hộ | nghịch | 25 | chi lưu niên xung chi trụ năm — Chi lưu niên xung chi năm |  |
 | `BZ_FAM_HARM_YEAR` | Gia đạo | Ngòi | ủng hộ | nghịch | 15 | chi lưu niên hại chi trụ năm — Chi lưu niên hại chi năm |  |
@@ -71,8 +77,8 @@ Chiều: **ủng hộ** = làm tăng khả năng có biến động ở mảng �
 
 ## 4. Chỗ xấp xỉ cần anh biết
 
-- **Đại vận Bát Tự** (mới): chiều thuận/nghịch theo giới × âm dương can năm; khởi vận = số ngày tới *tiết* gần nhất ÷ 3. Nhưng trụ tháng của app lập theo tháng âm lịch (không theo tiết khí) nên đại vận chỉ là xấp xỉ, nhất quán với trụ app đang hiển thị.
-- **Dụng/kỵ thần**: lấy từ `batTuChart.favorableElements/unfavorableElements` của app (công thức đơn giản theo tỷ lệ hành nhật chủ), chưa xét tháng lệnh; lệch với `phongThuyBatTu`.
+- **Đại vận Bát Tự**: chiều thuận/nghịch theo giới × âm dương can năm; khởi vận = số ngày tới *tiết* gần nhất ÷ 3 (theo ngày, bỏ qua giờ giao tiết), bắt đầu từ trụ tháng theo tiết khí (pr-0.2). Màn Bát Tự của app vẫn lập tháng theo âm lịch nên trụ tháng ở đây có thể khác trụ ở màn đó (đo trên 1.500 ngày sinh giả lập: khác ở ~17% người; trụ năm khác ở ~2%).
+- **Dụng/kỵ thần** (pr-0.2): phép phù ức trong `bazi/strength.ts` — tổng 100 điểm: chi tháng 40, can tháng/can giờ/chi ngày 12, can năm/chi năm/chi giờ 8; ≥ 50 điểm đồng đảng (Tỷ Kiếp + Ấn) là thân vượng. Chưa xét tòng cách, điều hậu, thông quan, bệnh–dược. Kết quả có thể KHÁC danh sách dụng/kỵ hiển thị ở màn Bát Tự và phong thủy của app (vẫn dùng cách đếm hành cũ; đo trên 1.500 ngày sinh: hai cách ra cùng kết luận vượng/nhược ở ~69% người).
 - **Dịch Mã/Đào Hoa**: theo tam hợp của chi năm sinh và chi ngày sinh (bảng cổ điển).
 - **Chưa hỗ trợ giờ sinh không rõ** (app chưa có cờ này, mặc định giờ 12).
 - Tử Vi chấm bằng **toàn bộ engine annualEvents** (trọng số của engine, không phải bảng riêng), nên chỉnh trọng số Tử Vi là chỉnh `src/data/annualEventRules.generated.json`.

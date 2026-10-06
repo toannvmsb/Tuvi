@@ -38,3 +38,43 @@ describe('Sửa lỗi có sẵn: cung Phu Thê tính vào điểm quan hệ củ
     expect(score('Phu Thê')).toBe(score('Hôn Nhân'));           // tên gọi cũ vẫn tương đương
   });
 });
+
+import { currentAgeOf, lunarBirthYear, tuoiMuOfYear } from '../ageUtil';
+import { truePillars } from '../baziPillars';
+import { assessDayMasterStrength } from '../batTuStrength';
+
+describe('Tuổi mụ theo NĂM ÂM LỊCH sinh (đồng nhất toàn app)', () => {
+  const jan = { ...base, calendarType: 'solar' as const, year: 1990, month: 1, day: 15 };  // 19/12 âm lịch năm Kỷ Tị 1989
+  test('người sinh 15/1/1990 (dương) thuộc năm âm lịch 1989', () => {
+    expect(lunarBirthYear(jan)).toBe(1989);
+    expect(tuoiMuOfYear(jan, 2026)).toBe(38);
+    expect(lunarBirthYear({ ...base, calendarType: 'solar', year: 1990, month: 6, day: 15 })).toBe(1990);
+    expect(lunarBirthYear({ ...base, calendarType: 'lunar', year: 1990, month: 1, day: 1 })).toBe(1990);
+  });
+  test('Tiểu vận, tuổi hiện tại và tuổi xem của lá số cùng một quy ước', () => {
+    const r = buildResult(jan, 2026);
+    expect(currentAgeOf(r, new Date(2026, 5, 1))).toBe(38);
+    expect(r.tuViChart.viewingAge).toBe(38);
+    expect(r.tieuVans[0]).toMatchObject({ age: 1, year: 1989 });
+    expect(r.tieuVans.find(t => t.year === 2026)!.age).toBe(38);
+  });
+});
+
+describe('Bát Tự lập theo tiết khí + dụng/kỵ thần thống nhất', () => {
+  test('trụ năm/tháng của màn Bát Tự = trụ theo tiết khí (không còn tháng âm lịch)', () => {
+    for (const [y, m, d] of [[1990, 7, 10], [2000, 2, 3], [2000, 2, 4], [1985, 11, 3], [1991, 1, 10]]) {
+      const r = buildResult({ ...base, calendarType: 'solar', year: y, month: m, day: d }, 2026);
+      const tp = truePillars(new Date(y, m - 1, d));
+      const [yp, mp] = r.batTuChart.pillars;
+      expect([yp.stem, yp.branch, mp.stem, mp.branch]).toEqual([tp.yearStem, tp.yearBranch, tp.monthStem, tp.monthBranch]);
+    }
+    // 10/7/1990: sau Tiểu Thử (7/7) là tháng Mùi (trước đây ra Ngọ do tháng 5 âm lịch)
+    expect(buildResult({ ...base, calendarType: 'solar', year: 1990, month: 7, day: 10 }, 2026).batTuChart.pillars[1].branch).toBe('Mùi');
+  });
+  test('favorableElements của batTuChart = kết quả phù ức dùng cho Nghiệm quá khứ', () => {
+    const r = buildResult({ ...base, calendarType: 'solar', year: 1985, month: 6, day: 15 }, 2026);
+    const s = assessDayMasterStrength(r.batTuChart.dayMaster, r.batTuChart.pillars);
+    expect(r.batTuChart.favorableElements).toEqual(s.favorable);
+    expect(r.batTuChart.unfavorableElements).toEqual(s.unfavorable);
+  });
+});

@@ -36,6 +36,7 @@ import { buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
 import { promptPersonalize } from '../lib/personalizePrompt';
 import { WeatherMini } from '../components/WeatherCards';
+import { scoreNguyetVan } from '../core/nguyetVanScore';
 import WeatherBackdrop from '../components/WeatherBackdrop';
 import { formatXu } from '../lib/format';
 import AnimatedAvatar from '../components/AnimatedAvatar';
@@ -139,6 +140,8 @@ export default function OverviewScreen() {
   const tv = myResult?.tieuVans.find(t => t.year === y);
   // Cung mà tiểu hạn năm nay rơi vào (theo địa chi cung tiểu hạn).
   const tvPalace = tv ? myResult?.tuViChart.houses.find(h => h.branch === tv.branch)?.palaceName : undefined;
+  // Cung lưu nguyệt của THÁNG ÂM hiện tại (cùng cách màn Nguyệt vận tính).
+  const nvPalace = myResult ? scoreNguyetVan(myResult, age, lunarNow.month)?.palaceName : undefined;
 
   const eventDays = event
     ? (event.daysUntil === 0 ? 'Hôm nay' : event.daysUntil < 0 ? `${-event.daysUntil} ngày trước` : `Còn ${event.daysUntil} ngày`)
@@ -268,21 +271,25 @@ export default function OverviewScreen() {
         <SectionTitle title="Vận khí hiện tại" sub="10 năm · 1 năm · 30 ngày" />
         {myResult ? (
           <>
-            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'DaiVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
-              <Eyebrow>{dv ? `Đại vận · ${dv.startAge}–${dv.endAge} tuổi` : 'Đại vận'}</Eyebrow>
-              <Text style={s.tierText}>{dvPalace ? `Cung ${dvPalace}` : 'Xem chi tiết đại vận'}</Text>
-              {dv ? <ProgressBar value={((age - dv.startAge + 1) / (dv.endAge - dv.startAge + 1)) * 100} height={6} /> : null}
-            </Pressable>
-            <View style={s.hr} />
-            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'TieuVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
-              <Eyebrow>{`Tiểu vận - ${y}${tvPalace ? ` Cung ${tvPalace}` : (tv ? ` ${tv.yearStem} ${tv.yearBranch}` : '')}`}</Eyebrow>
-              <Text style={s.tierText}>Kế hoạch 1 năm theo lá số của bạn</Text>
-            </Pressable>
-            <View style={s.hr} />
-            <Pressable onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: 'NguyetVan', params: { result: myResult } })} style={{ gap: 6 }} accessibilityRole="button">
-              <Eyebrow>{`Nguyệt vận · Tháng ${lunarNow.month} âm`}</Eyebrow>
-              <Text style={s.tierText}>Tháng này kích hoạt phần nào của Đại vận và Tiểu vận</Text>
-            </Pressable>
+            {/* Đại vận · Tiểu vận · Nguyệt vận: 3 nút ngang, mỗi nút 3 dòng (tên vận · mốc thời gian · cung) */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { key: 'DaiVan', label: 'Đại vận', time: dv ? `${dv.startAge}–${dv.endAge} tuổi` : '—', palace: dvPalace, color: COLORS.gold },
+                { key: 'TieuVan', label: 'Tiểu vận', time: String(y), palace: tvPalace, color: COLORS.purple },
+                { key: 'NguyetVan', label: 'Nguyệt vận', time: `Tháng ${lunarNow.month} âm`, palace: nvPalace, color: COLORS.green },
+              ] as const).map(b => (
+                <Pressable
+                  key={b.key}
+                  style={[s.vanBtn, { backgroundColor: b.color + '17', borderColor: b.color + '4D' }]}
+                  onPress={() => navigation.navigate('MainTabs', { result: myResult, screen: b.key, params: { result: myResult } })}
+                  accessibilityRole="button" accessibilityLabel={`${b.label} ${b.time}${b.palace ? `, cung ${b.palace}` : ''}`}
+                >
+                  <Text style={[s.vanLabel, { color: b.color }]} numberOfLines={1}>{b.label}</Text>
+                  <Text style={s.vanTime} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{b.time}</Text>
+                  <Text style={s.vanPalace} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{b.palace ? `Cung ${b.palace}` : 'Xem chi tiết'}</Text>
+                </Pressable>
+              ))}
+            </View>
             <View style={s.hr} />
             {/* Nghiệm quá khứ (2/5) · Vận hạn diễn ra trong năm (1/5) · Luận tương lai (2/5) */}
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -417,6 +424,10 @@ const s = StyleSheet.create({
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
   shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
   shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  vanBtn: { flex: 1, minHeight: 78, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
+  vanLabel: { fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 0.4, textTransform: 'uppercase' },
+  vanTime: { fontFamily: FONTS.display, fontSize: 19, lineHeight: 22, color: COLORS.textPrimary },
+  vanPalace: { fontFamily: FONTS.bodySemi, fontSize: 12, color: COLORS.textSecondary },
   lifeBtn: { minHeight: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 4 },
   lifeTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, lineHeight: 18, color: COLORS.textPrimary, textAlign: 'center' },
   lifeYear: { fontFamily: FONTS.display, fontSize: 20, lineHeight: 24, color: COLORS.goldLight },

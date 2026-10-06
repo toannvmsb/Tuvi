@@ -27,6 +27,7 @@ import { careerSuggestion } from '../data/careerByStar';
 import { luuStarsTamPhuong, luuStarsTamPhuongPos, yearVsTuoi, LUU_HUNG, type LuuStarPos } from '../core/luuStars';
 import { computePhiHoa, summarizeYearHoa, aggregatePhiHoa, luuTuHoaPositions, monthStem } from './phiHoa';
 import { generateCachCucOfflineSection, cachCucActivationBlock, detectAllCachCuc, CORE_PALACES } from './cachCucEngine';
+import { lunarBirthYear } from './ageUtil';
 
 // ---- helpers ----
 
@@ -1189,7 +1190,7 @@ export function generateOfflineDaiVan(result: AstrologyResult, dvIndex: number):
   if (!dv) return '_Không tìm thấy đại vận này._';
   const sc = scoreDaiVan(result, dv);
   const h = result.tuViChart.houses.find(x => x.branch === dv.branch);
-  const birthYear = result.birthInfo.year;
+  const birthYear = lunarBirthYear(result.birthInfo);
   const out: string[] = [];
 
   const thM = tamHopOf(dv.branch);

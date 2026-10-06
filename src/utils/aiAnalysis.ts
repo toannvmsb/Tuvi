@@ -49,6 +49,7 @@ import { analyzePalace } from '../core/palaceAnalysisService';
 import { natalFactsBlock } from '../core/natalAnalysisService';
 import { computeSixDomainScores } from '../core/offlineLuanGiai';
 import { STRUCTURED_INSTRUCTION, parseAndValidate, renderNarrative } from '../core/structuredAI';
+import { lunarBirthYear, tuoiMuOfYear } from '../core/ageUtil';
 
 const ENDPOINT = 'https://text.pollinations.ai/openai';
 // Timeout 180s — bài luận Toàn lá số / Đại vận có thể tới ~7000 từ (~12K tokens),
@@ -223,7 +224,7 @@ export function buildPalacePrompt(result: AstrologyResult, branchIndex: number):
     : '• (Các sao trong cung không tạo thành cách cục đặc biệt)';
 
   // Đại vận hiện tại.
-  const ageNow = (c.viewingYear ?? new Date().getFullYear()) - birthInfo.year + 1;
+  const ageNow = tuoiMuOfYear(birthInfo, c.viewingYear ?? new Date().getFullYear());
   const dvNow = result.daiVans.find(d => ageNow >= d.startAge && ageNow <= d.endAge);
   const dvText = dvNow
     ? `Đại vận hiện tại ${dvNow.startAge}-${dvNow.endAge}t (Can-Chi ${dvNow.stem} ${dvNow.branch}, đóng cung ${result.tuViChart.houses.find(x => x.branch === dvNow.branch)?.palaceName || '?'}). Đại vận này có "đi qua / kích hoạt" cung ${h.palaceName} không?`
@@ -1297,8 +1298,8 @@ function buildDaiVanContext(result: AstrologyResult, dvIndex: number): { context
     if (inf && !kb.some(k => k.startsWith('• ' + nm))) kb.push(`• ${nm}: ${trim(inf.basic, 240)}`);
   }
 
-  const startY = birthInfo.year + dv.startAge - 1;
-  const endY = birthInfo.year + dv.endAge - 1;
+  const startY = lunarBirthYear(birthInfo) + dv.startAge - 1;
+  const endY = lunarBirthYear(birthInfo) + dv.endAge - 1;
   const sc = scoreDaiVan(result, dv);
   const TT_TXT: Record<string, string> = {
     sinhNhap: 'sinh nhập (rất tốt)', dongHanh: 'đồng hành (tốt)',
@@ -1360,7 +1361,7 @@ function buildDaiVanContext(result: AstrologyResult, dvIndex: number): { context
   const palaceTopic = h ? (PALACE_TOPIC[h.palaceName] || h.palaceName) : '';
 
   // Đại vận đang ở quá khứ / hiện tại / tương lai (so với năm xem hoặc năm hiện tại).
-  const ageNow = (c.viewingYear ?? new Date().getFullYear()) - birthInfo.year + 1;
+  const ageNow = tuoiMuOfYear(birthInfo, c.viewingYear ?? new Date().getFullYear());
   const timeline = ageNow < dv.startAge ? 'TƯƠNG LAI' : ageNow > dv.endAge ? 'QUÁ KHỨ' : 'HIỆN TẠI';
 
   const context = [
@@ -2134,7 +2135,7 @@ export async function analyzeNhatVanWithAI(result: AstrologyResult, dateMs: numb
   const unfav = (b.unfavorableElements || []).join(', ');
 
   // ── Đại Vận hiện tại ──
-  const age = Math.max(0, date.getFullYear() - (birthInfo.year || date.getFullYear()));
+  const age = Math.max(0, tuoiMuOfYear(birthInfo, date.getFullYear()));
   const curDV = result.daiVans?.find(dv => age >= dv.startAge && age <= dv.endAge);
   const dvContext = curDV
     ? (() => {

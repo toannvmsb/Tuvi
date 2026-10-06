@@ -11,9 +11,14 @@ import { AREAS, type AreaId } from '../config';
 import type { PastSignal } from '../types';
 import { BZ_RULES, BZ_SCORE, type BzRule, type PillarKey } from './rules';
 import { branchRelations, REL_LABEL } from './relations';
-import { computeBaziLuck, luckAtYear, type BaziLuck } from './luck';
+import { birthSolarDate, computeBaziLuck, luckAtYear, type BaziLuck } from './luck';
+import { truePillars, withTruePillars } from './truePillars';
+import { assessDayMasterStrength, type DayMasterStrength } from './strength';
+import { BAZI_BASIS } from '../config';
 import { STEM_ELEMENT, branchElement, horseBranchOf, mainHiddenStem, peachBranchOf } from './tables';
 
+/** Can tương xung (Giáp–Canh, Ất–Tân, Bính–Nhâm, Đinh–Quý). */
+const CAN_XUNG_PAIRS: [HeavenlyStem, HeavenlyStem][] = [['Giáp', 'Canh'], ['Ất', 'Tân'], ['Bính', 'Nhâm'], ['Đinh', 'Quý']];
 const PILLAR_INDEX: Record<PillarKey, number> = { year: 0, month: 1, day: 2, hour: 3 };
 const PILLAR_VN: Record<PillarKey, string> = { year: 'Năm', month: 'Tháng', day: 'Ngày', hour: 'Giờ' };
 const TAI_GODS: ThapThan[] = ['Chính Tài', 'Thiên Tài'];
@@ -32,14 +37,23 @@ export interface BaziNatal {
   horse: EarthlyBranch[];
   peach: EarthlyBranch[];
   luck: BaziLuck;
+  /** Thân vượng/nhược (phù ức, tháng lệnh) — nguồn của dụng/kỵ thần. */
+  strength: DayMasterStrength;
+  /** Cơ sở lập trụ năm/tháng đang dùng. */
+  basis: 'tiet' | 'lunar';
 }
 
 export function buildBaziNatal(result: AstrologyResult): BaziNatal {
   const bt = result.batTuChart;
   const dm = bt.dayMaster;
+  // Trụ năm/tháng: theo tiết khí (đúng phép) hoặc theo màn Bát Tự của app — xem BAZI_BASIS.
+  const solar = birthSolarDate(result);
+  const pillars: Pillar[] = BAZI_BASIS === 'tiet' ? withTruePillars(bt.pillars, solar) : bt.pillars;
+  const tp = BAZI_BASIS === 'tiet' ? truePillars(solar) : null;
+  const strength = assessDayMasterStrength(dm, pillars);
   let taiCount = 0;
   let anCount = 0;
-  bt.pillars.forEach((p, i) => {
+  pillars.forEach((p, i) => {
     const stems = i === 2 ? [...p.hiddenStems] : [p.stem, ...p.hiddenStems];
     for (const s of stems) {
       const g = thapThanOf(dm, s);
@@ -47,20 +61,22 @@ export function buildBaziNatal(result: AstrologyResult): BaziNatal {
       if (AN_GODS.includes(g)) anCount++;
     }
   });
-  const yb = bt.pillars[0].branch;
-  const db = bt.pillars[2].branch;
+  const yb = pillars[0].branch;
+  const db = pillars[2].branch;
   return {
     dm,
     gender: result.birthInfo.gender,
-    pillars: bt.pillars,
-    favorable: bt.favorableElements,
-    unfavorable: bt.unfavorableElements,
+    pillars,
+    favorable: strength.favorable,
+    unfavorable: strength.unfavorable,
     hasTai: taiCount > 0,
     hasAn: anCount > 0,
     taiCount,
     horse: [...new Set([horseBranchOf(yb), horseBranchOf(db)])],
     peach: [...new Set([peachBranchOf(yb), peachBranchOf(db)])],
-    luck: computeBaziLuck(result),
+    luck: computeBaziLuck(result, tp ? { yearStem: tp.yearStem, monthStem: tp.monthStem, monthBranch: tp.monthBranch } : undefined),
+    strength,
+    basis: BAZI_BASIS,
   };
 }
 
@@ -128,6 +144,22 @@ function evalRule(rule: BzRule, natal: BaziNatal, f: FlowCtx): Pick<PastSignal, 
       if (!set.includes(f.branch)) return null;
       return { where: flowWhere(f), param: { sao: m.star === 'horse' ? 'Dịch Mã' : 'Đào Hoa', chi: f.branch } };
     }
+    case 'flow_same_branch': {
+      const p = natal.pillars[PILLAR_INDEX[m.pillar]];
+      if (f.branch !== p.branch) return null;
+      return { where: `${flowWhere(f)} = ${pillarWhere(p)}`, param: { chiLuuNien: f.branch, chiTru: p.branch, tru: PILLAR_VN[m.pillar], quanHe: 'trùng' } };
+    }
+    case 'flow_fuyin': {
+      const p = natal.pillars[PILLAR_INDEX[m.pillar]];
+      if (f.stem !== p.stem || f.branch !== p.branch) return null;
+      return { where: `${flowWhere(f)} = ${pillarWhere(p)}`, param: { can: p.stem, chi: p.branch, tru: PILLAR_VN[m.pillar] } };
+    }
+    case 'flow_fanyin': {
+      const p = natal.pillars[PILLAR_INDEX[m.pillar]];
+      if (!CAN_XUNG_PAIRS.some(([a, b]) => (a === f.stem && b === p.stem) || (b === f.stem && a === p.stem))) return null;
+      if (!branchRelations(f.branch, p.branch).includes('xung')) return null;
+      return { where: `${flowWhere(f)} ↔ ${pillarWhere(p)}`, param: { canLuuNien: f.stem, canTru: p.stem, chiLuuNien: f.branch, chiTru: p.branch, tru: PILLAR_VN[m.pillar] } };
+    }
     case 'flow_wealth_el': {
       const list = m.mode === 'fav' ? natal.favorable : natal.unfavorable;
       const stemHit = TAI_GODS.includes(f.stemGod) && list.includes(f.stemEl);
@@ -171,7 +203,10 @@ function evalRule(rule: BzRule, natal: BaziNatal, f: FlowCtx): Pick<PastSignal, 
     case 'root_wealth':
       return {
         where: 'tứ trụ',
-        param: { soTaiTinh: natal.taiCount, dungThan: natal.favorable.join(', '), kyThan: natal.unfavorable.join(', ') },
+        param: {
+          soTaiTinh: natal.taiCount, dungThan: natal.favorable.join(', '), kyThan: natal.unfavorable.join(', '),
+          thanVuong: natal.strength.verdict === 'vuong' ? 'vượng' : 'nhược', diem: Math.round(natal.strength.score),
+        },
       };
   }
 }

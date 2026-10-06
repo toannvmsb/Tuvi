@@ -3,13 +3,18 @@
  * `bazi/rules.ts`, KHÔNG viết cứng trong logic. Giá trị đánh dấu "TẠM" là giá trị khởi điểm do em
  * đặt, chờ anh duyệt và chỉnh sau đợt thử nội bộ (đặc tả "Chỉ số đo lường").
  *
- * Quy ước mốc đổi năm: dùng NĂM ÂM LỊCH (mùng 1 Tết) cho cả Tử Vi lẫn Bát Tự — đúng cách app đang
- * lập trụ năm/tháng Bát Tự (xem core/batTuEngine.ts). Chưa dùng Lập Xuân; nếu sau này đổi thì chỉ
- * đổi ở `bazi/flow.ts`.
+ * Quy ước năm: Tử Vi dùng NĂM ÂM LỊCH (mùng 1 Tết). Bát Tự: xem BAZI_BASIS bên dưới (năm/tháng của LƯU NIÊN luôn gọi theo năm âm lịch
+ * đang xét; BAZI_BASIS chỉ quyết định cách lập trụ NĂM và THÁNG của lá số gốc).
  */
 
 /** Tăng khi đổi bảng quy tắc/trọng số — điểm năm lưu kèm phiên bản này để biết mốc nào cần tính lại. */
-export const RULEBOOK_VERSION = 'pr-0.1-tam';
+export const RULEBOOK_VERSION = 'pr-0.3-tam';
+
+/**
+ * Cơ sở lập trụ NĂM/THÁNG Bát Tự: 'tiet' = đúng phép (trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết). Từ 06/10/2026 màn Bát Tự của app
+ * (core/batTuEngine.ts) CŨNG lập theo tiết khí nên hai nơi luôn khớp; 'lunar' chỉ còn là công tắc dự phòng để so sánh/lùi lại.
+ */
+export const BAZI_BASIS: 'tiet' | 'lunar' = 'tiet';
 
 export const AREAS = ['career', 'home', 'love', 'wealth', 'family'] as const;
 export type AreaId = typeof AREAS[number];
@@ -21,6 +26,14 @@ export const AREA_LABEL: Record<AreaId, string> = {
   wealth: 'Tài lộc',
   family: 'Gia đạo',
 };
+
+/**
+ * NGƯỠNG CỔNG RA MẮT (thử mù, xem blindTest.ts) — CHỐT TẠM ngày 05/10/2026 theo yêu cầu của anh Toàn để chạy thật trước; điều chỉnh lại khi
+ * có đủ dữ liệu thử nghiệm. Tính năng vẫn mang nhãn "Thử nghiệm" cho tới khi ĐẠT cổng này.
+ *  - passDiff: tỉ lệ khớp của mốc do bộ máy chọn phải hơn năm ngẫu nhiên cùng mảng ít nhất ngần này (0.15 = 15 điểm phần trăm);
+ *  - minPersons: số người thử tối thiểu trả lời cả hai nhóm.
+ */
+export const LAUNCH_GATE = { passDiff: 0.15, minPersons: 50, provisional: true } as const;
 
 /** LUẬN TƯƠNG LAI — các năm từ năm âm lịch hiện tại tới khi đủ `untilAge` tuổi (mọi giá trị TẠM, cùng RULEBOOK_VERSION). */
 export const FUTURE_CONFIG = {

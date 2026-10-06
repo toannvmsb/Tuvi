@@ -16,6 +16,7 @@ import type { AstrologyResult, FiveElement, HeavenlyStem, EarthlyBranch } from '
 import { elementPhongThuy } from './phongThuyBatTu';
 import { solarToLunar } from './lunarCalendar';
 import { scoreDaiVan } from './daiVanScore';
+import { currentAgeOf } from './ageUtil';
 
 const STEMS: HeavenlyStem[] = ['Giáp','Ất','Bính','Đinh','Mậu','Kỷ','Canh','Tân','Nhâm','Quý'];
 const BRANCHES: EarthlyBranch[] = ['Tý','Sửu','Dần','Mão','Thìn','Tị','Ngọ','Mùi','Thân','Dậu','Tuất','Hợi'];
@@ -341,7 +342,7 @@ export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore 
   // ── CẤP 3: Đại Vận (15%) ──
   let daiVan100 = 50; // fallback trung tính nếu không có Đại Vận
   if (result.daiVans && result.daiVans.length > 0) {
-    const age = Math.max(0, date.getFullYear() - (result.birthInfo.year || date.getFullYear()));
+    const age = Math.max(0, currentAgeOf(result, date));
     const curDV = result.daiVans.find(dv => age >= dv.startAge && age <= dv.endAge);
     if (curDV) {
       const dvSc = scoreDaiVan(result, curDV);
@@ -375,7 +376,7 @@ export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore 
     warnings.push(`⚠ Năm Tam Tai (tuổi ${yearBranch}) — hạn chế việc trọng đại cả năm.`);
   }
   // Kim Lâu: tính theo tuổi hiện tại
-  const age = date.getFullYear() - (result.birthInfo.year || date.getFullYear());
+  const age = currentAgeOf(result, date); // tuổi mụ — cùng quy ước với Đại hạn/Tiểu hạn (Kim Lâu tính theo tuổi mụ)
   const kl = kimLauType(age);
   if (kl) {
     warnings.push(`⚠ ${kl} (tuổi ${age}) — cẩn thận cưới hỏi, làm nhà trong năm.`);

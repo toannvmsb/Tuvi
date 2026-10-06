@@ -20,6 +20,12 @@ export type BzMatcher =
   | { kind: 'flow_god'; gods: ThapThan[]; gender?: 'nam' | 'nu' }
   | { kind: 'flow_rel'; rel: BranchRel; pillar: PillarKey }
   | { kind: 'flow_star'; star: 'horse' | 'peach' }
+  /** Năm trùng tuổi / Thái Tuế trực: chi lưu niên TRÙNG chi trụ. */
+  | { kind: 'flow_same_branch'; pillar: PillarKey }
+  /** Phục ngâm: can VÀ chi lưu niên trùng hệt can chi của trụ. */
+  | { kind: 'flow_fuyin'; pillar: PillarKey }
+  /** Phản ngâm (thiên khắc địa xung): can lưu niên xung can trụ và chi lưu niên xung chi trụ. */
+  | { kind: 'flow_fanyin'; pillar: PillarKey }
   | { kind: 'flow_wealth_el'; mode: 'fav' | 'unfav' }
   | { kind: 'flow_rob' }
   | { kind: 'flow_wealth_hurts_seal' }
@@ -78,6 +84,11 @@ export const BZ_RULES: BzRule[] = [
   { id: 'BZ_WEA_UNFAV', label: 'Lưu niên gặp Tài tinh là kỵ thần', area: 'wealth', layer: 'ngoi', supports: true, tone: -1, weight: 24, match: { kind: 'flow_wealth_el', mode: 'unfav' } },
   { id: 'BZ_WEA_ROB', label: 'Tỷ/Kiếp đoạt tài', area: 'wealth', layer: 'ngoi', supports: true, tone: -1, weight: 20, match: { kind: 'flow_rob' } },
   { id: 'BZ_WEA_LUCK_STAR', label: 'Đại vận mang Tài tinh', area: 'wealth', layer: 'nen', supports: true, tone: 0, weight: 10, match: { kind: 'luck_god', gods: TAI } },
+
+  // ───────────── Bổ sung pr-0.3 (06/10/2026): năm trùng tuổi · Phục ngâm · Phản ngâm ─────────────
+  { id: 'BZ_FAM_TAISUI', label: 'Năm trùng tuổi (chi lưu niên = chi năm sinh)', area: 'family', layer: 'ngoi', supports: true, tone: 0, weight: 15, match: { kind: 'flow_same_branch', pillar: 'year' } },
+  { id: 'BZ_LOV_FUYIN_DAY', label: 'Phục ngâm trụ ngày (can chi lưu niên trùng can chi ngày)', area: 'love', layer: 'ngoi', supports: true, tone: -1, weight: 20, match: { kind: 'flow_fuyin', pillar: 'day' } },
+  { id: 'BZ_HOM_FANYIN_DAY', label: 'Phản ngâm trụ ngày (thiên khắc địa xung)', area: 'home', layer: 'ngoi', supports: true, tone: -1, weight: 28, match: { kind: 'flow_fanyin', pillar: 'day' } },
 
   // ───────────── Gia đạo ─────────────
   { id: 'BZ_FAM_ROOT', label: 'Trụ năm — gốc gia đình, cha mẹ', area: 'family', layer: 'goc', supports: true, tone: 0, weight: 0, match: { kind: 'root_pillar', pillar: 'year' } },

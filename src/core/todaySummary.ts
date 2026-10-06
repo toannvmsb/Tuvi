@@ -7,6 +7,7 @@
 import type { AstrologyResult, FiveElement } from '../types';
 import { dayCanChi, scoreNhatVan, goodBadHours, type HourWindow } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
+import { currentAgeOf } from './ageUtil';
 
 export interface TodaySummary {
   hasChart: boolean;
@@ -116,7 +117,7 @@ export function buildTodaySummary(result: AstrologyResult | null, date: Date = n
     const favEl = fav[0] || result.batTuChart.dayMasterElement;
     const unfavEl = unfav[0];
     const g = elementPhongThuy(favEl);
-    const age = date.getFullYear() - (result.birthInfo.year || date.getFullYear());
+    const age = currentAgeOf(result, date);
     const goodDay = sc.rating === 'Rất tốt' || sc.rating === 'Tốt';
     const badDay = sc.rating === 'Cần thận trọng' || sc.rating === 'Xấu';
 

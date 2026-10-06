@@ -420,13 +420,13 @@ Các box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen`
 **Tên hiển thị các tầng "Vì sao" (anh Toàn chốt 04/10/2026):** Bẩm sinh (goc) · Giai đoạn 10 năm (nen) · Trong năm (ngoi) · Tóm lại (ket) — `LAYER_FRIENDLY` trong `explainWhy.ts`; mã nội bộ goc/nen/ngoi giữ nguyên trong code/dữ liệu. Phần "Xem sâu hơn (dành cho người học tử vi)" viết lời thường, KHÔNG hiện mã quy tắc/điểm thô (test chặn); các dòng cùng một sao phục vụ nhiều sự kiện được gộp thành một dòng.
 
 **Quyết định của anh Toàn (đừng đảo):** lời văn = **mẫu ghép từ tín hiệu, KHÔNG AI**; giờ sinh không rõ → để sau;
-mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); mỗi giai đoạn dừng cho anh duyệt rồi mới commit.
+mỗi giai đoạn dừng cho anh duyệt rồi mới commit. ~~Mốc đổi năm Bát Tự theo âm lịch của app~~ → **ĐÃ ĐỔI 06/10/2026** (anh yêu cầu rà logic cho đúng lý thuyết): lá số gốc của tính năng lập theo TIẾT KHÍ (xem `BAZI_BASIS`).
 
 **Kiến trúc** (`src/core/pastReview/`, thuần TS, tất định, không UI/Supabase/AI):
 - `config.ts` — MỌI trọng số/ngưỡng đều **TẠM** + `RULEBOOK_VERSION` (đổi trọng số phải tăng version).
 - Tử Vi: tái dùng `annualEvents/engine.computeAnnualPrediction(result, year, { skipMonthly: true })` → ánh xạ 5 mảng
   (Sự nghiệp/Chỗ ở/Tình duyên/Tài lộc/Gia đạo) qua `areaMap.ts`; `HEALTH_/LEGAL_/EDUCATION_` bị loại (không luận bệnh/tai nạn).
-- Bát Tự: `bazi/` (lưu niên, thập thần, xung/hợp/hình/hại/phá, Dịch Mã/Đào Hoa, đại vận Bát Tự xấp xỉ) + bảng quy tắc `BZ_*`.
+- Bát Tự: `bazi/` (lưu niên, thập thần, xung/hợp/hình/hại/phá, Dịch Mã/Đào Hoa, đại vận Bát Tự, `truePillars.ts` trụ theo tiết khí, `strength.ts` thân vượng/nhược + dụng/kỵ) + bảng quy tắc `BZ_*`.
 - Bốn tầng **Gốc/Nền/Ngòi/Kết**; hai hệ cùng báo → thưởng; một hệ → ×0.6. Chọn 5–8 mốc (3 nếu <25 tuổi), ≤2/mảng, trải ≥2 đại hạn.
 - Lời văn (GĐ2): `phrases.ts` ("Có thể bạn đã …", sự kiện nhạy cảm chỉ nói ở mức mảng đời), `explainWhy.ts` (2 mức: người xem /
   người học), `lint.ts` (từ cấm: Mệnh chủ/Thân chủ/chắc chắn…, chạy trong test trên mọi câu mẫu), `feedback.ts` (khớp x/y, nhắc giờ sinh khi >50% Sai).
@@ -460,13 +460,25 @@ mốc đổi năm Bát Tự **theo âm lịch của app** (không Lập Xuân); 
   `PREMIUM.COST.futureLife` = 50 (TẠM; `app_config.price_future_life`, whitelist `admin_set_config`, ô nhập ở `tuvi-admin` Settings). Không nằm trong combo trọn đời.
 - Cache bộ nhớ phiên: `lib/futureReviewCache.ts`. Tracking: future_review_open / why_open / unlock.
 
+**Rà soát lý thuyết 06/10/2026 (bảng `pr-0.2-tam`)** — ĐÃ KIỂM ĐÚNG, không sửa: bảng sao theo can/chi năm (Lộc Tồn, Kình/Đà, Khôi/Việt, Xương/Khúc, Mã, Đào Hoa, Hồng Loan/Thiên Hỷ,
+Khốc/Hư, Kiếp Sát, Cô/Quả, Phá Toái, Hoa Cái…), Tứ Hóa 10 can Nam Phái, cung khởi + chiều Tiểu hạn, Tứ Hóa đại hạn theo can cung / lưu niên theo can năm, Tuần/Triệt chỉ ở cung chính;
+Bát Tự: thập thần, lục hợp/xung/hại/phá, tam hợp, tam hình/tự hình, tàng can, Dịch Mã/Đào Hoa, Ngũ Hổ Độn, chiều đại vận. ĐÃ SỬA (chỉ trong module pastReview, không đụng core):
+(1) dụng/kỵ thần: bỏ cách đếm hành đơn giản, dùng phép phù ức `bazi/strength.ts` (tháng lệnh 40/100…; đổi kết luận vượng/nhược ở ~31% lá số so với cách cũ);
+(2) trụ năm/tháng theo tiết khí `bazi/truePillars.ts` (cũ: tháng âm lịch → sai tháng lệnh ở ~17% người, sai trụ năm ~2%); đại vận Bát Tự khởi từ trụ tháng tiết khí + 12 vận;
+(3) `EVENT_MAX_AGE`. **CHƯA SỬA, cần anh Toàn quyết (ảnh hưởng toàn app):**
+ • ĐÃ XỬ LÝ (anh Toàn duyệt 06/10/2026): `core/batTuEngine.ts` nay lập trụ năm/tháng theo TIẾT KHÍ (`core/baziPillars.ts`) và dụng/kỵ thần theo phù ức (`core/batTuStrength.ts`) —
+   màn Bát Tự, phong thủy, AI, Nghiệm quá khứ/Luận tương lai dùng chung một nguồn. TUỔI MỤ nay theo NĂM ÂM LỊCH sinh ở khắp app: `ageUtil.lunarBirthYear/tuoiMuOfYear/currentAgeOf`
+   (tuViEngine.viewingAge, calculateTieuVan, daiVanScore, offlineLuanGiai, nhatVan, todaySummary, compareCharts, aiAnalysis, TieuVanScreen, bazi/luck). ĐỪNG viết `năm − birthInfo.year` nữa.
+ • Đã thêm vào bảng Bát Tự (pr-0.3-tam): năm trùng tuổi (BZ_FAM_TAISUI), Phục ngâm trụ ngày (BZ_LOV_FUYIN_DAY), Phản ngâm trụ ngày (BZ_HOM_FANYIN_DAY). VẪN chưa có: tòng cách, điều hậu, thông quan.
+ • Trọng số Tử Vi (engine annualEvents) và bảng BZ_* là heuristic, chỉ kiểm chứng được bằng thử mù (xem Cổng ra mắt).
+
 **Bảng trọng số Bát Tự (`docs/past-review-rulebook.md`, `pr-0.1-tam`) đã được anh Toàn DUYỆT ngày 04/10/2026** (vẫn là giá trị khởi điểm, chỉnh được khi có dữ liệu phản hồi).
 
 **Cổng ra mắt (CHƯA đạt — giữ nhãn "Thử nghiệm"):** cần (1) mốc do bộ máy chọn khớp cao hơn RÕ RỆT năm ngẫu nhiên và (2) người có nghề xác nhận phần Vì sao luận đúng phép.
 Công cụ (chạy bằng jest + biến môi trường, file trong `exports/` đã gitignore vì chứa ngày giờ sinh) — xem đầu `src/core/__tests__/pastReviewExport.test.ts`:
 - `PAST_REVIEW_EXPORT=1 PAST_REVIEW_BIRTHS_FILE=nguoi-thu.csv` (mỗi dòng `tên,NĂM-THÁNG-NGÀY-GIỜ-nam|nu`) → mỗi người một bộ thử mù (5 mốc bộ máy + 5 năm ngẫu nhiên CÙNG MẢNG, trộn) + file đáp án.
 - Người thử điền cột "Phản hồi" (Đúng / Gần đúng / Sai / Không nhớ) trong `*-blind.md` → `PAST_REVIEW_SCORE=1` chấm: tỉ lệ khớp hai nhóm, chênh ghép cặp + khoảng tin cậy 95%, chia theo tuổi
-  (logic ở `pastReview/blindTest.ts`, có test). Ngưỡng đạt TẠM: chênh ≥15 điểm %, CI nằm hẳn trên 0, ≥50 người (đổi bằng PAST_REVIEW_PASS_DIFF / PAST_REVIEW_MIN_PERSONS — anh Toàn quyết).
+  (logic ở `pastReview/blindTest.ts`, có test). Ngưỡng đạt = `LAUNCH_GATE` trong config.ts, **chốt TẠM 05/10/2026 theo anh Toàn để chạy thật trước**: chênh ≥15 điểm %, CI nằm hẳn trên 0, ≥50 người (đổi được bằng PAST_REVIEW_PASS_DIFF / PAST_REVIEW_MIN_PERSONS); điều chỉnh lại khi có dữ liệu thử nghiệm.
 - `PAST_REVIEW_EXPERT=1` → `past-review-expert-pack.md` cho người luận Tử Vi/Bát Tự đánh dấu Đúng phép / Gượng / Sai phép. `PAST_REVIEW_RULEBOOK=1` xuất lại `docs/past-review-rulebook.md`.
 
 **Hai lỗi có sẵn từng ghi chú — ĐÃ SỬA (04/10/2026, test ở `knownBugFixes.test.ts`):** `daiVanScore.REL_PALACES` dùng 'Hôn Nhân' thay cho cung thật 'Phu Thê' (nay có cả hai);
@@ -474,4 +486,4 @@ Công cụ (chạy bằng jest + biến môi trường, file trong `exports/` đ
 
 ---
 
-_Cập nhật lần cuối: 04/10/2026, sau khi thêm Luận tương lai (GĐ4)._
+_Cập nhật lần cuối: 04/10/2026, sau khi rà logic Bát Tự (pr-0.2) + nút xuất ảnh Luận tương lai._

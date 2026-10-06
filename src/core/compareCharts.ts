@@ -2,6 +2,7 @@
  * So sánh hai lá số — phân tích 12 tầng offline (Pro) + dữ liệu cho AI.
  */
 import type { AstrologyResult, FiveElement, EarthlyBranch } from '../types';
+import { currentAgeOf } from './ageUtil';
 
 // ─── NGŨ HÀNH ────────────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ Nạp âm Mệnh: **${c.napAmMenh}** · Cục số: ${c.cucName}.`;
 const CURRENT_YEAR = 2026;
 
 function currentDaiVan(r: AstrologyResult) {
-  const age = CURRENT_YEAR - r.birthInfo.year;
+  const age = currentAgeOf(r, new Date(CURRENT_YEAR, 0, 1));
   return r.daiVans.find(dv => dv.startAge <= age && dv.endAge >= age) ?? r.daiVans[0];
 }
 

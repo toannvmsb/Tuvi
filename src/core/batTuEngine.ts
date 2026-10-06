@@ -3,7 +3,9 @@
  */
 
 import type { BirthInfo, BatTuChart, Pillar, HeavenlyStem, EarthlyBranch, FiveElement } from '../types';
-import { solarToLunar } from './lunarCalendar';
+import { HIDDEN_STEMS } from './baziTables';
+import { truePillars } from './baziPillars';
+import { assessDayMasterStrength } from './batTuStrength';
 import { getStemByIndex, getBranchByIndex, getStemIndex, getBranchIndex } from '../data/napAm';
 
 const STEMS: HeavenlyStem[] = ['Giáp','Ất','Bính','Đinh','Mậu','Kỷ','Canh','Tân','Nhâm','Quý'];
@@ -22,20 +24,7 @@ function isStemYang(stem: HeavenlyStem): boolean {
 }
 
 // Hidden stems (Tàng Can) for each earthly branch
-export const HIDDEN_STEMS: Record<EarthlyBranch, HeavenlyStem[]> = {
-  Tý: ['Quý'],
-  Sửu: ['Kỷ', 'Quý', 'Tân'],
-  Dần: ['Giáp', 'Bính', 'Mậu'],
-  Mão: ['Ất'],
-  Thìn: ['Mậu', 'Ất', 'Quý'],
-  Tị: ['Bính', 'Mậu', 'Canh'],
-  Ngọ: ['Đinh', 'Kỷ'],
-  Mùi: ['Kỷ', 'Đinh', 'Ất'],
-  Thân: ['Canh', 'Nhâm', 'Mậu'],
-  Dậu: ['Tân'],
-  Tuất: ['Mậu', 'Tân', 'Đinh'],
-  Hợi: ['Nhâm', 'Giáp'],
-};
+export { HIDDEN_STEMS };
 
 // Month branch for each lunar month (1-12)
 const MONTH_BRANCH: EarthlyBranch[] = [
@@ -96,22 +85,15 @@ export function calculateBatTu(birthInfo: BirthInfo): BatTuChart {
     solarYear = solar.year;
   }
 
-  // --- Year Pillar ---
-  // Use lunar year
-  const lunar = solarToLunar(solarDay, solarMonth, solarYear);
-  const yearStemIdx = (lunar.year + 6) % 10;
-  const yearBranchIdx = (lunar.year + 8) % 12;
-  const yearStem = STEMS[yearStemIdx];
-  const yearBranch = BRANCHES[yearBranchIdx];
+  // --- Year + Month Pillar: THEO TIẾT KHÍ (đúng phép Bát Tự) ---
+  // Trụ năm đổi ở Lập Xuân; trụ tháng đổi ở 12 tiết (Lập Xuân→Dần … Tiểu Hàn→Sửu). Trước 06/10/2026 file này lấy năm/tháng ÂM LỊCH
+  // (sai trụ tháng ~17% người, trụ năm ~2% — xem core/baziPillars.ts).
+  const tp = truePillars(new Date(solarYear, solarMonth - 1, solarDay));
+  const yearStem = tp.yearStem;
+  const yearBranch = tp.yearBranch;
   const yearPillar = buildPillar(yearStem, yearBranch, 'Năm');
-
-  // --- Month Pillar ---
-  // Month branch: based on lunar month 1=Dần...12=Sửu
-  const monthBranch = MONTH_BRANCH[lunar.month - 1];
-  const monthStemStart = MONTH_STEM_START[yearStem];
-  const monthStemStartIdx = getStemIndex(monthStemStart);
-  const monthStemIdx = (monthStemStartIdx + lunar.month - 1) % 10;
-  const monthStem = STEMS[monthStemIdx];
+  const monthStem = tp.monthStem;
+  const monthBranch = tp.monthBranch;
   const monthPillar = buildPillar(monthStem, monthBranch, 'Tháng');
 
   // --- Day Pillar ---
@@ -141,27 +123,9 @@ export function calculateBatTu(birthInfo: BirthInfo): BatTuChart {
   for (const s of allHiddenStems) elementCounts[STEM_ELEMENT[s]] += 0.5;
 
   const dayMasterElement = STEM_ELEMENT[dayStem];
-  // Determine favorable/unfavorable based on day master strength
-  const dayMasterCount = elementCounts[dayMasterElement];
-  const totalCount = Object.values(elementCounts).reduce((a, b) => a + b, 0);
-  const isStrong = dayMasterCount / totalCount > 0.3;
-
-  // Five element cycle: generates (tương sinh),克s (tương khắc)
-  const GENERATES: Record<FiveElement, FiveElement> = { Mộc: 'Hỏa', Hỏa: 'Thổ', Thổ: 'Kim', Kim: 'Thủy', Thủy: 'Mộc' };
-  const CONTROLS: Record<FiveElement, FiveElement> = { Mộc: 'Thổ', Hỏa: 'Kim', Thổ: 'Thủy', Kim: 'Mộc', Thủy: 'Hỏa' };
-  const GEN_BY: Record<FiveElement, FiveElement> = { Hỏa: 'Mộc', Thổ: 'Hỏa', Kim: 'Thổ', Thủy: 'Kim', Mộc: 'Thủy' };
-
-  let favorableElements: FiveElement[];
-  let unfavorableElements: FiveElement[];
-  if (isStrong) {
-    // Strong day master → favor what drains or controls it
-    favorableElements = [GENERATES[dayMasterElement], CONTROLS[dayMasterElement]];
-    unfavorableElements = [GEN_BY[dayMasterElement], dayMasterElement];
-  } else {
-    // Weak day master → favor what generates or same element
-    favorableElements = [GEN_BY[dayMasterElement], dayMasterElement];
-    unfavorableElements = [CONTROLS[dayMasterElement]];
-  }
+  // Dụng/kỵ thần: phép phù ức (thân vượng/nhược, tháng lệnh nặng nhất) — core/batTuStrength.ts, dùng chung với Nghiệm quá khứ/Luận tương lai.
+  const pillarsArr = [yearPillar, monthPillar, dayPillar, hourPillar];
+  const { favorable: favorableElements, unfavorable: unfavorableElements } = assessDayMasterStrength(dayStem, pillarsArr);
 
   return {
     pillars: [yearPillar, monthPillar, dayPillar, hourPillar],

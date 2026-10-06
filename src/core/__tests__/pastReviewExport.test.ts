@@ -35,6 +35,7 @@ import { computePastReviewSync, lunarYearOf, AREAS, AREA_LABEL, PAST_CONFIG, EVE
 import { BZ_RULES, BZ_SCORE, type BzMatcher } from '../pastReview/bazi/rules';
 import { EVENT_TO_AREA } from '../pastReview/areaMap';
 import { EVENT_TITLE_VN } from '../annualEvents/eventTitles';
+import { LAUNCH_GATE } from '../pastReview/config';
 import { parseBlindSheet, tallyRows, summarize, type KeyRow, type PersonResult } from '../pastReview/blindTest';
 import { describeMarker } from '../pastReview/phrases';
 import { explainWhy } from '../pastReview/explainWhy';
@@ -158,6 +159,9 @@ function describeMatcher(m: BzMatcher): string {
   switch (m.kind) {
     case 'flow_god': return `can hoặc chi lưu niên là ${m.gods.join(' / ')}${m.gender ? ` (chỉ ${m.gender === 'nam' ? 'nam' : 'nữ'})` : ''}`;
     case 'flow_rel': return `chi lưu niên ${REL[m.rel]} chi trụ ${PILLAR[m.pillar]}`;
+    case 'flow_same_branch': return `chi lưu niên TRÙNG chi trụ ${PILLAR[m.pillar]} (năm trùng tuổi)`;
+    case 'flow_fuyin': return `can và chi lưu niên trùng hệt can chi trụ ${PILLAR[m.pillar]} (Phục ngâm)`;
+    case 'flow_fanyin': return `can lưu niên xung can trụ ${PILLAR[m.pillar]} và chi lưu niên xung chi trụ ${PILLAR[m.pillar]} (Phản ngâm)`;
     case 'flow_star': return `chi lưu niên trùng ${m.star === 'horse' ? 'Dịch Mã' : 'Đào Hoa'} (tính theo tam hợp của chi năm/chi ngày sinh)`;
     case 'flow_wealth_el': return `can/chi lưu niên là Tài tinh và hành của nó là ${m.mode === 'fav' ? 'dụng thần' : 'kỵ thần'}`;
     case 'flow_rob': return 'can/chi lưu niên là Tỷ Kiên/Kiếp Tài, và lá số gốc có Tài';
@@ -183,7 +187,9 @@ runDoc('sinh docs/past-review-rulebook.md', () => {
     `5. **Độ mạnh 3 mức**: Mạnh = đồng thuận và ≥ ${PAST_CONFIG.tier.strong}; Vừa = đồng thuận hoặc ≥ ${PAST_CONFIG.tier.medium}; còn lại Nhẹ.`,
     `6. **Chọn mốc**: tối đa ${PAST_CONFIG.markersMax} mốc (${PAST_CONFIG.markersUnder25} nếu dưới ${PAST_CONFIG.under25Age} tuổi); mỗi năm một mốc; ≤ ${PAST_CONFIG.maxPerArea}/mảng; ≤ ${PAST_CONFIG.maxPerDaiVan}/đại hạn; trải ≥ ${PAST_CONFIG.minDaiVanSpan} đại hạn; từ ${PAST_CONFIG.minAge} tuổi; ưu tiên ${PAST_CONFIG.recentYears} năm gần nhất (năm xa × ${PAST_CONFIG.olderYearFactor}); bỏ năm hiện tại; mốc thứ ${PAST_CONFIG.markersMin + 1} trở đi cần độ mạnh ≥ ${PAST_CONFIG.minMarkerStrength}.`,
     `7. **Tuổi phổ biến bị loại**: ${AREAS.filter(a => PAST_CONFIG.commonAges[a].length).map(a => `${AREA_LABEL[a]} ${PAST_CONFIG.commonAges[a].join('/')}`).join('; ')}.`,
-    '8. **Mốc đổi năm**: năm ÂM LỊCH (mùng 1 Tết) cho cả hai hệ — đúng cách app đang lập trụ năm/tháng Bát Tự (không dùng Lập Xuân).', '');
+    '8. **Mốc đổi năm**: Tử Vi theo NĂM ÂM LỊCH (mùng 1 Tết). Bát Tự (từ pr-0.2): trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết khí (`BAZI_BASIS` = tiet); đặt lunar để quay về cách của màn Bát Tự (tháng âm lịch).',
+    '9. **Sự kiện vô lý theo tuổi** bị loại (`EVENT_MAX_AGE`, vd thăng chức sau 62, mua nhà sau 80, sinh con sau ~50).', '',
+    '*Thay đổi pr-0.3-tam (06/10/2026):* thêm 3 quy tắc năm trùng tuổi / Phục ngâm / Phản ngâm; Bát Tự của cả app nay lập theo tiết khí và dùng chung phép phù ức. *Thay đổi pr-0.2-tam:* dụng/kỵ thần tính theo phép phù ức (thân vượng/nhược, tháng lệnh nặng nhất); trụ năm/tháng theo tiết khí; đại vận Bát Tự khởi từ trụ tháng tiết khí và kéo tới 12 vận; thêm `EVENT_MAX_AGE`.', '');
 
   out.push('## 2. Ánh xạ sự kiện Tử Vi → 5 mảng đời', '');
   for (const a of AREAS) {
@@ -199,8 +205,8 @@ runDoc('sinh docs/past-review-rulebook.md', () => {
     out.push(`| \`${r.id}\` | ${AREA_LABEL[r.area]} | ${L(r.layer)} | ${r.supports ? 'ủng hộ' : 'ngược'} | ${r.tone === 'flow' ? 'theo hỷ/kỵ' : r.tone > 0 ? 'thuận' : r.tone < 0 ? 'nghịch' : 'trung tính'} | ${r.weight} | ${describeMatcher(r.match)} — ${r.label} |  |`);
   }
   out.push('', '## 4. Chỗ xấp xỉ cần anh biết', '',
-    '- **Đại vận Bát Tự** (mới): chiều thuận/nghịch theo giới × âm dương can năm; khởi vận = số ngày tới *tiết* gần nhất ÷ 3. Nhưng trụ tháng của app lập theo tháng âm lịch (không theo tiết khí) nên đại vận chỉ là xấp xỉ, nhất quán với trụ app đang hiển thị.',
-    '- **Dụng/kỵ thần**: lấy từ `batTuChart.favorableElements/unfavorableElements` của app (công thức đơn giản theo tỷ lệ hành nhật chủ), chưa xét tháng lệnh; lệch với `phongThuyBatTu`.',
+    '- **Đại vận Bát Tự**: chiều thuận/nghịch theo giới × âm dương can năm; khởi vận = số ngày tới *tiết* gần nhất ÷ 3 (theo ngày, bỏ qua giờ giao tiết), bắt đầu từ trụ tháng theo tiết khí (pr-0.2). Màn Bát Tự của app vẫn lập tháng theo âm lịch nên trụ tháng ở đây có thể khác trụ ở màn đó (đo trên 1.500 ngày sinh giả lập: khác ở ~17% người; trụ năm khác ở ~2%).',
+    '- **Dụng/kỵ thần** (pr-0.2): phép phù ức trong `bazi/strength.ts` — tổng 100 điểm: chi tháng 40, can tháng/can giờ/chi ngày 12, can năm/chi năm/chi giờ 8; ≥ 50 điểm đồng đảng (Tỷ Kiếp + Ấn) là thân vượng. Chưa xét tòng cách, điều hậu, thông quan, bệnh–dược. Kết quả có thể KHÁC danh sách dụng/kỵ hiển thị ở màn Bát Tự và phong thủy của app (vẫn dùng cách đếm hành cũ; đo trên 1.500 ngày sinh: hai cách ra cùng kết luận vượng/nhược ở ~69% người).',
     '- **Dịch Mã/Đào Hoa**: theo tam hợp của chi năm sinh và chi ngày sinh (bảng cổ điển).',
     '- **Chưa hỗ trợ giờ sinh không rõ** (app chưa có cờ này, mặc định giờ 12).',
     '- Tử Vi chấm bằng **toàn bộ engine annualEvents** (trọng số của engine, không phải bảng riêng), nên chỉnh trọng số Tử Vi là chỉnh `src/data/annualEventRules.generated.json`.', '');
@@ -231,8 +237,8 @@ runScore('chấm bộ thử mù: tỉ lệ khớp của mốc do bộ máy chọ
     ageBands[band].push(persons[persons.length - 1]);
   }
   const opts = {
-    passDiff: process.env.PAST_REVIEW_PASS_DIFF ? Number(process.env.PAST_REVIEW_PASS_DIFF) : 0.15,
-    minPersons: process.env.PAST_REVIEW_MIN_PERSONS ? Number(process.env.PAST_REVIEW_MIN_PERSONS) : 50,
+    passDiff: process.env.PAST_REVIEW_PASS_DIFF ? Number(process.env.PAST_REVIEW_PASS_DIFF) : LAUNCH_GATE.passDiff,
+    minPersons: process.env.PAST_REVIEW_MIN_PERSONS ? Number(process.env.PAST_REVIEW_MIN_PERSONS) : LAUNCH_GATE.minPersons,
   };
   const S = summarize(persons, opts);
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -246,7 +252,7 @@ runScore('chấm bộ thử mù: tỉ lệ khớp của mốc do bộ máy chọ
     `| Năm ngẫu nhiên cùng mảng | ${S.random.answered} | ${S.random.hits} | **${pct(S.random.rate)}** | ${pct(S.random.strictRate)} |`, '',
     `- Chênh lệch gộp: **${(S.diffPooled * 100).toFixed(1)} điểm %** (z = ${S.z.toFixed(2)})`,
     `- Chênh lệch ghép cặp theo từng người: **${(S.diffPaired * 100).toFixed(1)} điểm %**, khoảng tin cậy 95%: [${(S.ci95[0] * 100).toFixed(1)}; ${(S.ci95[1] * 100).toFixed(1)}]`,
-    `- Ngưỡng đạt (TẠM, anh Toàn quyết): chênh ≥ ${(S.passDiff * 100).toFixed(0)} điểm %, khoảng tin cậy nằm hẳn trên 0, ≥ ${S.minPersons} người`, '',
+    `- Ngưỡng đạt (TẠM, chốt 05/10/2026 — chỉnh sau khi có dữ liệu): chênh ≥ ${(S.passDiff * 100).toFixed(0)} điểm %, khoảng tin cậy nằm hẳn trên 0, ≥ ${S.minPersons} người`, '',
     '## Chia theo độ tuổi', '', '| Nhóm tuổi (lớn nhất trong 10 dòng) | Số người | Khớp mốc bộ máy | Khớp ngẫu nhiên | Chênh |', '|---|---|---|---|---|',
     ...Object.entries(ageBands).map(([b, ps]) => { const s = summarize(ps, opts); return `| ${b} | ${s.persons} | ${pct(s.engine.rate)} | ${pct(s.random.rate)} | ${(s.diffPooled * 100).toFixed(1)} |`; }), '',
   ];

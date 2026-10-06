@@ -9,7 +9,7 @@
 import { THAP_THAN_MEANING, type ThapThan } from '../thapThan';
 import { EVENT_TITLE_VN } from '../annualEvents/eventTitles';
 import { meaningOf } from '../annualEvents/signalMeaning';
-import { AREA_LABEL } from './config';
+import { AREA_LABEL, BAZI_BASIS } from './config';
 import type { Layer, PastMarker, PastSignal, System } from './types';
 
 export interface WhyColumn {
@@ -215,12 +215,21 @@ function baziDetail(s: PastSignal): string {
   const luckGod = `${upperFirst(luck)} mang ${god}${said ? ` — nhóm sao nói về ${said}` : ''}.`;
 
   if (id === 'BZ_WEA_ROOT') {
-    return `Trong tứ trụ của bạn có ${p.soTaiTinh} Tài tinh (nguồn tiền bạc). Hành có lợi cho bạn (dụng thần) là ${p.dungThan || 'chưa rõ'}, hành bất lợi (kỵ thần) là ${p.kyThan || 'chưa rõ'}. Đây là cơ sở để xem một năm thuận hay bất lợi cho tiền bạc; bản thân dòng này không cộng điểm.`;
+    return `Trong tứ trụ của bạn có ${p.soTaiTinh} Tài tinh (nguồn tiền bạc). Nhật Chủ được chấm là thân ${p.thanVuong} (${p.diem}/100 điểm đồng đảng, tháng lệnh là yếu tố nặng nhất). Hành có lợi cho bạn (dụng thần) là ${p.dungThan || 'chưa rõ'}, hành bất lợi (kỵ thần) là ${p.kyThan || 'chưa rõ'}. Đây là cơ sở để xem một năm thuận hay bất lợi cho tiền bạc; bản thân dòng này không cộng điểm.`;
   }
   if (id.endsWith('_ROOT')) {
     const tru = lowerPillar(p.tru);
     const who = god === 'Nhật Chủ' ? 'đây chính là bản thân bạn (Nhật Chủ)' : god ? `can của trụ là ${god}` : '';
     return `Trụ ${tru} của bạn là ${p.can} ${p.chi}${who ? ` — ${who}` : ''}. Trụ ${tru} đại diện cho ${PILLAR_NOTE[String(p.tru)] ?? 'một phần đời sống của bạn'}. Tuzi dùng trụ này làm điểm tựa để so với năm đang xét; bản thân nó không cộng điểm.`;
+  }
+  if (id === 'BZ_FAM_TAISUI') {
+    return `Chi ${p.chiLuuNien} của ${yr} trùng với chi ${p.chiTru} của năm sinh bạn — đây là năm "trùng tuổi" (Thái Tuế trực), năm thường mang nhiều thay đổi trong nếp sống và gia đình, cả mặt thuận lẫn mặt khó.`;
+  }
+  if (id === 'BZ_LOV_FUYIN_DAY') {
+    return `${upperFirst(yr)} có can chi trùng hệt trụ ngày ${p.can} ${p.chi} của bạn — gọi là Phục ngâm: mọi việc dễ lặp lại hoặc trì trệ, tâm trạng nặng nề; trụ ngày là bản thân và cung hôn nhân nên chuyện tình cảm đáng chú ý.`;
+  }
+  if (id === 'BZ_HOM_FANYIN_DAY') {
+    return `${upperFirst(yr)} khắc xung trụ ngày của bạn cả về can (${p.canLuuNien} – ${p.canTru}) lẫn chi (${p.chiLuuNien} – ${p.chiTru}) — gọi là Phản ngâm (thiên khắc địa xung): dễ có xáo trộn lớn về nơi ở, môi trường sống và đi lại.`;
   }
   if (p.quanHe) {
     const tru = lowerPillar(p.tru);
@@ -375,9 +384,11 @@ export function explainWhy(m: PastMarker, opts: { sensitive?: boolean } = {}): M
         `Cách đọc: "${LAYER_FRIENDLY.goc}" là ${LAYER_HINT.goc}; "${LAYER_FRIENDLY.nen}" là ${LAYER_HINT.nen}; "${LAYER_FRIENDLY.ngoi}" là ${LAYER_HINT.ngoi}.`,
         'Tử Vi: Tuzi luận theo Nam Phái (hệ thống Lê Quang Lăng kết hợp phương pháp Diệu Xuân), dựa trên các sao, cung và Tứ Hóa liên quan đến năm này.',
         'Bát Tự: Tuzi dùng bộ quy tắc riêng; mức điểm hiện đang ở giai đoạn thử nghiệm và sẽ được tinh chỉnh dần.',
-        'Năm trong Bát Tự được tính theo năm âm lịch (từ mùng 1 Tết), giống cách app lập lá số. Một số trường phái tính theo tiết Lập Xuân nên ở những năm sát Tết có thể ra kết quả khác.',
-        'Đại vận Bát Tự là cách tính xấp xỉ: chiều đi theo giới tính và âm dương của năm sinh, tuổi khởi vận tính theo số ngày đến tiết khí gần nhất.',
-        'Dụng thần / kỵ thần lấy theo cách tính hiện có của app (theo tỷ lệ ngũ hành của nhật chủ), chưa xét tháng sinh nên trường phái khác có thể xác định khác.',
+        BAZI_BASIS === 'tiet'
+          ? 'Bát Tự: trụ năm và trụ tháng của lá số gốc được lập theo TIẾT KHÍ (trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết) — đúng phép Bát Tự. Màn Bát Tự của app đang lập theo tháng âm lịch nên trụ tháng ở đây có thể khác (khoảng 1 trên 6 người). Năm của "lưu niên" vẫn gọi theo năm âm lịch đang xét.'
+          : 'Bát Tự: trụ năm/tháng của lá số gốc lấy theo màn Bát Tự của app (năm và tháng âm lịch), có thể khác cách lập theo tiết khí ở những người sinh gần ngày đổi tháng.',
+        'Đại vận Bát Tự: chiều đi theo giới tính và âm dương của can năm sinh; tuổi khởi vận = số ngày từ ngày sinh đến tiết gần nhất theo chiều đi, chia 3 (tính theo ngày, bỏ qua giờ giao tiết); khởi từ trụ tháng của lá số.',
+        'Dụng thần / kỵ thần theo phép phù ức: chấm Nhật Chủ thân vượng hay thân nhược (tháng lệnh nặng nhất, rồi các can chi còn lại) và chọn hành giúp cân bằng. Chưa xét tòng cách, điều hậu, thông quan nên có thể khác người luận kinh nghiệm.',
         'Dấu hiệu ghi "ngược chiều" là những điều làm giảm khả năng có biến động; Tuzi liệt kê đầy đủ để bạn tự cân nhắc.',
       ],
     },

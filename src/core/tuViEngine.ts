@@ -276,7 +276,7 @@ export function calculateTuViChart(birthInfo: BirthInfo, viewingYear?: number): 
   const vy = viewingYear ?? new Date().getFullYear();
   const viewingYearStem = getStemByIndex((vy + 6) % 10);
   const viewingYearBranch = getBranchByIndex((vy + 8) % 12);
-  const viewingAge = vy - solarYear + 1; // Tính theo tuổi mụ
+  const viewingAge = vy - lunar.year + 1; // Tuổi mụ theo NĂM ÂM LỊCH sinh (lunar.year đã là năm âm lịch cho cả lá số nhập dương lẫn âm)
 
   placeLuuStars(houses, viewingYearStem, viewingYearBranch, birthInfo.gender);
 

@@ -17,6 +17,7 @@ import type {
   BirthInfo, DaiVan, TieuVan, TuViChart, HeavenlyStem, EarthlyBranch, FiveElement,
 } from '../types';
 import { solarToLunar } from './lunarCalendar';
+import { lunarBirthYear } from './ageUtil';
 import { getBranchIndex } from '../data/napAm';
 
 const STEM_ELEMENT: Record<HeavenlyStem, FiveElement> = {
@@ -93,7 +94,7 @@ export function calculateTieuVan(
   const yearBranch: EarthlyBranch = isSolar
     ? solarToLunar(birthInfo.day, birthInfo.month, birthInfo.year).yearBranch
     : BRANCHES[(birthInfo.year + 8) % 12];
-  const solarYear = birthInfo.year;
+  const solarYear = lunarBirthYear(birthInfo); // (tên cũ) = năm âm lịch sinh → tiểu vận tuổi n rơi đúng năm âm lịch n+năm sinh−1
   const startIdx = tieuHanStartBranchIdx(yearBranch);
   const dir = birthInfo.gender === 'nam' ? 1 : -1; // Nam thuận, Nữ nghịch
 
