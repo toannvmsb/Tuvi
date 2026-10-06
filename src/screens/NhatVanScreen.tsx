@@ -13,6 +13,7 @@ import Icon from '../ui/Icon';
 import { WeatherForDate } from '../components/WeatherCards';
 import { scoreNhatVan, goodBadHours, auspiciousHours, generateNhatVanOffline } from '../core/nhatVan';
 import { solarToLunar } from '../core/lunarCalendar';
+import DayTaskFitCard from '../components/DayTaskFitCard';
 import type { AstrologyResult } from '../types';
 
 const WEEKDAY = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
@@ -146,6 +147,9 @@ export default function NhatVanScreen({ route }: any) {
           {han.map((t, i) => <Text key={i} style={s.bullet}>• {t}</Text>)}
         </Card>
       </View>
+
+      <SectionTitle title="Việc hợp / nên tránh hôm nay" />
+      <DayTaskFitCard date={date} result={result} />
 
       <SectionTitle title="Dữ kiện của ngày" sub="Miễn phí" />
       <Card style={{ gap: 8 }}>

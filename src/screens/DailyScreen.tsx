@@ -39,6 +39,7 @@ import { costNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
 import { promptPersonalize } from '../lib/personalizePrompt';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import DayTaskFitCard from '../components/DayTaskFitCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyView'>;
 
@@ -175,6 +176,9 @@ export default function DailyScreen({ route, navigation }: Props) {
               </View>
             )}
 
+            <Text style={styles.genericSectionTitle}>Việc hợp / nên tránh hôm nay</Text>
+            <DayTaskFitCard date={date} result={result} />
+
             {/* Tabs */}
             <View style={styles.tabsRow}>
               <TouchableOpacity style={[styles.tab, mode === 'offline' && styles.tabActive]} onPress={() => setMode('offline')}>
@@ -254,6 +258,9 @@ export default function DailyScreen({ route, navigation }: Props) {
               <Text style={[styles.genericSectionTitle, { marginTop: SPACING.sm }]}>⛔ Hạn chế</Text>
               {genericSummary!.bad.map((b, i) => <Text key={i} style={styles.body}>{b}</Text>)}
             </View>
+
+            <Text style={styles.genericSectionTitle}>Việc hợp / nên tránh hôm nay</Text>
+            <DayTaskFitCard date={date} result={null} />
 
             <TouchableOpacity style={styles.aiBtn} onPress={() => promptPersonalize(navigation)} activeOpacity={0.85}>
               <Text style={styles.aiBtnText}>✨ Cá nhân hóa để xem đầy đủ (Trực, Hoàng Đạo, phân tích AI…)</Text>

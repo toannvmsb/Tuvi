@@ -12,7 +12,7 @@ import {
 } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
 import { solarToLunar } from './lunarCalendar';
-import { findTaskByCode, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
+import { findTaskByCode, DAY_PICK_GROUPS, NUMBER_GROUP_CODE, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
 import {
   DAY_HARD, BREAK_EXEMPT_GROUPS, KIM_LAU_TASKS, isBigTask, DAY_RULEBOOK_VERSION, TASK_TO_HK, TASK_SOFT_NGHI,
   HK_DAY_BRANCH_KY, HK_DAY_BRANCH_PENALTY,
@@ -39,6 +39,11 @@ export interface DayPickResult {
   hoangDao: boolean;
   nhi28Tu: string;
   warnings: string[];
+  // v3
+  /** Trực của ngày nghi / kỵ việc này theo Hiệp Kỷ (hoặc nhóm việc nếu chưa có mục). */
+  trucFit?: 'nghi' | 'ky' | '';
+  /** Lý do chính ngắn gọn (dùng cho danh sách "việc hợp / nên tránh"). */
+  note?: string;
 }
 
 const WEEKDAY = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
@@ -107,6 +112,8 @@ export interface DayPickOutput {
   /** Số ngày bị LOẠI theo quy tắc cứng của việc này (để giải thích vì sao ít ngày). */
   excluded?: { xungTuoi: number };
   ruleVersion?: string;
+  /** Mọi ngày đã chấm (kể cả < 40 điểm / bị loại) — chỉ khi gọi với includeAll. */
+  all?: DayPickResult[];
 }
 
 /** Cảnh báo cấp ngày/năm nào áp cho việc này — các cảnh báo không liên quan bị ẩn để khỏi nhiễu. */
@@ -160,7 +167,7 @@ function applyTaskRules(inp: DayInputs, group: DayPickGroup, task: DayPickTask):
   return { score: Math.max(0, Math.min(100, s)) };
 }
 
-function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyResult | null): DayPickOutput {
+function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyResult | null, includeAll = false): DayPickOutput {
   const found = findTaskByCode(taskCode);
   if (!found) {
     return {
@@ -228,7 +235,7 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
       const why = 'XUNG tuổi';
       candidates.push({
         ...base,
-        rating: `Loại (${why.toLowerCase()})`, score: -999, score100: 0,
+        rating: `Loại (${why.toLowerCase()})`, score: -999, score100: 0, trucFit: '', note: 'xung tuổi',
         reasons: [...f.reasons, `⚠ Ngày ${why} — không phù hợp việc trọng đại "${task.name}"; bỏ qua.`],
         bestHours: [], generalHours: [], direction: '', goodColor: '', avoidColor: '',
       });
@@ -249,6 +256,17 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
 
     if (adjustedFinal >= 55) okCount++;
 
+    const trucFit: 'nghi' | 'ky' | '' = trucRules.nghi.includes(inp.trucIdx) ? 'nghi' : (inp.trucIdx !== 6 && trucRules.ky.includes(inp.trucIdx)) ? 'ky' : '';
+    const heavy = task.weight >= 4 && !isBreakExempt(task, group);
+    const note =
+      heavy && inp.monthBreak ? 'Nguyệt phá'
+      : heavy && inp.tuePha ? 'Tuế phá'
+      : dayKy && f.canChi.branch === dayKy.branch ? dayKy.why
+      : trucFit === 'nghi' ? `Trực ${f.truc} nghi`
+      : trucFit === 'ky' ? `Trực ${f.truc} kỵ`
+      : isBigTask(group.code, task.weight) && (inp.tamNuong || inp.nguyetKy) ? (inp.tamNuong ? 'Tam Nương' : 'Nguyệt kỵ')
+      : adjustedFinal < 40 ? 'điểm ngày thấp' : '';
+
     candidates.push({
       ...base,
       rating: ratingOfScore(adjustedFinal), score: sc ? sc.score : 0, score100: adjustedFinal,
@@ -258,6 +276,7 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
       direction: goodPhong ? goodPhong.huong : '',
       goodColor: goodPhong ? goodPhong.mau.split(';')[0].trim() : '',
       avoidColor: badPhong ? badPhong.mau.split(';')[0].trim() : '',
+      trucFit, note,
     });
   }
 
@@ -279,6 +298,7 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
     task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
     totalDays: safeTotal, okDays: okCount, top, warning,
     excluded, ruleVersion: DAY_RULEBOOK_VERSION,
+    ...(includeAll ? { all: candidates } : {}),
   };
 }
 
@@ -289,4 +309,32 @@ export function pickGoodDays(result: AstrologyResult, taskCode: string, from: Da
 /** Bản KHÔNG cá nhân hóa (chưa gắn lá số): chỉ tầng lịch trạch nhật + quy tắc cứng lịch chung; bỏ xung tuổi, giờ riêng, hướng/màu theo Dụng-Kỵ thần. */
 export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): DayPickOutput {
   return pickDays(taskCode, from, to, null);
+}
+
+export interface DayTaskFit { code: string; name: string; emoji: string; groupName: string; score100: number; note: string }
+
+/**
+ * "Việc hợp / nên tránh hôm nay": chấm CHÍNH NGÀY ĐÓ cho 54 việc của "Xem ngày tốt" bằng đúng bộ máy pickDays (không công thức riêng).
+ *  - HỢP: Trực của ngày NGHI việc đó (Hiệp Kỷ quyển 11) và điểm sau quy tắc ≥ 55.
+ *  - NÊN TRÁNH: bị loại (xung tuổi), hoặc việc trọng đại gặp Nguyệt phá/Tuế phá, hoặc điểm < 40, hoặc Trực kỵ việc đó.
+ * Nhóm "Xem số hợp mệnh" không có ngày nên không xét. Ô trống Hiệp Kỷ ≠ "được phép" nên việc không nghi cũng không kỵ không xuất hiện ở đâu cả.
+ */
+export function tasksForDay(date: Date, personal: AstrologyResult | null): { good: DayTaskFit[]; avoid: DayTaskFit[] } {
+  const good: DayTaskFit[] = [];
+  const avoid: DayTaskFit[] = [];
+  for (const g of DAY_PICK_GROUPS) {
+    if (g.code === NUMBER_GROUP_CODE) continue;
+    for (const task of g.tasks) {
+      const c = pickDays(task.code, date, date, personal, true).all?.[0];
+      if (!c) continue;
+      const item: DayTaskFit = { code: task.code, name: task.name, emoji: g.emoji, groupName: g.name, score100: c.score100, note: c.note || '' };
+      const excludedDay = c.score100 === 0 && c.rating.startsWith('Loại');
+      const broken = c.note === 'Nguyệt phá' || c.note === 'Tuế phá';
+      if (excludedDay || broken || c.score100 < 40 || c.trucFit === 'ky') avoid.push({ ...item, note: item.note || 'Trực kỵ' });
+      else if (c.trucFit === 'nghi' && c.score100 >= 55) good.push(item);
+    }
+  }
+  good.sort((a, b) => b.score100 - a.score100);
+  avoid.sort((a, b) => a.score100 - b.score100);
+  return { good, avoid };
 }

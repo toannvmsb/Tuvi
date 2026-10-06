@@ -2,7 +2,7 @@ import { dayCalendarFacts, jdFromDate } from '../dayCalendar';
 import {
   dayCanChi, trucNgayInfo, hoangDaoNgay, nhi28Info, genericDayFacts, scoreNhatVan, ratingOfScore, TRUC_NAMES,
 } from '../nhatVan';
-import { pickGoodDays, pickGoodDaysGeneric, trucRulesOf, isBreakExempt } from '../dayPicker';
+import { pickGoodDays, pickGoodDaysGeneric, trucRulesOf, isBreakExempt, tasksForDay } from '../dayPicker';
 import { HK_TRUC } from '../../data/hiepKyTruc';
 import { TASK_TO_HK } from '../dayQualityTables';
 import { DAY_PICK_GROUPS, findTaskByCode } from '../../data/dayPickTasks';
@@ -262,5 +262,41 @@ describe('Điều lệ phụ chú Hiệp Kỷ', () => {
       if (c) { found = true; expect(c.reasons.join(' ')).toContain('ngày Tị kỵ xuất hành'); }
     }
     // ngày Tị có thể rơi dưới 40 điểm (không vào top) → khi đó không có gì để kiểm; tìm được ngày thì phải có lý do trừ điểm
+  });
+});
+
+describe('Việc hợp / nên tránh hôm nay (tasksForDay)', () => {
+  it('Việc hợp luôn được Trực nghi; không việc nào vừa hợp vừa tránh; nhóm Số không xuất hiện', () => {
+    for (let i = 0; i < 30; i++) {
+      const day = new Date(2026, 9, 1 + i);
+      for (const r of [null, allSampleResults()[0]]) {
+        const { good, avoid } = tasksForDay(day, r);
+        const codes = new Set(good.map(x => x.code));
+        for (const a of avoid) expect(codes.has(a.code)).toBe(false);
+        for (const g of good) { expect(g.score100).toBeGreaterThanOrEqual(55); expect(g.code).not.toMatch(/^(PHONE|PLATE|BANK|HOUSE|LUCKY|COMPANY|ASSET)$/); }
+      }
+    }
+  });
+
+  it('ngày Nguyệt phá: việc trọng đại (Khai trương, Động thổ, Cưới) nằm ở "nên tránh" với lý do Nguyệt phá', () => {
+    const day = (() => { for (let i = 0; i < 40; i++) { const t = new Date(2026, 9, 1 + i); if (genericDayFacts(t).monthBreak) return t; } return null; })()!;
+    const { avoid, good } = tasksForDay(day, null);
+    const map = new Map(avoid.map(x => [x.code, x]));
+    for (const c of ['BIZ_OPEN_SHOP', 'PROP_GROUNDBREAK', 'LOVE_WEDDING']) expect(map.get(c)?.note).toBe('Nguyệt phá');
+    // Cầu y có Phá làm nghi → không bị Nguyệt phá; được vào danh sách hợp nếu điểm đủ
+    expect(avoid.find(x => x.code === 'HEALTH_SURGERY')?.note).not.toBe('Nguyệt phá');
+    expect(good.length + avoid.length).toBeGreaterThan(0);
+  });
+
+  it('ngày Trực Khai: Khai trương hợp (Hiệp Kỷ: Khai thị nghi Khai) khi không dính Nguyệt phá/Tuế phá', () => {
+    let checked = 0;
+    for (let i = 0; i < 90 && checked < 3; i++) {
+      const day = new Date(2026, 9, 1 + i);
+      const f = genericDayFacts(day);
+      if (f.truc !== 'Khai' || f.monthBreak || f.tuePha || f.tamNuong || f.nguyetKy) continue;
+      const { good } = tasksForDay(day, null);
+      if (good.some(x => x.code === 'BIZ_OPEN_SHOP') || f.score100 < 40) checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 });
