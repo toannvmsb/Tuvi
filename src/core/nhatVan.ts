@@ -1,25 +1,31 @@
 /**
- * XEM THEO NGÀY (Nhật vận / Trạch nhật theo lá số) — v2.
+ * XEM THEO NGÀY (Nhật vận / Trạch nhật theo lá số) — v3 (07/10/2026, theo "Tuzi_Nghien_cuu_va_dac_ta_engine").
  *
- * 6 cấp theo tài liệu "Phan_tich_ngay_tot_xau_v2":
- *   Cấp 1 (10%): Điểm nền — Trực ngày, Lục Diệu, Hoàng Đạo/Hắc Đạo ngày
- *   Cấp 2 (35%): Tương tác Bát Tự — Dụng/Hỷ/Kỵ thần với Can Chi ngày
- *   Cấp 3 (15%): Đại Vận — chưa có data, tạm trung tính
- *   Cấp 4 (20%): Lưu Niên — năm hiện tại so Dụng/Kỵ thần
- *   Cấp 5 (10%): Nguyệt Vận — hành ngày vượng/suy theo tháng âm lịch
- *   Cấp 6 (10%): Mục tiêu — được tính trong dayPicker
+ * Các tầng (trọng số: DAY_WEIGHTS trong dayQualityTables.ts, version DAY_RULEBOOK_VERSION):
+ *   E  Lịch trạch nhật: Trực (Kiến Trừ), Hoàng/Hắc đạo ngày, Lục Diệu, Nhị thập bát tú, Thiên/Nguyệt Đức
+ *   B  Tương tác Bát Tự: Dụng/Kỵ thần với can-chi ngày (+ thập thần) và quan hệ chi ngày với 4 trụ
+ *   Đại vận · Lưu niên (năm Lập Xuân) · Nguyệt vận (mùa theo THÁNG TIẾT KHÍ)
+ * Hard rules cấp ngày: Xung tuổi, Nguyệt phá, Tuế phá, Tam Nương, Nguyệt Kỵ (Tam Tai/Kim Lâu chỉ cảnh báo).
  *
- * Hard Rules: Xung tuổi, Tam Nương, Nguyệt Kỵ, Tam Tai, Kim Lâu.
+ * SỬA SO VỚI BẢN CŨ: (1) Trực, Hoàng đạo, Nguyệt phá, vượng/suy theo mùa dùng THÁNG TIẾT KHÍ thay vì tháng âm lịch;
+ * (2) Nguyệt phá/Trực Phá chỉ tính MỘT lần (chống đếm trùng, đặc tả §12.4); (3) lưu niên theo năm Lập Xuân, Tam Tai theo năm âm;
+ * (4) bảng 28 tú sửa 8 tú chấm nhầm; (5) thêm quan hệ chi ngày với 4 trụ + thập thần; (6) quy tắc theo việc ở dayPicker.
  */
 
 import type { AstrologyResult, FiveElement, HeavenlyStem, EarthlyBranch } from '../types';
 import { elementPhongThuy } from './phongThuyBatTu';
-import { solarToLunar } from './lunarCalendar';
 import { scoreDaiVan } from './daiVanScore';
-import { currentAgeOf } from './ageUtil';
+import { tuoiMuOfYear } from './ageUtil';
+import { solarToLunar } from './lunarCalendar';
+import { thapThanOf } from './thapThan';
+import { branchRelations } from './baziRelations';
+import { dayCalendarFacts, jdFromDate, STEMS, BRANCHES, type DayCalendarFacts } from './dayCalendar';
+import {
+  DAY_WEIGHTS, DAY_RATING_CUTS, DAY_HARD, DAY_RULEBOOK_VERSION,
+  NHI28_NAMES, NHI28_SCORES, NHI28_HINT, NHI28_REF_JD, NHI28_REF_IDX,
+  THIEN_DUC_BY_MONTH, NGUYET_DUC_BY_MONTH,
+} from './dayQualityTables';
 
-const STEMS: HeavenlyStem[] = ['Giáp','Ất','Bính','Đinh','Mậu','Kỷ','Canh','Tân','Nhâm','Quý'];
-const BRANCHES: EarthlyBranch[] = ['Tý','Sửu','Dần','Mão','Thìn','Tị','Ngọ','Mùi','Thân','Dậu','Tuất','Hợi'];
 const STEM_ELEMENT: Record<HeavenlyStem, FiveElement> = {
   Giáp:'Mộc',Ất:'Mộc',Bính:'Hỏa',Đinh:'Hỏa',Mậu:'Thổ',Kỷ:'Thổ',
   Canh:'Kim',Tân:'Kim',Nhâm:'Thủy',Quý:'Thủy',
@@ -36,15 +42,6 @@ const XUNG: Record<EarthlyBranch, EarthlyBranch> = {
   Mão:'Dậu',Dậu:'Mão',Thìn:'Tuất',Tuất:'Thìn',Tị:'Hợi',Hợi:'Tị',
 };
 
-function jdFromDate(dd: number, mm: number, yy: number): number {
-  const a = Math.floor((14 - mm) / 12);
-  const y = yy + 4800 - a;
-  const m = mm + 12 * a - 3;
-  let jd = dd + Math.floor((153*m+2)/5) + 365*y + Math.floor(y/4) - Math.floor(y/100) + Math.floor(y/400) - 32045;
-  if (jd < 2299161) jd = dd + Math.floor((153*m+2)/5) + 365*y + Math.floor(y/4) - 32083;
-  return jd;
-}
-
 export interface DayCanChi {
   stem: HeavenlyStem; branch: EarthlyBranch; stemEl: FiveElement; branchEl: FiveElement;
 }
@@ -60,7 +57,9 @@ export function dayCanChi(date: Date): DayCanChi {
 // CẤP 1: TRỰC NGÀY
 // ─────────────────────────────────────────────
 export const TRUC_NAMES = ['Kiến','Trừ','Mãn','Bình','Định','Chấp','Phá','Nguy','Thành','Thu','Khai','Bế'];
-const TRUC_SCORES = [60, 65, 60, 55, 80, 60, 20, 30, 85, 70, 80, 25];
+// Điểm Trực CHUNG cho lịch màu (không gắn việc). Đã THU HẸP chênh lệch 07/10/2026: Hiệp Kỷ nói không Trực nào cát/hung tuyệt đối, Bình/Thu/Bế có
+// danh sách kỵ rộng, nghi/kỵ phụ thuộc VIỆC (xem dayPicker.trucRulesOf). Phá (6) được trung hòa ở calendarLayer vì đã tính ở Nguyệt phá.
+const TRUC_SCORES = [58, 60, 60, 48, 66, 56, 55, 50, 66, 52, 66, 46];
 const TRUC_HINT = [
   'hợp khởi đầu, xuất quân, nhậm chức',
   'hợp dọn dẹp, trừ bệnh, cắt tóc',
@@ -92,14 +91,13 @@ const TRUC_GOOD_FOR: Record<string, number[]> = {
 };
 const TRUC_BAD_FOR: number[] = [6, 7, 11]; // Phá, Nguy, Bế — kỵ việc lớn
 
-// Lunar month branch: month 1 = Dần (idx 2), month 11 = Tý (idx 0), month 12 = Sửu (idx 1)
-function lunarMonthBranchIdx(lunarMonth: number): number {
-  return (lunarMonth + 1) % 12;
-}
-
-export function trucNgayInfo(dayBranch: EarthlyBranch, lunarMonth: number): { name: string; score: number; hint: string; idx: number } {
+/**
+ * Trực = (chi ngày − chi THÁNG TIẾT KHÍ) mod 12 (đặc tả §8.2). Ngày giao tiết dùng tháng MỚI nên Trực lặp lại với hôm trước — đúng truyền thống.
+ * ⚠ Trước 07/10/2026 hàm nhận tháng ÂM LỊCH → sai Trực ở ~nửa số ngày.
+ */
+export function trucNgayInfo(dayBranch: EarthlyBranch, monthBranch: EarthlyBranch): { name: string; score: number; hint: string; idx: number } {
   const dayIdx = BRANCHES.indexOf(dayBranch);
-  const mIdx = lunarMonthBranchIdx(lunarMonth);
+  const mIdx = BRANCHES.indexOf(monthBranch);
   const trucIdx = ((dayIdx - mIdx) % 12 + 12) % 12;
   return { name: TRUC_NAMES[trucIdx], score: TRUC_SCORES[trucIdx], hint: TRUC_HINT[trucIdx], idx: trucIdx };
 }
@@ -139,20 +137,14 @@ const HOANG_DAO_BY_MONTH: Record<EarthlyBranch, EarthlyBranch[]> = {
   Tị:  ['Sửu','Thìn','Ngọ','Mùi','Tuất','Hợi'], Hợi: ['Sửu','Thìn','Ngọ','Mùi','Tuất','Hợi'],
 };
 
-export function hoangDaoNgay(dayBranch: EarthlyBranch, lunarMonth: number): boolean {
-  const mBranch = BRANCHES[lunarMonthBranchIdx(lunarMonth)];
-  const goodDays = HOANG_DAO_BY_MONTH[mBranch] || [];
+export function hoangDaoNgay(dayBranch: EarthlyBranch, monthBranch: EarthlyBranch): boolean {
+  const goodDays = HOANG_DAO_BY_MONTH[monthBranch] || [];
   return goodDays.includes(dayBranch);
 }
 
 // ─────────────────────────────────────────────
 // CẤP 4: LƯU NIÊN (năm hiện tại)
 // ─────────────────────────────────────────────
-function yearCanChiEl(year: number): { stemEl: FiveElement; branchEl: FiveElement } {
-  const stem = STEMS[((year - 4) % 10 + 10) % 10];
-  const branch = BRANCHES[((year - 4) % 12 + 12) % 12];
-  return { stemEl: STEM_ELEMENT[stem], branchEl: BRANCH_ELEMENT[branch] };
-}
 
 // ─────────────────────────────────────────────
 // CẤP 5: NGUYỆT VẬN
@@ -192,53 +184,7 @@ export function isTamTai(birthBranch: EarthlyBranch, currentYearBranch: EarthlyB
 // ─────────────────────────────────────────────
 // CẤP 1: NHỊ THẬP BÁT TÚ (28 lunar mansions)
 // ─────────────────────────────────────────────
-// Thứ tự: Giác(0)…Chẩn(27) — vòng 28 ngày theo JDN
-const NHI28_NAMES = [
-  'Giác','Cang','Đê','Phòng','Tâm','Vĩ','Cơ',
-  'Đẩu','Ngưu','Nữ','Hư','Nguy','Thất','Bích',
-  'Khuê','Lâu','Vị','Mão','Tất','Chủy','Sâm',
-  'Tỉnh','Quỷ','Liễu','Tinh','Trương','Dực','Chẩn',
-];
-// Thượng cát=85, Trung cát=70, Bình=50, Tiểu hung=30, Đại hung=15
-const NHI28_SCORES = [
-  85, 50, 85, 85, 70, 70, 50, // 0–6  Giác…Cơ
-  70, 85, 70, 50, 30, 85, 70, // 7–13 Đẩu…Bích
-  85, 70, 30, 50, 85, 50, 50, // 14–20 Khuê…Sâm
-  50, 15, 15, 30, 85, 70, 70, // 21–27 Tỉnh…Chẩn
-];
-const NHI28_HINT = [
-  'đại cát — xuất hành, khai trương, khởi sự lớn',   // 0 Giác
-  'bình — cẩn thận hao tài, khẩu thiệt',              // 1 Cang
-  'đại cát — cưới hỏi, xây dựng, mua bán nhà đất',   // 2 Đê
-  'đại cát — quan lộc, hôn nhân, khai trương',        // 3 Phòng
-  'cát — công danh, thương mại, học tập',              // 4 Tâm
-  'cát — sinh đẻ, tang ma, kinh doanh',               // 5 Vĩ
-  'bình — tránh việc lớn, làm việc thường',           // 6 Cơ
-  'cát — thương mại, hôn nhân, nhập trạch',           // 7 Đẩu
-  'đại cát — khai trương, xuất hành, xây dựng',      // 8 Ngưu
-  'cát — thương mại, du lịch, hôn nhân',              // 9 Nữ
-  'bình — làm việc vừa phải, tránh mạo hiểm',         // 10 Hư
-  'hung — tranh kiện, mất của, tai ương',              // 11 Nguy
-  'đại cát — khai trương, cưới hỏi, xuất hành',      // 12 Thất
-  'cát — thương mại, xây dựng, xuất hành',            // 13 Bích
-  'đại cát — hôn nhân, quan lộc, khai trương',       // 14 Khuê
-  'cát — xây dựng, chăn nuôi, thương mại',            // 15 Lâu
-  'hung — tránh xuất hành, khai trương, giao dịch lớn', // 16 Vị
-  'bình — làm việc thường, tránh việc lớn',            // 17 Mão
-  'đại cát — cưới hỏi, khai trương, xuất hành',      // 18 Tất
-  'bình — buôn bán nhỏ, dọn dẹp',                    // 19 Chủy
-  'bình — dưỡng sức, tránh mạo hiểm',                 // 20 Sâm
-  'bình — cẩn thận lời nói, tranh luận',              // 21 Tỉnh
-  'đại hung — kỵ mọi việc trọng đại',                 // 22 Quỷ
-  'đại hung — thất bại, tai ương, bệnh tật',          // 23 Liễu
-  'hung — cẩn thận sức khỏe, tài chính, kiện tụng',  // 24 Tinh
-  'đại cát — khai trương, xây dựng, quan lộc',       // 25 Trương
-  'cát — xuất hành, hôn nhân, ký kết',               // 26 Dực
-  'cát — giao dịch vừa phải, ổn định, thương mại',   // 27 Chẩn
-];
-// Neo: JD 2451545 (1/1/2000 dương lịch) = Nữ (index 9)
-const NHI28_REF_JD = 2451545;
-const NHI28_REF_IDX = 9;
+// Bảng cát/hung 28 tú: xem dayQualityTables.ts (NHI28_*)
 
 export function nhi28Info(date: Date): { name: string; score: number; idx: number; hint: string } {
   const jd = jdFromDate(date.getDate(), date.getMonth()+1, date.getFullYear());
@@ -247,14 +193,23 @@ export function nhi28Info(date: Date): { name: string; score: number; idx: numbe
 }
 
 // ─────────────────────────────────────────────
-// NhatVanScore interface (v2 — backward compat)
+// NhatVanScore interface (v3 — tương thích ngược, chỉ THÊM trường)
 // ─────────────────────────────────────────────
+export type NhatVanRating = 'Rất tốt' | 'Tốt' | 'Bình thường' | 'Cần thận trọng' | 'Xấu';
+
+export function ratingOfScore(s: number): NhatVanRating {
+  return s >= DAY_RATING_CUTS.veryGood ? 'Rất tốt'
+    : s >= DAY_RATING_CUTS.good ? 'Tốt'
+    : s >= DAY_RATING_CUTS.normal ? 'Bình thường'
+    : s >= DAY_RATING_CUTS.caution ? 'Cần thận trọng' : 'Xấu';
+}
+
 export interface NhatVanScore {
   date: Date;
   canChi: DayCanChi;
-  rating: 'Rất tốt' | 'Tốt' | 'Bình thường' | 'Cần thận trọng' | 'Xấu';
+  rating: NhatVanRating;
   score: number;      // integer, backward compat (Cấp 2 only)
-  score100: number;   // 0-100 tổng hợp 6 cấp
+  score100: number;   // 0-100 tổng hợp các tầng sau quy tắc cứng
   xungTuoi: boolean;
   hopTuoi: boolean;
   reasons: string[];
@@ -266,27 +221,139 @@ export interface NhatVanScore {
   tamNuong: boolean;
   nguyetKy: boolean;
   warnings: string[];
+  // v3
+  /** Chỉ số Trực 0..11 (0 = Kiến … 6 = Phá). */
+  trucIdx: number;
+  /** Chi tháng tiết khí chứa ngày. */
+  monthBranch: EarthlyBranch;
+  /** Nguyệt phá: chi ngày xung chi tháng tiết khí (cùng nguồn với Trực Phá — chỉ tính một lần). */
+  monthBreak: boolean;
+  /** Tuế phá: chi ngày xung Thái Tuế của năm (Lập Xuân). */
+  tuePha: boolean;
+  /** Đức trúng ngày: 'Thiên Đức' / 'Nguyệt Đức'. */
+  duc: string[];
+  /** Thập thần của can ngày so với nhật chủ. */
+  thapThan: string;
+  /** Điểm từng tầng (0..100) TRƯỚC quy tắc cứng — để dayPicker/giải thích dùng lại, không chấm lại. */
+  layers: { calendar: number; bazi: number; daiVan: number; luuNien: number; nguyetVan: number; beforeHard: number };
+  ruleVersion: string;
+}
+
+/** Điểm lịch nền (E): Trực + Hoàng/Hắc đạo + Lục Diệu + Tú + Đức; Trực Phá không tính ở đây (đã nằm ở Nguyệt phá). */
+function calendarLayer(date: Date, cal: DayCalendarFacts, cc: DayCanChi) {
+  const truc = trucNgayInfo(cc.branch, cal.monthBranch);
+  const ld6 = lucDieuInfo(cal.lunarMonth, cal.lunarDay);
+  const isHoangDao = hoangDaoNgay(cc.branch, cal.monthBranch);
+  const nhi28 = nhi28Info(date);
+  const monthBreak = truc.idx === 6; // chi ngày xung chi tháng ⇔ Trực Phá
+  const trucScore = monthBreak ? 55 : truc.score;
+  const hdScore = isHoangDao ? 70 : 30;
+  let base100 = Math.round(trucScore * 0.30 + ld6.score * 0.15 + hdScore * 0.30 + nhi28.score * 0.25);
+
+  const duc: string[] = [];
+  if (THIEN_DUC_BY_MONTH[cal.monthIdx] === cc.stem || THIEN_DUC_BY_MONTH[cal.monthIdx] === cc.branch) duc.push('Thiên Đức');
+  if (NGUYET_DUC_BY_MONTH[cal.monthIdx] === cc.stem) duc.push('Nguyệt Đức');
+  base100 = Math.min(100, base100 + duc.length * DAY_HARD.ducBonus);
+
+  const reasons: string[] = [];
+  if (monthBreak) reasons.push(`Nguyệt phá — chi ngày ${cc.branch} xung chi tháng ${cal.monthBranch} (tiết khí): kỵ việc kiến lập, khai trương, cưới hỏi, động thổ.`);
+  else reasons.push(`Trực ${truc.name} — ${truc.hint}.`);
+  reasons.push(`Lục Diệu ${ld6.name} — ${ld6.hint}.`);
+  reasons.push(isHoangDao ? 'Ngày Hoàng Đạo — khí trường tốt lành.' : 'Ngày Hắc Đạo — nên thận trọng trong hành động.');
+  reasons.push(`Tú ${nhi28.name} — ${nhi28.hint}.`);
+  if (duc.length) reasons.push(`${duc.join(' + ')} — ngày có đức khí, bớt được phần xấu thông thường (không giải được Nguyệt phá).`);
+
+  return { truc, ld6, isHoangDao, nhi28, monthBreak, base100, duc, reasons };
+}
+
+/** Quy tắc cứng LỊCH CHUNG (không cần lá số): Nguyệt phá, Tuế phá, Tam Nương, Nguyệt Kỵ. */
+function applyCalendarHardRules(raw100: number, cal: DayCalendarFacts, cc: DayCanChi, monthBreak: boolean, warnings: string[]) {
+  let raw = raw100;
+  const tuePha = XUNG[cc.branch] === cal.yearBranch;
+  const tamNuong = TAM_NUONG_DAYS.has(cal.lunarDay);
+  const nguyetKy = NGUYET_KY_DAYS.has(cal.lunarDay);
+  if (monthBreak) {
+    raw = Math.min(raw, DAY_HARD.monthBreakCap);
+    warnings.push(`⚠ Ngày Nguyệt phá (chi ${cc.branch} xung tháng ${cal.monthBranch}) — tránh việc kiến lập, khai trương, cưới hỏi, động thổ.`);
+  }
+  if (tuePha) {
+    raw = Math.min(raw, DAY_HARD.tuePhaCap);
+    warnings.push(`⚠ Ngày Tuế phá (chi ${cc.branch} xung Thái Tuế ${cal.yearBranch}) — tránh việc lớn, động thổ, tu tạo.`);
+  }
+  if (tamNuong) {
+    raw = Math.max(0, raw - DAY_HARD.tamNuong);
+    warnings.push(`⚠ Ngày Tam Nương (${cal.lunarDay}/${cal.lunarMonth} âm) — kỵ cưới hỏi, khai trương, xuất hành.`);
+  }
+  if (nguyetKy) {
+    raw = Math.max(0, raw - DAY_HARD.nguyetKy);
+    warnings.push(`⚠ Ngày Nguyệt Kỵ (${cal.lunarDay}/${cal.lunarMonth} âm) — kỵ ký kết, xuất hành, việc lớn.`);
+  }
+  return { raw, tuePha, tamNuong, nguyetKy };
+}
+
+// Trọng số trụ khi xét quan hệ chi ngày với lá số: [năm, tháng, ngày, giờ]. TẠM.
+const PILLAR_REL_W = [0.6, 0.8, 1.0, 0.5];
+const PILLAR_LABEL = ['năm', 'tháng', 'ngày', 'giờ'];
+
+/** Quan hệ chi ngày × chi 4 trụ của lá số. Xung dụng thần nặng hơn, xung kỵ thần nhẹ hơn (hỷ/kỵ ≠ cố định theo hành — đặc tả §3.1). */
+function baziBranchRelations(
+  result: AstrologyResult, dayBranch: EarthlyBranch, tuoiBranch: EarthlyBranch, xungTuoi: boolean,
+  fav: FiveElement[], unfav: FiveElement[],
+): { raw: number; notes: string[] } {
+  const pillars = result.batTuChart.pillars;
+  const items: { v: number; note: string }[] = [];
+  pillars.forEach((p, i) => {
+    const pb = p.branch;
+    const w = PILLAR_REL_W[i];
+    const rels = branchRelations(dayBranch, pb);
+    const role = fav.includes(BRANCH_ELEMENT[pb]) ? 'dụng thần' : unfav.includes(BRANCH_ELEMENT[pb]) ? 'kỵ thần' : '';
+    const roleTxt = role ? ` (${role})` : '';
+    const where = `chi ${PILLAR_LABEL[i]} ${pb}`;
+    if (rels.includes('xung')) {
+      // Xung tuổi (trụ năm = chi tuổi) đã tính ở quy tắc cứng "Xung tuổi" — không phạt hai lần (đặc tả §12.4).
+      if (!(i === 0 && xungTuoi && pb === tuoiBranch)) {
+        const k = role === 'dụng thần' ? 1.3 : role === 'kỵ thần' ? 0.4 : 1;
+        items.push({ v: -28 * w * k, note: `Chi ngày ${dayBranch} xung ${where}${roleTxt}.` });
+      }
+    } else {
+      if (rels.includes('lucHop')) items.push({ v: 14 * w, note: `Chi ngày ${dayBranch} lục hợp ${where}${roleTxt}.` });
+      else if (rels.includes('tamHop')) items.push({ v: 8 * w, note: `Chi ngày ${dayBranch} tam hợp ${where}${roleTxt}.` });
+      if (rels.includes('hinh')) items.push({ v: -14 * w, note: `Chi ngày ${dayBranch} hình ${where}.` });
+      if (rels.includes('hai')) items.push({ v: -10 * w, note: `Chi ngày ${dayBranch} hại ${where}.` });
+      if (rels.includes('pha')) items.push({ v: -6 * w, note: `Chi ngày ${dayBranch} phá ${where}.` });
+    }
+  });
+  const raw = Math.max(-45, Math.min(30, items.reduce((s, x) => s + x.v, 0)));
+  const notes = items.sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3).map(x => x.note);
+  return { raw, notes };
 }
 
 export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore {
   const cc = dayCanChi(date);
+  const cal = dayCalendarFacts(date);
   const fav = result.batTuChart.favorableElements || [];
   const unfav = result.batTuChart.unfavorableElements || [];
-  const yearBranch = result.tuViChart.lunarDate.yearBranch;
-  const ld = solarToLunar(date.getDate(), date.getMonth()+1, date.getFullYear());
-  const lunarMonth = ld.month;
-  const lunarDay = ld.day;
+  const yearBranch = result.tuViChart.lunarDate.yearBranch; // "tuổi" = chi năm âm lịch sinh
 
   const reasons: string[] = [];
   const warnings: string[] = [];
 
-  // ── CẤP 2: Bát Tự (35%) ──
+  // ── Xung / tam hợp tuổi ──
+  const xungTuoi = XUNG[cc.branch] === yearBranch;
+  const hopTuoi = TAM_HOP.some(g => g.includes(cc.branch) && g.includes(yearBranch) && cc.branch !== yearBranch);
+
+  // ── B: Bát Tự (thập thần + hỷ/kỵ + quan hệ chi) ──
+  const dm = result.batTuChart.dayMaster;
+  const tt = thapThanOf(dm, cc.stem);
   let batTuRaw = 0;
-  if (fav.includes(cc.stemEl)) { batTuRaw += 50; reasons.push(`Can ngày hành ${cc.stemEl} thuộc Dụng thần → được tiếp khí.`); }
-  if (unfav.includes(cc.stemEl)) { batTuRaw -= 50; reasons.push(`Can ngày hành ${cc.stemEl} thuộc Kỵ thần → khí nghịch.`); }
+  if (fav.includes(cc.stemEl)) { batTuRaw += 50; reasons.push(`Can ngày ${cc.stem} (${tt}) hành ${cc.stemEl} thuộc Dụng thần → được tiếp khí.`); }
+  if (unfav.includes(cc.stemEl)) { batTuRaw -= 50; reasons.push(`Can ngày ${cc.stem} (${tt}) hành ${cc.stemEl} thuộc Kỵ thần → khí nghịch.`); }
   if (fav.includes(cc.branchEl)) { batTuRaw += 30; reasons.push(`Chi ngày hành ${cc.branchEl} hợp Dụng thần.`); }
   if (unfav.includes(cc.branchEl)) { batTuRaw -= 30; reasons.push(`Chi ngày hành ${cc.branchEl} thuộc Kỵ thần.`); }
-  const batTu100 = Math.max(0, Math.min(100, Math.round((batTuRaw + 80) / 160 * 100)));
+  const rel = baziBranchRelations(result, cc.branch, yearBranch, xungTuoi, fav, unfav);
+  batTuRaw += rel.raw;
+  rel.notes.forEach(n => reasons.push(n));
+  const batTu100 = Math.max(0, Math.min(100, Math.round(50 + batTuRaw * 0.625)));
 
   // Backward-compat integer score (Cấp 2 only, original scale)
   let score = 0;
@@ -294,55 +361,42 @@ export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore 
   if (unfav.includes(cc.stemEl)) score -= 2;
   if (fav.includes(cc.branchEl)) score += 1;
   if (unfav.includes(cc.branchEl)) score -= 1;
-
-  // Xung / tam hợp tuổi (hard rule + Cấp 2 boost)
-  const xungTuoi = XUNG[cc.branch] === yearBranch;
-  const hopTuoi = TAM_HOP.some(g => g.includes(cc.branch) && g.includes(yearBranch) && cc.branch !== yearBranch);
   if (xungTuoi) { score -= 2; reasons.push(`Chi ngày ${cc.branch} XUNG tuổi ${yearBranch} → kiêng việc trọng đại.`); }
   else if (hopTuoi) { score += 1; reasons.push(`Chi ngày ${cc.branch} tam hợp tuổi ${yearBranch} → thuận hòa.`); }
 
-  // ── CẤP 1: Điểm nền (10%) ──
-  const truc = trucNgayInfo(cc.branch, lunarMonth);
-  const ld6 = lucDieuInfo(lunarMonth, lunarDay);
-  const isHoangDao = hoangDaoNgay(cc.branch, lunarMonth);
-  const hdScore = isHoangDao ? 70 : 30;
-  const nhi28 = nhi28Info(date);
-  const base100 = Math.round(truc.score * 0.30 + ld6.score * 0.15 + hdScore * 0.30 + nhi28.score * 0.25);
+  // ── E: lịch trạch nhật ──
+  const E = calendarLayer(date, cal, cc);
+  E.reasons.forEach(r => reasons.push(r));
 
-  reasons.push(`Trực ${truc.name} — ${truc.hint}.`);
-  reasons.push(`Lục Diệu ${ld6.name} — ${ld6.hint}.`);
-  if (isHoangDao) reasons.push('Ngày Hoàng Đạo — khí trường tốt lành.');
-  else reasons.push('Ngày Hắc Đạo — nên thận trọng trong hành động.');
-  reasons.push(`Tú ${nhi28.name} — ${nhi28.hint}.`);
-
-  // ── CẤP 4: Lưu Niên (20%) ──
-  const yearEl = yearCanChiEl(date.getFullYear());
+  // ── Lưu niên: năm Lập Xuân (Thái Tuế của ngày) so Dụng/Kỵ + chi ngày hợp Thái Tuế ──
+  const yStemEl = STEM_ELEMENT[cal.yearStem];
+  const yBranchEl = BRANCH_ELEMENT[cal.yearBranch];
   let luuNienRaw = 0;
-  if (fav.includes(yearEl.stemEl)) luuNienRaw += 40;
-  if (unfav.includes(yearEl.stemEl)) luuNienRaw -= 40;
-  if (fav.includes(yearEl.branchEl)) luuNienRaw += 30;
-  if (unfav.includes(yearEl.branchEl)) luuNienRaw -= 30;
-  const luuNien100 = Math.max(0, Math.min(100, Math.round((luuNienRaw + 70) / 140 * 100)));
+  if (fav.includes(yStemEl)) luuNienRaw += 40;
+  if (unfav.includes(yStemEl)) luuNienRaw -= 40;
+  if (fav.includes(yBranchEl)) luuNienRaw += 30;
+  if (unfav.includes(yBranchEl)) luuNienRaw -= 30;
+  if (branchRelations(cc.branch, cal.yearBranch).includes('lucHop')) luuNienRaw += 15;
+  const luuNien100 = Math.max(0, Math.min(100, Math.round((luuNienRaw + 85) / 170 * 100)));
 
-  // ── CẤP 5: Nguyệt Vận (10%) ──
-  const monthBr = BRANCHES[lunarMonthBranchIdx(lunarMonth)];
+  // ── Nguyệt vận: hành ngày vượng/suy theo MÙA (tháng tiết khí). Nguyệt phá đã tính một lần ở quy tắc cứng → trung tính ở đây. ──
+  const monthNo = cal.monthIdx + 1; // Dần = 1 … Sửu = 12
   let nguyetVanRaw = 10;
-  if (XUNG[cc.branch] === monthBr) {
-    nguyetVanRaw = -70;
-    reasons.push(`Chi ngày ${cc.branch} xung Nguyệt kiến ${monthBr} → Nghịch tháng nặng.`);
-  } else if (SUY_THANG[cc.stemEl]?.includes(lunarMonth)) {
+  if (E.monthBreak) {
+    nguyetVanRaw = 0;
+  } else if (SUY_THANG[cc.stemEl]?.includes(monthNo)) {
     nguyetVanRaw = -20;
-    reasons.push(`Hành ngày ${cc.stemEl} đang suy trong tháng ${lunarMonth} âm lịch.`);
-  } else if (VUONG_THANG[cc.stemEl]?.includes(lunarMonth)) {
+    reasons.push(`Hành ngày ${cc.stemEl} đang suy trong tháng ${cal.monthBranch} (tiết khí).`);
+  } else if (VUONG_THANG[cc.stemEl]?.includes(monthNo)) {
     nguyetVanRaw = 60;
-    reasons.push(`Hành ngày ${cc.stemEl} đang vượng trong tháng ${lunarMonth} âm lịch.`);
+    reasons.push(`Hành ngày ${cc.stemEl} đang vượng trong tháng ${cal.monthBranch} (tiết khí).`);
   }
   const nguyetVan100 = Math.max(0, Math.min(100, Math.round((nguyetVanRaw + 70) / 140 * 100)));
 
-  // ── CẤP 3: Đại Vận (15%) ──
-  let daiVan100 = 50; // fallback trung tính nếu không có Đại Vận
+  // ── Đại Vận ──
+  const age = Math.max(0, tuoiMuOfYear(result.birthInfo, cal.lunarYear)); // tuổi mụ theo năm ÂM của ngày xét
+  let daiVan100 = 50;
   if (result.daiVans && result.daiVans.length > 0) {
-    const age = Math.max(0, currentAgeOf(result, date));
     const curDV = result.daiVans.find(dv => age >= dv.startAge && age <= dv.endAge);
     if (curDV) {
       const dvSc = scoreDaiVan(result, curDV);
@@ -352,61 +406,49 @@ export function scoreNhatVan(result: AstrologyResult, date: Date): NhatVanScore 
     }
   }
 
-  // ── TỔNG HỢP (Cấp 6 tính trong dayPicker) ──
-  let raw100 = base100 * 0.10 + batTu100 * 0.35 + daiVan100 * 0.15 + luuNien100 * 0.20 + nguyetVan100 * 0.10 + 50 * 0.10;
+  // ── TỔNG HỢP ──
+  const beforeHard =
+    E.base100 * DAY_WEIGHTS.calendar + batTu100 * DAY_WEIGHTS.bazi + daiVan100 * DAY_WEIGHTS.daiVan +
+    luuNien100 * DAY_WEIGHTS.luuNien + nguyetVan100 * DAY_WEIGHTS.nguyetVan;
 
   // ── HARD RULES ──
-  const tamNuong = TAM_NUONG_DAYS.has(lunarDay);
-  const nguyetKy = NGUYET_KY_DAYS.has(lunarDay);
+  let raw100 = beforeHard;
   if (xungTuoi) {
-    raw100 = Math.min(raw100, 40);
+    raw100 = Math.min(raw100, DAY_HARD.xungTuoiCap);
     warnings.push(`⚠ Ngày XUNG TUỔI (${yearBranch}) — tránh mọi việc trọng đại.`);
   }
-  if (tamNuong) {
-    raw100 = Math.max(0, raw100 - 20);
-    warnings.push(`⚠ Ngày Tam Nương (${lunarDay}/${lunarMonth} âm) — kỵ cưới hỏi, khai trương, xuất hành.`);
-  }
-  if (nguyetKy) {
-    raw100 = Math.max(0, raw100 - 15);
-    warnings.push(`⚠ Ngày Nguyệt Kỵ (${lunarDay}/${lunarMonth} âm) — kỵ ký kết, xuất hành, việc lớn.`);
-  }
-  // Tam Tai: cảnh báo cấp năm (không trừ điểm ngày)
-  const currentYearBranch = BRANCHES[((date.getFullYear() - 4) % 12 + 12) % 12];
-  if (isTamTai(yearBranch, currentYearBranch)) {
+  const hr = applyCalendarHardRules(raw100, cal, cc, E.monthBreak, warnings);
+  raw100 = hr.raw;
+  // Tam Tai theo NĂM ÂM của ngày; Kim Lâu theo tuổi mụ — cảnh báo cấp năm, không trừ điểm ngày.
+  if (isTamTai(yearBranch, cal.lunarYearBranch)) {
     warnings.push(`⚠ Năm Tam Tai (tuổi ${yearBranch}) — hạn chế việc trọng đại cả năm.`);
   }
-  // Kim Lâu: tính theo tuổi hiện tại
-  const age = currentAgeOf(result, date); // tuổi mụ — cùng quy ước với Đại hạn/Tiểu hạn (Kim Lâu tính theo tuổi mụ)
   const kl = kimLauType(age);
-  if (kl) {
-    warnings.push(`⚠ ${kl} (tuổi ${age}) — cẩn thận cưới hỏi, làm nhà trong năm.`);
-  }
+  if (kl) warnings.push(`⚠ ${kl} (tuổi ${age}) — cẩn thận cưới hỏi, làm nhà trong năm.`);
 
   const score100 = Math.max(0, Math.min(100, Math.round(raw100)));
 
-  const rating: NhatVanScore['rating'] =
-    score100 >= 70 ? 'Rất tốt' :
-    score100 >= 55 ? 'Tốt' :
-    score100 >= 40 ? 'Bình thường' :
-    score100 >= 25 ? 'Cần thận trọng' : 'Xấu';
-
   return {
     date, canChi: cc,
-    rating, score, score100,
+    rating: ratingOfScore(score100), score, score100,
     xungTuoi, hopTuoi,
     reasons,
-    truc: truc.name,
-    lucDieu: ld6.name,
-    hoangDao: isHoangDao,
-    nhi28Tu: nhi28.name,
-    tamNuong, nguyetKy,
+    truc: E.truc.name,
+    lucDieu: E.ld6.name,
+    hoangDao: E.isHoangDao,
+    nhi28Tu: E.nhi28.name,
+    tamNuong: hr.tamNuong, nguyetKy: hr.nguyetKy,
     warnings,
+    trucIdx: E.truc.idx, monthBranch: cal.monthBranch, monthBreak: E.monthBreak, tuePha: hr.tuePha,
+    duc: E.duc, thapThan: tt,
+    layers: { calendar: E.base100, bazi: batTu100, daiVan: daiVan100, luuNien: luuNien100, nguyetVan: nguyetVan100, beforeHard: Math.round(beforeHard) },
+    ruleVersion: DAY_RULEBOOK_VERSION,
   };
 }
 
 export interface GenericDayFacts {
   canChi: DayCanChi;
-  rating: NhatVanScore['rating'];
+  rating: NhatVanRating;
   score100: number;
   reasons: string[];
   truc: string;
@@ -415,56 +457,36 @@ export interface GenericDayFacts {
   hoangDao: boolean;
   nhi28Tu: string;
   warnings: string[];
+  // v3
+  /** Điểm lịch nền trước quy tắc cứng (dayPicker áp quy tắc theo việc). */
+  beforeHard: number;
+  monthBreak: boolean;
+  tuePha: boolean;
+  tamNuong: boolean;
+  nguyetKy: boolean;
+  duc: string[];
+  ruleVersion: string;
 }
 
 /**
- * Bản KHÔNG cá nhân hóa của scoreNhatVan — chỉ dùng đúng phần "CẤP 1: Điểm
- * nền" (Trực, Lục Diệu, Hoàng Đạo, 28 Tú — cả 4 đều chỉ phụ thuộc NGÀY, đã
- * tính y hệt bên trong scoreNhatVan, KHÔNG viết lại công thức) + 2 hard-rule
- * lịch chung (Tam Nương, Nguyệt Kỵ). Bỏ hẳn các cấp cần lá số (Bát Tự, Đại
- * Vận, Lưu Niên, Nguyệt Vận, xung tuổi, Kim Lâu, Tam Tai) vì không có dữ
- * liệu để tính. Dùng cho box/màn "Xem ngày tốt"/"Xem theo ngày" khi người
- * dùng CHƯA gắn lá số (chế độ cơ bản).
+ * Bản KHÔNG cá nhân hóa của scoreNhatVan — dùng đúng tầng E (lịch trạch nhật: Trực, Lục Diệu, Hoàng Đạo, 28 Tú, Đức, tính
+ * y hệt bên trong scoreNhatVan qua calendarLayer) + quy tắc cứng lịch chung (Nguyệt phá, Tuế phá, Tam Nương, Nguyệt Kỵ).
+ * Bỏ các tầng cần lá số. Dùng cho Home/lịch/"Xem ngày tốt" khi CHƯA gắn lá số.
  */
 export function genericDayFacts(date: Date): GenericDayFacts {
   const cc = dayCanChi(date);
-  const ld = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
-  const truc = trucNgayInfo(cc.branch, ld.month);
-  const ld6 = lucDieuInfo(ld.month, ld.day);
-  const isHoangDao = hoangDaoNgay(cc.branch, ld.month);
-  const hdScore = isHoangDao ? 70 : 30;
-  const nhi28 = nhi28Info(date);
-  const base100 = Math.round(truc.score * 0.30 + ld6.score * 0.15 + hdScore * 0.30 + nhi28.score * 0.25);
-
-  const reasons: string[] = [
-    `Trực ${truc.name} — ${truc.hint}.`,
-    `Lục Diệu ${ld6.name} — ${ld6.hint}.`,
-    isHoangDao ? 'Ngày Hoàng Đạo — khí trường tốt lành.' : 'Ngày Hắc Đạo — nên thận trọng trong hành động.',
-    `Tú ${nhi28.name} — ${nhi28.hint}.`,
-  ];
-
+  const cal = dayCalendarFacts(date);
+  const E = calendarLayer(date, cal, cc);
   const warnings: string[] = [];
-  let raw100 = base100;
-  if (TAM_NUONG_DAYS.has(ld.day)) {
-    raw100 = Math.max(0, raw100 - 20);
-    warnings.push(`⚠ Ngày Tam Nương (${ld.day}/${ld.month} âm) — kỵ cưới hỏi, khai trương, xuất hành.`);
-  }
-  if (NGUYET_KY_DAYS.has(ld.day)) {
-    raw100 = Math.max(0, raw100 - 15);
-    warnings.push(`⚠ Ngày Nguyệt Kỵ (${ld.day}/${ld.month} âm) — kỵ ký kết, xuất hành, việc lớn.`);
-  }
-
-  const score100 = Math.max(0, Math.min(100, Math.round(raw100)));
-  const rating: NhatVanScore['rating'] =
-    score100 >= 70 ? 'Rất tốt' :
-    score100 >= 55 ? 'Tốt' :
-    score100 >= 40 ? 'Bình thường' :
-    score100 >= 25 ? 'Cần thận trọng' : 'Xấu';
-
+  const hr = applyCalendarHardRules(E.base100, cal, cc, E.monthBreak, warnings);
+  const score100 = Math.max(0, Math.min(100, Math.round(hr.raw)));
   return {
-    canChi: cc, rating, score100, reasons,
-    truc: truc.name, trucIdx: truc.idx, lucDieu: ld6.name, hoangDao: isHoangDao, nhi28Tu: nhi28.name,
+    canChi: cc, rating: ratingOfScore(score100), score100, reasons: E.reasons,
+    truc: E.truc.name, trucIdx: E.truc.idx, lucDieu: E.ld6.name, hoangDao: E.isHoangDao, nhi28Tu: E.nhi28.name,
     warnings,
+    beforeHard: E.base100,
+    monthBreak: E.monthBreak, tuePha: hr.tuePha, tamNuong: hr.tamNuong, nguyetKy: hr.nguyetKy, duc: E.duc,
+    ruleVersion: DAY_RULEBOOK_VERSION,
   };
 }
 
@@ -621,12 +643,14 @@ export function generateNhatVanOffline(result: AstrologyResult, date: Date): str
 
   out.push('# Không nên làm hôm nay');
   if (sc.xungTuoi) out.push('- ⚠ XUNG TUỔI: tuyệt đối tránh cưới hỏi, khởi công, ký hợp đồng lớn, đi xa.');
+  if (sc.monthBreak) out.push('- ⚠ NGUYỆT PHÁ: tránh khai trương, cưới hỏi, động thổ, nhập trạch, ký kết lớn.');
+  if (sc.tuePha) out.push('- ⚠ TUẾ PHÁ: tránh việc lớn, động thổ, tu tạo.');
   if (sc.tamNuong) out.push('- ⚠ Tam Nương: tránh cưới hỏi, khai trương, xuất hành quan trọng.');
   if (sc.nguyetKy) out.push('- ⚠ Nguyệt Kỵ: tránh ký kết, xuất hành, ra quyết định lớn.');
   if (sc.rating === 'Cần thận trọng' || sc.rating === 'Xấu') {
     out.push('- Hạn chế đầu tư mạo hiểm, tranh cãi, đứng ra bảo lãnh.');
     out.push('- Cẩn trọng giấy tờ, đi lại, lời ăn tiếng nói.');
-  } else if (!sc.xungTuoi && !sc.tamNuong && !sc.nguyetKy) {
+  } else if (!sc.xungTuoi && !sc.tamNuong && !sc.nguyetKy && !sc.monthBreak && !sc.tuePha) {
     out.push('- Không có điều đại kỵ; vẫn nên tránh nóng giận và quyết định vội vàng.');
   }
   out.push('');

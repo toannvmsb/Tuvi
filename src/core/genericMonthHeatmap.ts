@@ -2,28 +2,18 @@
  * Heatmap ngày trong THÁNG DƯƠNG HIỆN TẠI khi người dùng CHƯA gắn lá số nào —
  * dùng cho box "Nhịp tháng này" ở Home lúc chưa có myResult.
  *
- * Không cần Bát Tự/Tử Vi cá nhân — chỉ dùng quan hệ Can–Chi ngày (sinh/khắc/
- * đồng/bình) như đã làm ở nhánh "CHƯA CÓ LÁ SỐ" của todaySummary.ts, để nhất
- * quán 1 công thức "ngày bình thường" cho toàn app, không phát minh thêm.
+ * Không cần Bát Tự/Tử Vi cá nhân — dùng genericDayFacts (lịch trạch nhật), cùng một công thức với "Xem ngày tốt" chế độ cơ bản.
  */
-import type { FiveElement } from '../types';
-import { dayCanChi } from './nhatVan';
+import { genericDayFacts } from './nhatVan';
 import { toneOf, assembleMonthHeatmap, type DayTone, type DayCell, type MonthHeatmap } from './dailyPeriodService';
 
-const SINH: Record<FiveElement, FiveElement> = { Mộc: 'Hỏa', Hỏa: 'Thổ', Thổ: 'Kim', Kim: 'Thủy', Thủy: 'Mộc' };
-const KHAC: Record<FiveElement, FiveElement> = { Mộc: 'Thổ', Thổ: 'Thủy', Thủy: 'Hỏa', Hỏa: 'Kim', Kim: 'Mộc' };
-
-/** Điểm/rating 1 ngày theo công thức chung (quan hệ Can-Chi ngày) — KHÔNG cần lá số.
- * Export để dùng chung ở nơi khác cần cùng 1 công thức "ngày bình thường" (vd
- * financialAdvisor.ts's buildGenericFinancialAdvice) — không tính lại logic. */
+/** Điểm/rating 1 ngày theo công thức lịch chung — KHÔNG cần lá số. Dùng ĐÚNG tầng lịch trạch nhật của scoreNhatVan
+ * (genericDayFacts: Trực theo tiết khí, Hoàng/Hắc đạo, Lục Diệu, 28 Tú, Đức + Nguyệt phá/Tuế phá/Tam Nương/Nguyệt kỵ) thay cho
+ * công thức sinh-khắc Can-Chi cũ (07/10/2026) để "ngày bình thường" cùng một nguồn với Xem ngày tốt. Export để dùng chung
+ * (vd financialAdvisor.ts's buildGenericFinancialAdvice) — không tính lại logic. */
 export function genericDayScore(date: Date): { score: number; rating: string } {
-  const cc = dayCanChi(date);
-  const a = cc.stemEl, b = cc.branchEl;
-  const rel = a === b ? 'dong' : SINH[a] === b || SINH[b] === a ? 'sinh' : KHAC[a] === b || KHAC[b] === a ? 'khac' : 'binh';
-  if (rel === 'sinh') return { score: 72, rating: 'Tốt' };
-  if (rel === 'dong') return { score: 60, rating: 'Khá' };
-  if (rel === 'khac') return { score: 35, rating: 'Cần thận trọng' };
-  return { score: 50, rating: 'Bình thường' };
+  const f = genericDayFacts(date);
+  return { score: f.score100, rating: f.rating };
 }
 
 export interface GenericDayCell {
@@ -95,6 +85,6 @@ export function buildGenericMonthHeatmapForMonth(year: number, month: number): M
   }
   return assembleMonthHeatmap(
     year, month, days, 50,
-    'Chưa gắn lá số — điểm ngày theo công thức chung (quan hệ Can-Chi ngày), không cá nhân hóa.',
+    'Chưa gắn lá số — điểm ngày theo lịch trạch nhật chung (Trực, Hoàng đạo, 28 Tú…), không cá nhân hóa.',
   );
 }

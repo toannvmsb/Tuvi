@@ -4,8 +4,8 @@
  *      Tuổi <25 → ưu tiên học hành; 25–60 → công việc; >60 → sức khỏe.
  *  - Chưa có lá số: đánh giá ngày tốt/xấu theo phong thủy chung + lời khuyên chung.
  */
-import type { AstrologyResult, FiveElement } from '../types';
-import { dayCanChi, scoreNhatVan, goodBadHours, type HourWindow } from './nhatVan';
+import type { AstrologyResult } from '../types';
+import { dayCanChi, scoreNhatVan, goodBadHours, genericDayFacts, type HourWindow } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
 import { currentAgeOf } from './ageUtil';
 
@@ -69,8 +69,6 @@ export function dailyMessage(score100: number, date: Date = new Date()): string 
 const isRough = (rating: string) => rating === 'Cần thận trọng' || rating === 'Xấu';
 
 const WEEKDAY = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-const SINH: Record<FiveElement, FiveElement> = { Mộc: 'Hỏa', Hỏa: 'Thổ', Thổ: 'Kim', Kim: 'Thủy', Thủy: 'Mộc' };
-const KHAC: Record<FiveElement, FiveElement> = { Mộc: 'Thổ', Thổ: 'Thủy', Thủy: 'Hỏa', Hỏa: 'Kim', Kim: 'Mộc' };
 
 const firstPart = (s: string) => (s || '').split(';')[0].split(',').slice(0, 1).join('').trim();
 const shortList = (s: string, n = 3) => (s || '').split(',').slice(0, n).map(x => x.trim()).join(', ');
@@ -147,10 +145,7 @@ export function buildTodaySummary(result: AstrologyResult | null, date: Date = n
   }
 
   // ----- CHƯA CÓ LÁ SỐ: phong thủy chung theo Can–Chi ngày -----
-  const rel = (a: FiveElement, b: FiveElement) =>
-    a === b ? 'dong' : SINH[a] === b || SINH[b] === a ? 'sinh' : KHAC[a] === b || KHAC[b] === a ? 'khac' : 'binh';
-  const r = rel(cc.stemEl, cc.branchEl);
-  const rating = r === 'sinh' ? 'Tốt' : r === 'dong' ? 'Khá' : r === 'khac' ? 'Cần thận trọng' : 'Bình thường';
+  const rating = genericDayFacts(date).rating; // cùng công thức lịch chung với heatmap/Xem ngày tốt cơ bản
   const g = elementPhongThuy(cc.stemEl);
 
   const good: string[] = [

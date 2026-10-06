@@ -486,4 +486,19 @@ Công cụ (chạy bằng jest + biến môi trường, file trong `exports/` đ
 
 ---
 
-_Cập nhật lần cuối: 04/10/2026, sau khi rà logic Bát Tự (pr-0.2) + nút xuất ảnh Luận tương lai._
+## 12. Logic NGÀY ĐẸP (Xem theo ngày · Xem ngày tốt · lịch tô màu · Home) — v3 (07/10/2026)
+
+Đặc tả gốc của anh Toàn: thư mục `D:\Lap trinh\Tu vi\Tai lieu\Ngay dep` (md/html + zip Dev Pack). Một bộ máy dùng chung — KHÔNG viết công thức ngày thứ hai:
+- `core/dayCalendar.ts` — dữ kiện lịch của một ngày: **THÁNG TIẾT KHÍ** (chi tháng đổi ở 12 tiết, ngày giao tiết dùng tháng mới), năm Bát Tự theo Lập Xuân, ngày/tháng/năm âm. Cache theo ngày + bảng tiết theo năm.
+- `core/dayQualityTables.ts` — trọng số `DAY_WEIGHTS`, ngưỡng, bảng 28 tú theo Ngọc Hạp Ký (14 cát/14 hung; trường phái lịch Việt, KHÔNG phải Hiệp Kỷ; mốc 01/01/2000 = Vị), Thiên/Nguyệt Đức, phân việc; `DAY_RULEBOOK_VERSION='dq-1.0-tam'` (đổi trọng số/bảng ⇒ tăng version). Mọi con số là TẠM.
+- `core/nhatVan.ts` — `scoreNhatVan` (có lá số) và `genericDayFacts` (chưa có lá số) dùng chung `calendarLayer`. Tầng: Lịch trạch nhật 27% · Bát Tự 38% · Đại vận 12% · Lưu niên 13% · Nguyệt vận 10%. KHÔNG có tầng Tử Vi (đặc tả §7.5: chưa có rule pack được duyệt).
+- `core/dayPicker.ts` — `pickGoodDays`/`pickGoodDaysGeneric` cùng một `pickDays`: xung tuổi **loại** ngày, Nguyệt phá/Tuế phá **trừ điểm nặng + trần** (anh Toàn chốt 07/10/2026, không loại) cho việc trọng đại (weight ≥ 4, trừ nhóm HEALTH); Tam Nương/Nguyệt kỵ chỉ trừ điểm việc trọng đại hoặc xuất hành; Kim Lâu chỉ cảnh báo ở cưới/làm nhà.
+- `data/hiepKyTruc.ts` — Trực nghi/kỵ đích danh của 73 mục việc Hiệp Kỷ quyển 11 (sinh từ `Hiep_Ky_Doi_chieu/hiep_ky_73_muc_viec.json`); `TASK_TO_HK` (dayQualityTables) ánh xạ 54 việc → mục Hiệp Kỷ, hôn nhân giữ Định/Thành làm nghi mềm (Tam Hợp). Mới là LỚP ỨNG VIÊN: chưa có thần sát/Nguyệt phá gia trọng/điều lệ "gặp Đức vẫn kỵ".
+- `core/baziRelations.ts` — quan hệ xung/hợp/hình/hại/phá giữa hai chi (dùng chung Nghiệm quá khứ và ngày đẹp).
+
+**Đã sửa so với bản cũ:** (1) Trực/Hoàng đạo ngày/vượng-suy theo mùa dùng tháng âm lịch → nay tháng tiết khí (Trực khác ở ~nửa số ngày); (2) Nguyệt phá ≡ Trực Phá chỉ tính MỘT lần (cũ: phạt 2–3 lần); (3) lưu niên theo năm Lập Xuân, Tam Tai theo năm âm, tuổi mụ theo năm âm của ngày; (4) bảng 28 tú sai 8 tú; (5) thêm thập thần + quan hệ chi ngày với 4 trụ (xung dụng thần nặng hơn, xung kỵ thần nhẹ hơn); (6) heatmap/Home chưa có lá số dùng cùng công thức lịch với Xem ngày tốt (cũ: quan hệ sinh-khắc Can–Chi, không có trong truyền thống trạch nhật).
+**Chưa làm (cần người thạo duyệt bảng / ngoài phạm vi):** Tử Vi ở độ phân giải ngày (lưu nguyệt/lưu nhật), bảng thần sát đầy đủ + sáu mức chế hóa Hiệp Kỷ, giờ Tý muộn/can giờ, nhánh giờ sinh không rõ (khoảng điểm), nhiều chủ sự, giờ giao tiết chính xác (hiện theo ngày), trạng thái "chưa đủ dữ liệu" thay cho điểm. Golden test: `__tests__/dayQuality.test.ts`.
+
+---
+
+_Cập nhật lần cuối: 07/10/2026, sau khi cập nhật logic ngày đẹp (dq-1.0)._

@@ -1,17 +1,23 @@
 /**
  * Xếp hạng ngày phù hợp cho 1 việc cụ thể trong khoảng thời gian.
- * v2: dùng score100 (6 cấp) thay cho score integer; thêm Trực, Lục Diệu,
- *     Hoàng Đạo, cảnh báo hard rules vào kết quả.
+ * v3 (07/10/2026): quy tắc theo VIỆC (đặc tả §8.4/§12) — xung tuổi LOẠI ngày, Nguyệt phá/Tuế phá TRỪ ĐIỂM nặng cho việc trọng đại,
+ * Tam Nương/Nguyệt kỵ/Kim Lâu/Tam Tai chỉ áp cho việc chịu các kỵ đó; Trực Phá/Nguyệt phá tính MỘT lần.
+ * Một bộ máy dùng chung cho chế độ có lá số (scoreNhatVan) và chế độ cơ bản (genericDayFacts).
  */
 
 import type { AstrologyResult, FiveElement } from '../types';
 import {
-  scoreNhatVan, goodBadHours, auspiciousHours, trucNgayInfo, genericDayFacts,
-  type HourWindow,
+  scoreNhatVan, goodBadHours, auspiciousHours, genericDayFacts, ratingOfScore,
+  type HourWindow, type NhatVanScore, type GenericDayFacts,
 } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
 import { solarToLunar } from './lunarCalendar';
-import { findTaskByCode } from '../data/dayPickTasks';
+import { findTaskByCode, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
+import {
+  DAY_HARD, BREAK_EXEMPT_GROUPS, KIM_LAU_TASKS, isBigTask, DAY_RULEBOOK_VERSION, TASK_TO_HK, TASK_SOFT_NGHI,
+  HK_DAY_BRANCH_KY, HK_DAY_BRANCH_PENALTY,
+} from './dayQualityTables';
+import { HK_TRUC } from '../data/hiepKyTruc';
 
 export interface DayPickResult {
   date: Date;
@@ -37,7 +43,7 @@ export interface DayPickResult {
 
 const WEEKDAY = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 
-// Trực tốt/xấu theo nhóm việc (Cấp 6 bonus/malus)
+// DỰ PHÒNG theo nhóm việc — chỉ dùng cho việc chưa có mục Hiệp Kỷ tương ứng (TASK_TO_HK). Việc có mục thì dùng nghi/kỵ đích danh của Hiệp Kỷ quyển 11.
 const TRUC_GOOD: Record<string, number[]> = {
   WORK:   [4, 8, 10],
   BIZ:    [4, 8, 10, 0],
@@ -47,21 +53,30 @@ const TRUC_GOOD: Record<string, number[]> = {
   CHILD:  [4, 8],
   EDU:    [0, 8, 10],
   TRAVEL: [0, 10],
-  HEALTH: [1],
+  HEALTH: [1, 6],
   LEGAL:  [4, 8, 5],
   SPIRIT: [1, 0],
   VIP:    [4, 8, 10],
 };
-const TRUC_BAD_IDX = new Set([6, 7, 11]); // Phá, Nguy, Bế
+// Dự phòng: Nguy, Bế kỵ việc lớn. Phá (6) KHÔNG ở đây: Trực Phá ≡ Nguyệt phá, xử lý một lần ở quy tắc loại/trần bên dưới.
+const TRUC_BAD_IDX = new Set([7, 11]);
 
-function taskBonus(groupCode: string, dayElement: FiveElement, trucIdx: number): number {
+/** Trực nghi/kỵ của một việc: ưu tiên mục Hiệp Kỷ quyển 11 (đích danh), nếu không có mục thì dự phòng theo nhóm. */
+export function trucRulesOf(task: DayPickTask, group: DayPickGroup): { nghi: number[]; ky: number[]; source: string } {
+  const hk = TASK_TO_HK[task.code];
+  if (hk && HK_TRUC[hk]) {
+    const row = HK_TRUC[hk];
+    return { nghi: [...new Set([...row.nghi, ...(TASK_SOFT_NGHI[task.code] || [])])], ky: row.ky, source: `Hiệp Kỷ «${row.vi}»` };
+  }
+  return { nghi: TRUC_GOOD[group.code] || [], ky: [...TRUC_BAD_IDX], source: 'nhóm việc' };
+}
+
+/** Điểm cộng/trừ theo Trực (nghi +8, kỵ −10; Phá-kỵ đã tính ở Nguyệt phá) + hành chi ngày (heuristic TẠM). */
+function taskBonus(groupCode: string, dayElement: FiveElement, trucIdx: number, rules: { nghi: number[]; ky: number[] }): number {
   let bonus = 0;
-  // Trực-based bonus/malus (Cấp 6)
-  const goodTruc = TRUC_GOOD[groupCode] || [];
-  if (goodTruc.includes(trucIdx)) bonus += 8;
-  if (TRUC_BAD_IDX.has(trucIdx)) bonus -= 10;
+  if (rules.nghi.includes(trucIdx)) bonus += 8;
+  else if (trucIdx !== 6 && rules.ky.includes(trucIdx)) bonus -= 10;
 
-  // Hành chi ngày (existing logic)
   if (groupCode === 'BIZ' || groupCode === 'FIN' || groupCode === 'PROP' || groupCode === 'VIP') {
     if (dayElement === 'Kim' || dayElement === 'Thổ') bonus += 3;
     if (dayElement === 'Hỏa') bonus -= 3;
@@ -89,14 +104,63 @@ export interface DayPickOutput {
   okDays: number;
   top: DayPickResult[];
   warning?: string;
+  /** Số ngày bị LOẠI theo quy tắc cứng của việc này (để giải thích vì sao ít ngày). */
+  excluded?: { xungTuoi: number };
+  ruleVersion?: string;
 }
 
-export function pickGoodDays(
-  result: AstrologyResult,
-  taskCode: string,
-  from: Date,
-  to: Date,
-): DayPickOutput {
+/** Cảnh báo cấp ngày/năm nào áp cho việc này — các cảnh báo không liên quan bị ẩn để khỏi nhiễu. */
+/** Việc KHÔNG chịu Nguyệt phá/Tuế phá: nhóm Sức khỏe, hoặc mục Hiệp Kỷ có Phá trong Trực nghi (cầu y, phá nhà — quyển 10 nêu nhóm không kỵ Nguyệt phá). */
+export function isBreakExempt(task: DayPickTask, group: DayPickGroup): boolean {
+  if (BREAK_EXEMPT_GROUPS.has(group.code)) return true;
+  const hk = TASK_TO_HK[task.code];
+  return !!(hk && HK_TRUC[hk]?.nghi.includes(6));
+}
+
+function warningsForTask(warnings: string[], group: DayPickGroup, task: DayPickTask): string[] {
+  const big = isBigTask(group.code, task.weight);
+  const exempt = isBreakExempt(task, group);
+  return warnings.filter(w => {
+    if (w.includes('Tam Nương') || w.includes('Nguyệt Kỵ')) return big;
+    if (w.includes('Nguyệt phá') || w.includes('Tuế phá')) return task.weight >= 4 && !exempt;
+    if (w.includes('Kim Lâu')) return KIM_LAU_TASKS.has(task.code);
+    if (w.includes('Tam Tai')) return task.weight >= 4;
+    return true;
+  });
+}
+
+interface DayInputs {
+  /** Điểm các tầng TRƯỚC quy tắc cứng. */
+  beforeHard: number;
+  trucIdx: number;
+  branchEl: FiveElement;
+  xungTuoi: boolean;
+  monthBreak: boolean;
+  tuePha: boolean;
+  tamNuong: boolean;
+  nguyetKy: boolean;
+}
+
+/** Quy tắc cứng THEO VIỆC: trả điểm đã áp, hoặc lý do loại. */
+function applyTaskRules(inp: DayInputs, group: DayPickGroup, task: DayPickTask): { score: number; excluded?: 'xungTuoi' } {
+  const heavy = task.weight >= 4;
+  const exempt = isBreakExempt(task, group);
+  if (heavy && inp.xungTuoi) return { score: 0, excluded: 'xungTuoi' };
+
+  let s = inp.beforeHard;
+  // Việc trọng đại gặp Nguyệt phá/Tuế phá: TRỪ ĐIỂM nặng + trần (anh Toàn chọn 07/10/2026: không loại hẳn).
+  if (heavy && !exempt && inp.monthBreak) s = Math.min(s - 15, DAY_HARD.monthBreakCap);
+  if (heavy && !exempt && inp.tuePha) s = Math.min(s - 10, DAY_HARD.tuePhaCap);
+  if (!heavy && !exempt && inp.monthBreak) s = Math.min(s, 50);          // việc nhẹ: Nguyệt phá chỉ kéo xuống mức "bình thường"
+  if (!heavy && inp.xungTuoi) s = Math.min(s, DAY_HARD.xungTuoiCap + 10); // việc nhẹ: xung tuổi chỉ trần mềm
+  if (isBigTask(group.code, task.weight)) {
+    if (inp.tamNuong) s -= DAY_HARD.tamNuong;
+    if (inp.nguyetKy) s -= DAY_HARD.nguyetKy;
+  }
+  return { score: Math.max(0, Math.min(100, s)) };
+}
+
+function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyResult | null): DayPickOutput {
   const found = findTaskByCode(taskCode);
   if (!found) {
     return {
@@ -106,7 +170,6 @@ export function pickGoodDays(
     };
   }
   const { group, task } = found;
-  const candidates: DayPickResult[] = [];
   const fromTs = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
   const toTs = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
   if (toTs < fromTs) return {
@@ -116,142 +179,85 @@ export function pickGoodDays(
   };
   const DAY_MS = 86400000;
   const totalDays = Math.floor((toTs - fromTs) / DAY_MS) + 1;
-  const safeTo = totalDays > 366 ? new Date(fromTs + 365 * DAY_MS) : to;
   const safeTotal = Math.min(totalDays, 366);
+  const lastTs = totalDays > 366 ? fromTs + 365 * DAY_MS : toTs;
 
-  const fav = result.batTuChart.favorableElements || [];
-  const unfav = result.batTuChart.unfavorableElements || [];
-  const favEl = fav[0] || result.batTuChart.dayMasterElement;
-  const unfavEl = unfav[0];
-  const goodPhong = elementPhongThuy(favEl);
-  const badPhong = unfavEl ? elementPhongThuy(unfavEl) : null;
+  let goodPhong: ReturnType<typeof elementPhongThuy> | null = null;
+  let badPhong: ReturnType<typeof elementPhongThuy> | null = null;
+  if (personal) {
+    const fav = personal.batTuChart.favorableElements || [];
+    const unfav = personal.batTuChart.unfavorableElements || [];
+    goodPhong = elementPhongThuy(fav[0] || personal.batTuChart.dayMasterElement);
+    badPhong = unfav[0] ? elementPhongThuy(unfav[0]) : null;
+  }
 
+  const trucRules = trucRulesOf(task, group);
+  const candidates: DayPickResult[] = [];
+  const excluded = { xungTuoi: 0 };
   let okCount = 0;
-  for (let t = fromTs; t <= safeTo.getTime(); t += DAY_MS) {
-    const date = new Date(t);
-    const sc = scoreNhatVan(result, date);
-    const ld = solarToLunar(date.getDate(), date.getMonth()+1, date.getFullYear());
-    const truc = trucNgayInfo(sc.canChi.branch, ld.month);
 
-    // Việc trọng đại + xung tuổi → loại
-    if (task.weight >= 4 && sc.xungTuoi) {
+  for (let t = fromTs; t <= lastTs; t += DAY_MS) {
+    const date = new Date(t);
+    const ld = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
+    const sc: NhatVanScore | null = personal ? scoreNhatVan(personal, date) : null;
+    const gf: GenericDayFacts | null = personal ? null : genericDayFacts(date);
+    const f = (sc ?? gf)!;
+
+    const inp: DayInputs = sc
+      ? {
+        beforeHard: sc.layers.beforeHard, trucIdx: sc.trucIdx, branchEl: sc.canChi.branchEl, xungTuoi: sc.xungTuoi,
+        monthBreak: sc.monthBreak, tuePha: sc.tuePha, tamNuong: sc.tamNuong, nguyetKy: sc.nguyetKy,
+      }
+      : {
+        beforeHard: gf!.beforeHard, trucIdx: gf!.trucIdx, branchEl: gf!.canChi.branchEl, xungTuoi: false,
+        monthBreak: gf!.monthBreak, tuePha: gf!.tuePha, tamNuong: gf!.tamNuong, nguyetKy: gf!.nguyetKy,
+      };
+
+    const base = {
+      date,
+      dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
+      lunarLabel: `Âm: ${ld.day}/${ld.month}${ld.isLeapMonth ? ' nhuận' : ''}/${ld.year}`,
+      canChiLabel: `Ngày ${f.canChi.stem} ${f.canChi.branch}`,
+      truc: f.truc, lucDieu: f.lucDieu, hoangDao: f.hoangDao, nhi28Tu: f.nhi28Tu,
+      warnings: warningsForTask(f.warnings, group, task),
+    };
+
+    const r = applyTaskRules(inp, group, task);
+    if (r.excluded) {
+      excluded[r.excluded]++;
+      const why = 'XUNG tuổi';
       candidates.push({
-        date,
-        dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
-        lunarLabel: `Âm: ${ld.day}/${ld.month}${ld.isLeapMonth ? ' nhuận' : ''}/${ld.year}`,
-        canChiLabel: `Ngày ${sc.canChi.stem} ${sc.canChi.branch}`,
-        rating: 'Loại (xung tuổi)', score: -999, score100: 0,
-        reasons: [...sc.reasons, '⚠ Ngày XUNG tuổi — không phù hợp việc trọng đại; bỏ qua.'],
+        ...base,
+        rating: `Loại (${why.toLowerCase()})`, score: -999, score100: 0,
+        reasons: [...f.reasons, `⚠ Ngày ${why} — không phù hợp việc trọng đại "${task.name}"; bỏ qua.`],
         bestHours: [], generalHours: [], direction: '', goodColor: '', avoidColor: '',
-        truc: sc.truc, lucDieu: sc.lucDieu, hoangDao: sc.hoangDao, nhi28Tu: sc.nhi28Tu,
-        warnings: sc.warnings,
       });
       continue;
     }
 
-    // Cấp 6 bonus (task-specific Trực + element)
-    const bonus = taskBonus(group.code, sc.canChi.branchEl, truc.idx);
-    const adjustedScore100 = Math.max(0, Math.min(100, sc.score100 + bonus));
-    const reasons = [...sc.reasons];
-    if (bonus > 0) reasons.push(`Trực ${sc.truc} hợp việc "${task.name}" — thêm điểm.`);
-    if (bonus < 0 && TRUC_BAD_IDX.has(truc.idx)) reasons.push(`Trực ${sc.truc} kỵ mọi việc trọng đại.`);
+    const bonus = taskBonus(group.code, inp.branchEl, inp.trucIdx, trucRules);
+    const adjusted = Math.max(0, Math.min(100, Math.round(r.score + bonus)));
+    const reasons = [...f.reasons];
+    const dayKy = TASK_TO_HK[task.code] ? HK_DAY_BRANCH_KY[TASK_TO_HK[task.code]] : undefined;
+    let adjustedFinal = adjusted;
+    if (dayKy && f.canChi.branch === dayKy.branch) {
+      adjustedFinal = Math.max(0, adjusted - HK_DAY_BRANCH_PENALTY);
+      reasons.push(`Hiệp Kỷ: ${dayKy.why} — trừ điểm.`);
+    }
+    if (trucRules.nghi.includes(inp.trucIdx)) reasons.push(`Trực ${f.truc} nghi việc "${task.name}" (${trucRules.source}) — thêm điểm.`);
+    else if (inp.trucIdx !== 6 && trucRules.ky.includes(inp.trucIdx)) reasons.push(`Trực ${f.truc} kỵ việc "${task.name}" (${trucRules.source}) — trừ điểm.`);
 
-    if (adjustedScore100 >= 55) okCount++;
-
-    const { good: goodH } = goodBadHours(result, date);
-    const generalH = auspiciousHours(date);
-
-    candidates.push({
-      date,
-      dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
-      lunarLabel: `Âm: ${ld.day}/${ld.month}${ld.isLeapMonth ? ' nhuận' : ''}/${ld.year}`,
-      canChiLabel: `Ngày ${sc.canChi.stem} ${sc.canChi.branch}`,
-      rating: sc.rating, score: sc.score, score100: adjustedScore100,
-      reasons: reasons.slice(0, 5),
-      bestHours: goodH.slice(0, 3),
-      generalHours: generalH,
-      direction: goodPhong.huong,
-      goodColor: goodPhong.mau.split(';')[0].trim(),
-      avoidColor: badPhong ? badPhong.mau.split(';')[0].trim() : '',
-      truc: sc.truc, lucDieu: sc.lucDieu, hoangDao: sc.hoangDao, nhi28Tu: sc.nhi28Tu,
-      warnings: sc.warnings,
-    });
-  }
-
-  // Top 5 ngày score100 cao nhất, loại < 40
-  const top = candidates
-    .filter(c => c.score100 >= 40)
-    .sort((a, b) => b.score100 - a.score100)
-    .slice(0, 5);
-
-  let warning: string | undefined;
-  if (totalDays > 366) warning = `Khoảng thời gian quá dài; chỉ phân tích 366 ngày đầu.`;
-  if (top.length === 0) warning = (warning ? warning + ' ' : '') +
-    `Trong ${safeTotal} ngày, không có ngày phù hợp cho "${task.name}". Thử chọn khoảng thời gian khác.`;
-
-  return {
-    task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
-    totalDays: safeTotal, okDays: okCount, top, warning,
-  };
-}
-
-/**
- * Bản KHÔNG cá nhân hóa của `pickGoodDays` — dùng khi người dùng CHƯA gắn lá
- * số (chế độ cơ bản). Chỉ dùng `genericDayFacts` (Trực/Lục Diệu/Hoàng Đạo/28
- * Tú theo lịch chung, không cần Bát Tự) + Cấp 6 (Trực hợp việc, không đổi so
- * với bản cá nhân hóa vì chỉ phụ thuộc nhóm việc + hành ngày). Bỏ hẳn: xung
- * tuổi (không có tuổi để so), giờ tốt riêng theo lá số (`bestHours`), hướng/
- * màu theo Dụng-Kỵ thần (đều để rỗng, UI tự ẩn khi rỗng).
- */
-export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): DayPickOutput {
-  const found = findTaskByCode(taskCode);
-  if (!found) {
-    return {
-      task: { groupName: '?', taskName: '?', emoji: '' },
-      totalDays: 0, okDays: 0, top: [],
-      warning: 'Không tìm thấy việc trong danh mục.',
-    };
-  }
-  const { group, task } = found;
-  const candidates: DayPickResult[] = [];
-  const fromTs = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
-  const toTs = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
-  if (toTs < fromTs) return {
-    task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
-    totalDays: 0, okDays: 0, top: [],
-    warning: 'Ngày kết thúc phải sau ngày bắt đầu.',
-  };
-  const DAY_MS = 86400000;
-  const totalDays = Math.floor((toTs - fromTs) / DAY_MS) + 1;
-  const safeTo = totalDays > 366 ? new Date(fromTs + 365 * DAY_MS) : to;
-  const safeTotal = Math.min(totalDays, 366);
-
-  let okCount = 0;
-  for (let t = fromTs; t <= safeTo.getTime(); t += DAY_MS) {
-    const date = new Date(t);
-    const facts = genericDayFacts(date);
-    const ld = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
-
-    const bonus = taskBonus(group.code, facts.canChi.branchEl, facts.trucIdx);
-    const adjustedScore100 = Math.max(0, Math.min(100, facts.score100 + bonus));
-    const reasons = [...facts.reasons];
-    if (bonus > 0) reasons.push(`Trực ${facts.truc} hợp việc "${task.name}" — thêm điểm.`);
-    if (bonus < 0 && TRUC_BAD_IDX.has(facts.trucIdx)) reasons.push(`Trực ${facts.truc} kỵ mọi việc trọng đại.`);
-
-    if (adjustedScore100 >= 55) okCount++;
+    if (adjustedFinal >= 55) okCount++;
 
     candidates.push({
-      date,
-      dateLabel: `${WEEKDAY[date.getDay()]}, ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
-      lunarLabel: `Âm: ${ld.day}/${ld.month}${ld.isLeapMonth ? ' nhuận' : ''}/${ld.year}`,
-      canChiLabel: `Ngày ${facts.canChi.stem} ${facts.canChi.branch}`,
-      rating: facts.rating, score: 0, score100: adjustedScore100,
+      ...base,
+      rating: ratingOfScore(adjustedFinal), score: sc ? sc.score : 0, score100: adjustedFinal,
       reasons: reasons.slice(0, 5),
-      bestHours: [],
+      bestHours: personal ? goodBadHours(personal, date).good.slice(0, 3) : [],
       generalHours: auspiciousHours(date),
-      direction: '', goodColor: '', avoidColor: '',
-      truc: facts.truc, lucDieu: facts.lucDieu, hoangDao: facts.hoangDao, nhi28Tu: facts.nhi28Tu,
-      warnings: facts.warnings,
+      direction: goodPhong ? goodPhong.huong : '',
+      goodColor: goodPhong ? goodPhong.mau.split(';')[0].trim() : '',
+      avoidColor: badPhong ? badPhong.mau.split(';')[0].trim() : '',
     });
   }
 
@@ -264,11 +270,23 @@ export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): Day
   if (totalDays > 366) warning = `Khoảng thời gian quá dài; chỉ phân tích 366 ngày đầu.`;
   if (top.length === 0) {
     warning = (warning ? warning + ' ' : '') +
-      `Trong ${safeTotal} ngày, không có ngày phù hợp cho "${task.name}". Thử chọn khoảng thời gian khác.`;
+      `Trong ${safeTotal} ngày, không có ngày phù hợp cho "${task.name}".` +
+      (excluded.xungTuoi > 0 ? ` (${excluded.xungTuoi} ngày bị loại vì xung tuổi.)` : '') +
+      ' Thử chọn khoảng thời gian khác.';
   }
 
   return {
     task: { groupName: group.name, taskName: task.name, emoji: group.emoji },
     totalDays: safeTotal, okDays: okCount, top, warning,
+    excluded, ruleVersion: DAY_RULEBOOK_VERSION,
   };
+}
+
+export function pickGoodDays(result: AstrologyResult, taskCode: string, from: Date, to: Date): DayPickOutput {
+  return pickDays(taskCode, from, to, result);
+}
+
+/** Bản KHÔNG cá nhân hóa (chưa gắn lá số): chỉ tầng lịch trạch nhật + quy tắc cứng lịch chung; bỏ xung tuổi, giờ riêng, hướng/màu theo Dụng-Kỵ thần. */
+export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): DayPickOutput {
+  return pickDays(taskCode, from, to, null);
 }
