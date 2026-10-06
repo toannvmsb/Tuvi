@@ -414,7 +414,7 @@ const s = StyleSheet.create({
   specialSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textSecondary },
   tierText: { fontFamily: FONTS.body, fontSize: 13.5, color: COLORS.textPrimary },
   hr: { height: 1, backgroundColor: 'rgba(226,194,133,0.14)' },
-  linkRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  linkRow: { minHeight: 28, marginTop: -4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   linkTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, color: '#F5E0AE' },
   askBar: {
     flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 30,

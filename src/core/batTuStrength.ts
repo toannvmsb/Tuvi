@@ -54,10 +54,15 @@ const stemSupport = (dm: HeavenlyStem, stem: HeavenlyStem, weight: number) => (S
 /** Dụng / kỵ thần theo thân vượng nhược (xem đầu file). */
 export function elementsFor(dm: HeavenlyStem, strong: boolean): { favorable: FiveElement[]; unfavorable: FiveElement[] } {
   const el = STEM_ELEMENT[dm] as FiveElement;
-  const selfSide = ELEMENTS.filter(e => e === el || SHENG[e] === el);           // Tỷ Kiếp + Ấn
-  const otherSide = ELEMENTS.filter(e => !selfSide.includes(e));                  // Thực Thương, Tài, Quan Sát
-  void KHAC;
-  return strong ? { favorable: otherSide, unfavorable: selfSide } : { favorable: selfSide, unfavorable: otherSide };
+  const an = ELEMENTS.find(e => SHENG[e] === el)!;     // Ấn (sinh Nhật Chủ)
+  const thuc = SHENG[el];                              // Thực Thương (Nhật Chủ sinh)
+  const tai = KHAC[el];                                // Tài (Nhật Chủ khắc)
+  const quan = ELEMENTS.find(e => KHAC[e] === el)!;    // Quan Sát (khắc Nhật Chủ)
+  // THỨ TỰ có nghĩa: các nơi khác (nhật vận, lịch màu, phong thủy) lấy phần tử ĐẦU làm dụng/kỵ thần chính — giữ đúng thứ tự cũ
+  // (thân vượng: Thực Thương, Tài; thân nhược: Ấn, chính hành Nhật Chủ) rồi mới tới phần bổ sung.
+  return strong
+    ? { favorable: [thuc, tai, quan], unfavorable: [an, el] }
+    : { favorable: [an, el], unfavorable: [tai, thuc, quan] };
 }
 
 export function assessDayMasterStrength(dm: HeavenlyStem, pillars: Pillar[]): DayMasterStrength {
