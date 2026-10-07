@@ -8,6 +8,7 @@ import type { AstrologyResult } from '../types';
 import { dayCanChi, scoreNhatVan, goodBadHours, genericDayFacts, type HourWindow } from './nhatVan';
 import { elementPhongThuy } from './phongThuyBatTu';
 import { currentAgeOf } from './ageUtil';
+import { tasksForDay, type DayTaskFit } from './dayPicker';
 
 export interface TodaySummary {
   hasChart: boolean;
@@ -61,7 +62,8 @@ const ENCOURAGE_NORMAL: string[] = [
  * Cố định theo ngày (không đổi mỗi lần vẽ lại); giọng theo rule của app: xu hướng + hành động, không phán tuyệt đối.
  */
 export function dailyMessage(score100: number, date: Date = new Date()): string {
-  const list = score100 >= 65 ? ENCOURAGE_GOOD : score100 >= 50 ? ENCOURAGE_NORMAL : ENCOURAGE;
+  // Ngưỡng khớp bảng màu ngày (tốt/khá ≥ 55, trung bình ≥ 40) — trước đây 65/50 nên lời chào lệch với màu lịch.
+  const list = score100 >= 55 ? ENCOURAGE_GOOD : score100 >= 40 ? ENCOURAGE_NORMAL : ENCOURAGE;
   const dayOfYear = Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
   return list[dayOfYear % list.length];
 }
@@ -101,6 +103,29 @@ function workLineBad(age: number, badDay: boolean): string {
   return 'Tránh quyết định vội, tranh cãi nóng nảy.';
 }
 
+
+const names = (xs: DayTaskFit[], n = 3) => {
+  const head = xs.slice(0, n).map(x => x.name).join(', ');
+  return xs.length > n ? `${head} +${xs.length - n}` : head;
+};
+
+/**
+ * Dòng "việc hợp" / "nên tránh" của box Vận khí hôm nay (Home) — LẤY TỪ CÙNG NGUỒN với thẻ "Việc hợp / nên tránh hôm nay"
+ * (dayPicker.tasksForDay) để hai nơi không còn lệch nhau (trước đây dùng câu chung theo tuổi + mức điểm).
+ */
+function fitLines(date: Date, result: AstrologyResult | null, age: number, goodDay: boolean): { good: string; bad: string } {
+  const fit = tasksForDay(date, result);
+  const good = fit.good.length
+    ? `💼 Việc hợp: ${names(fit.good)}.`
+    : `💼 ${workLineGood(age, false)}`;
+  const bad = fit.avoid.length
+    ? `🚫 Nên tránh: ${names(fit.avoid)}${fit.avoid[0].note ? ` (${fit.avoid[0].note})` : ''}.`
+    : fit.consider.length
+      ? `⚠ Cân nhắc: ${names(fit.consider)}${fit.consider[0].note ? ` (${fit.consider[0].note})` : ''}.`
+      : `🚫 ${workLineBad(age, !goodDay)}`;
+  return { good, bad };
+}
+
 export function buildTodaySummary(result: AstrologyResult | null, date: Date = new Date()): TodaySummary {
   const cc = dayCanChi(date);
   const weekday = WEEKDAY[date.getDay()];
@@ -119,15 +144,16 @@ export function buildTodaySummary(result: AstrologyResult | null, date: Date = n
     const goodDay = sc.rating === 'Rất tốt' || sc.rating === 'Tốt';
     const badDay = sc.rating === 'Cần thận trọng' || sc.rating === 'Xấu';
 
+    const fl = fitLines(date, result, age, goodDay);
     const good: string[] = [
-      `💼 ${workLineGood(age, goodDay)}`,
+      fl.good,
       `🧭 Hướng tốt: ${g.huong}`,
       `👕 Màu hợp: ${firstPart(g.mau)}`,
     ];
 
     const bad: string[] = [];
     if (sc.xungTuoi) bad.push('⚠ Ngày xung tuổi: tránh việc trọng đại (cưới hỏi, khởi công, đi xa lớn).');
-    bad.push(`🚫 ${workLineBad(age, badDay)}`);
+    bad.push(fl.bad);
     if (unfavEl) {
       const b = elementPhongThuy(unfavEl);
       bad.push(`🧭 Hạn chế hướng: ${b.huong}`);
@@ -148,14 +174,15 @@ export function buildTodaySummary(result: AstrologyResult | null, date: Date = n
   const rating = genericDayFacts(date).rating; // cùng công thức lịch chung với heatmap/Xem ngày tốt cơ bản
   const g = elementPhongThuy(cc.stemEl);
 
+  const fl = fitLines(date, null, 0, rating === 'Rất tốt' || rating === 'Tốt');
   const good: string[] = [
-    '💼 Ưu tiên việc quan trọng vào buổi sáng khi tinh thần tốt nhất.',
+    fl.good,
     '🤝 Thuận gặp gỡ, trao đổi, củng cố quan hệ.',
     `🧭 Hướng cát hôm nay: ${g.huong}`,
     `👕 Màu may mắn: ${firstPart(g.mau)}`,
   ];
   const bad: string[] = [
-    '🚫 Tránh quyết định vội vàng, tranh cãi nóng nảy.',
+    fl.bad,
     '🧾 Cẩn thận giấy tờ, tiền bạc, đi lại.',
     '🌙 Nghỉ ngơi điều độ, giữ sức khỏe.',
   ];

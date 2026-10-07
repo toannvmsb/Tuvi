@@ -17,7 +17,8 @@ import { scoreNguyetVan, nguyetVanBranch, nguyetVanDetail } from '../core/nguyet
 import { careerProfile } from '../data/careerByStar';
 import { summarizeBatTuAdvanced, computeThapThan, hyThanOf } from '../core/thapThan';
 import { analyzePhongThuyBatTu } from '../core/phongThuyBatTu';
-import { scoreNhatVan, generateNhatVanOffline } from '../core/nhatVan';
+import { scoreNhatVan } from '../core/nhatVan';
+import { generateNhatVanOffline } from '../core/nhatVanReport';
 import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE } from '../data/dayPickTasks';
 import { luuStarsTamPhuong, luuSummary, yearVsTuoi } from '../core/luuStars';
 import { KHAI_QUAT_12_CUNG, CHINH_TINH_CORE } from '../data/lasoLuanGiaiGuide';

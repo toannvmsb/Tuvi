@@ -22,7 +22,7 @@ import { getMyChartId } from '../lib/myChart';
 import { listCharts, getCachedCharts, rowToResult, type SavedChartRow } from '../lib/charts';
 import { scoreNhatVan } from '../core/nhatVan';
 import { genericDayScore, buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
-import { buildMonthHeatmap, type DayTone } from '../core/dailyPeriodService';
+import { buildMonthHeatmap, toneOf, TONE_LABEL, type DayTone } from '../core/dailyPeriodService';
 import { solarToLunar } from '../core/lunarCalendar';
 import { currentAgeOf } from '../core/ageUtil';
 import { buildTodaySummary, dailyMessage } from '../core/todaySummary';
@@ -48,17 +48,11 @@ const TONE_TIER: Record<DayTone, string> = {
   'tốt': TIER_COLORS.great, 'khá': TIER_COLORS.good, 'trung bình': TIER_COLORS.normal,
   'thận trọng': TIER_COLORS.caution, 'xấu': TIER_COLORS.bad,
 };
-const LEGEND: { c: (typeof CAL_TONE)['tốt']; t: string }[] = [
-  { c: CAL_TONE['tốt'], t: 'Tốt' }, { c: CAL_TONE['khá'], t: 'Khá' }, { c: CAL_TONE['trung bình'], t: 'Trung bình' },
-  { c: CAL_TONE['thận trọng'], t: 'Thận trọng' }, { c: CAL_TONE['xấu'], t: 'Xấu' },
-];
+const LEGEND: { c: (typeof CAL_TONE)['tốt']; t: string }[] = (['tốt', 'khá', 'trung bình', 'thận trọng', 'xấu'] as DayTone[]).map(k => ({ c: CAL_TONE[k], t: TONE_LABEL[k] }));
 
 function ratingLabel(score: number): { label: string; color: string } {
-  if (score >= 80) return { label: 'Rất thuận lợi', color: TIER_COLORS.great };
-  if (score >= 65) return { label: 'Thuận lợi', color: TIER_COLORS.good };
-  if (score >= 50) return { label: 'Bình thường', color: TIER_COLORS.normal };
-  if (score >= 35) return { label: 'Cần thận trọng', color: TIER_COLORS.caution };
-  return { label: 'Nhiều trở ngại', color: TIER_COLORS.bad };
+  const tone = toneOf(score);
+  return { label: TONE_LABEL[tone], color: CAL_TONE[tone].dot };
 }
 
 export default function OverviewScreen() {
@@ -185,8 +179,8 @@ export default function OverviewScreen() {
           <Pressable onPress={openDay} style={{ flex: 1, justifyContent: 'space-between', gap: 10 }} accessibilityRole="button">
             <Eyebrow style={s.miniEyebrow}>Vận khí hôm nay</Eyebrow>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ScoreRing score={todayScore} size={52} stroke={5} numberSize={22} />
-              <Text style={[s.miniHead, { color: COLORS.goldLight, flexShrink: 1 }]}>{rating.label}</Text>
+              <ScoreRing score={todayScore} size={52} stroke={5} numberSize={22} color={rating.color} />
+              <Text style={[s.miniHead, { color: rating.color, flexShrink: 1 }]}>{rating.label}</Text>
             </View>
             <Body size={11.5} style={{ lineHeight: 16 }}>{summaryGood || 'Nhấn để xem chi tiết theo ngày'}</Body>
           </Pressable>

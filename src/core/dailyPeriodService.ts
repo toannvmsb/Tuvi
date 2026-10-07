@@ -24,6 +24,12 @@ export function toneOf(score: number): DayTone {
   return 'xấu';
 }
 
+/** NHÃN HIỂN THỊ DUY NHẤT của mức ngày — cùng từ vựng với `rating` ở màn Xem theo ngày/Nhật vận (Rất tốt · Tốt · Bình thường · Cần thận trọng · Xấu).
+ * Mọi chú giải lịch / box "Vận khí hôm nay" dùng bảng này để không còn "Tốt" ở chỗ này nhưng "Khá" ở chỗ kia (07/10/2026). */
+export const TONE_LABEL: Record<DayTone, string> = {
+  'tốt': 'Rất tốt', 'khá': 'Tốt', 'trung bình': 'Bình thường', 'thận trọng': 'Cần thận trọng', 'xấu': 'Xấu',
+};
+
 // Hạ 1 tông (giảm ~15% độ sáng) so với bộ màu gốc để đỡ chói mắt trên nền tối.
 export const TONE_COLOR: Record<DayTone, string> = {
   'tốt': '#1da750',

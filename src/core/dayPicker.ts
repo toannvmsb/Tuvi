@@ -18,6 +18,7 @@ import {
   HK_DAY_BRANCH_KY, HK_DAY_BRANCH_PENALTY,
 } from './dayQualityTables';
 import { HK_TRUC } from '../data/hiepKyTruc';
+import { hkFacts, hkActivityStatus, hkDayAllJi, type HkActivityStatus } from './hiepKy';
 
 export interface DayPickResult {
   date: Date;
@@ -42,6 +43,8 @@ export interface DayPickResult {
   // v3
   /** Trực của ngày nghi / kỵ việc này theo Hiệp Kỷ (hoặc nhóm việc nếu chưa có mục). */
   trucFit?: 'nghi' | 'ky' | '';
+  /** Mức kỵ theo Hiệp Kỷ 1.2 cho việc này: 'all_ji' mọi việc đều kỵ · 'ji' kỵ theo danh sách · '' không. */
+  hkLevel?: 'all_ji' | 'ji' | '';
   /** Lý do chính ngắn gọn (dùng cho danh sách "việc hợp / nên tránh"). */
   note?: string;
 }
@@ -77,10 +80,11 @@ export function trucRulesOf(task: DayPickTask, group: DayPickGroup): { nghi: num
 }
 
 /** Điểm cộng/trừ theo Trực (nghi +8, kỵ −10; Phá-kỵ đã tính ở Nguyệt phá) + hành chi ngày (heuristic TẠM). */
-function taskBonus(groupCode: string, dayElement: FiveElement, trucIdx: number, rules: { nghi: number[]; ky: number[] }): number {
+function taskBonus(groupCode: string, dayElement: FiveElement, trucIdx: number, rules: { nghi: number[]; ky: number[] }, hkMapped: boolean): number {
   let bonus = 0;
   if (rules.nghi.includes(trucIdx)) bonus += 8;
-  else if (trucIdx !== 6 && rules.ky.includes(trucIdx)) bonus -= 10;
+  // Bình/Thu/Bế: kỵ có ĐIỀU KIỆN theo tháng + Đức (bảng sáu bậc, xử lý ở hiepKy.ts) → không trừ phẳng nữa khi việc đã có mục Hiệp Kỷ.
+  else if (trucIdx !== 6 && !(hkMapped && (trucIdx === 3 || trucIdx === 9 || trucIdx === 11)) && rules.ky.includes(trucIdx)) bonus -= 10;
 
   if (groupCode === 'BIZ' || groupCode === 'FIN' || groupCode === 'PROP' || groupCode === 'VIP') {
     if (dayElement === 'Kim' || dayElement === 'Thổ') bonus += 3;
@@ -146,19 +150,32 @@ interface DayInputs {
   tuePha: boolean;
   tamNuong: boolean;
   nguyetKy: boolean;
+  /** Kết quả Hiệp Kỷ 1.2 (thần sát + sáu bậc + Nguyệt phá gia trọng) cho việc này; null nếu việc chưa có mục Hiệp Kỷ. */
+  hk: HkActivityStatus | null;
 }
 
 /** Quy tắc cứng THEO VIỆC: trả điểm đã áp, hoặc lý do loại. */
 function applyTaskRules(inp: DayInputs, group: DayPickGroup, task: DayPickTask): { score: number; excluded?: 'xungTuoi' } {
   const heavy = task.weight >= 4;
-  const exempt = isBreakExempt(task, group);
   if (heavy && inp.xungTuoi) return { score: 0, excluded: 'xungTuoi' };
 
   let s = inp.beforeHard;
-  // Việc trọng đại gặp Nguyệt phá/Tuế phá: TRỪ ĐIỂM nặng + trần (anh Toàn chọn 07/10/2026: không loại hẳn).
-  if (heavy && !exempt && inp.monthBreak) s = Math.min(s - 15, DAY_HARD.monthBreakCap);
-  if (heavy && !exempt && inp.tuePha) s = Math.min(s - 10, DAY_HARD.tuePhaCap);
-  if (!heavy && !exempt && inp.monthBreak) s = Math.min(s, 50);          // việc nhẹ: Nguyệt phá chỉ kéo xuống mức "bình thường"
+  const hk = inp.hk;
+  if (hk) {
+    // Hiệp Kỷ 1.2: kỵ theo THẦN có mặt + bậc đẳng đệ + điều kiện Đức. Chỉ MỘT mức phạt (nặng nhất), không cộng dồn (đặc tả §12.4).
+    const allJi = hk.status === 'all_ji';
+    const ji = hk.status === 'ji';
+    if (allJi) s = heavy ? Math.min(s - 20, DAY_HARD.monthBreakCap) : Math.min(s - 10, 45);
+    else if (ji && hk.fromBreak) s = heavy ? Math.min(s - 15, DAY_HARD.monthBreakCap) : Math.min(s, 50);
+    else if (ji) s = s - 10;
+    // Nguyệt phá nằm trong danh sách "không kỵ" (cầu y, phá nhà…): không phạt — nhưng "không kỵ" ≠ "nghi" (không cộng điểm).
+  } else {
+    const exempt = isBreakExempt(task, group);
+    if (heavy && !exempt && inp.monthBreak) s = Math.min(s - 15, DAY_HARD.monthBreakCap);
+    if (!heavy && !exempt && inp.monthBreak) s = Math.min(s, 50);
+  }
+  // Việc trọng đại gặp Tuế phá: TRỪ ĐIỂM nặng + trần (anh Toàn chọn 07/10/2026: không loại hẳn). Tuế phá không có trong Hiệp Kỷ — là chính sách Tuzi.
+  if (heavy && !isBreakExempt(task, group) && inp.tuePha) s = Math.min(s - 10, DAY_HARD.tuePhaCap);
   if (!heavy && inp.xungTuoi) s = Math.min(s, DAY_HARD.xungTuoiCap + 10); // việc nhẹ: xung tuổi chỉ trần mềm
   if (isBigTask(group.code, task.weight)) {
     if (inp.tamNuong) s -= DAY_HARD.tamNuong;
@@ -210,14 +227,26 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
     const gf: GenericDayFacts | null = personal ? null : genericDayFacts(date);
     const f = (sc ?? gf)!;
 
+    const hkRow = TASK_TO_HK[task.code] ? HK_TRUC[TASK_TO_HK[task.code]] : undefined;
+    let hk: HkActivityStatus | null = null;
+    if (hkRow) {
+      try { hk = hkActivityStatus(hkFacts(sc ? sc.monthBranch : gf!.monthBranch, f.canChi.stem, f.canChi.branch), hkRow.zh, hkRow.ji); } catch { hk = null; }
+    } else {
+      // Việc chưa có mục Hiệp Kỷ: vẫn phải theo ngày "mọi việc đều kỵ" (không phụ thuộc việc cụ thể).
+      try {
+        const d = hkDayAllJi(hkFacts(sc ? sc.monthBranch : gf!.monthBranch, f.canChi.stem, f.canChi.branch));
+        if (d.allJi) hk = { status: 'all_ji', fromBreak: false, breakExempt: false, note: d.note, unresolved: [] };
+      } catch { hk = null; }
+    }
+
     const inp: DayInputs = sc
       ? {
         beforeHard: sc.layers.beforeHard, trucIdx: sc.trucIdx, branchEl: sc.canChi.branchEl, xungTuoi: sc.xungTuoi,
-        monthBreak: sc.monthBreak, tuePha: sc.tuePha, tamNuong: sc.tamNuong, nguyetKy: sc.nguyetKy,
+        monthBreak: sc.monthBreak, tuePha: sc.tuePha, tamNuong: sc.tamNuong, nguyetKy: sc.nguyetKy, hk,
       }
       : {
         beforeHard: gf!.beforeHard, trucIdx: gf!.trucIdx, branchEl: gf!.canChi.branchEl, xungTuoi: false,
-        monthBreak: gf!.monthBreak, tuePha: gf!.tuePha, tamNuong: gf!.tamNuong, nguyetKy: gf!.nguyetKy,
+        monthBreak: gf!.monthBreak, tuePha: gf!.tuePha, tamNuong: gf!.tamNuong, nguyetKy: gf!.nguyetKy, hk,
       };
 
     const base = {
@@ -242,24 +271,32 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
       continue;
     }
 
-    const bonus = taskBonus(group.code, inp.branchEl, inp.trucIdx, trucRules);
+    const bonus = taskBonus(group.code, inp.branchEl, inp.trucIdx, trucRules, !!hkRow);
     const adjusted = Math.max(0, Math.min(100, Math.round(r.score + bonus)));
-    const reasons = [...f.reasons];
+    const reasons: string[] = []; // lý do THEO VIỆC đứng trước lý do chung của ngày để không bị cắt khi rút gọn
+    const flatKy = inp.trucIdx !== 6 && !(hkRow && (inp.trucIdx === 3 || inp.trucIdx === 9 || inp.trucIdx === 11)) && trucRules.ky.includes(inp.trucIdx);
     const dayKy = TASK_TO_HK[task.code] ? HK_DAY_BRANCH_KY[TASK_TO_HK[task.code]] : undefined;
     let adjustedFinal = adjusted;
+    // Hiệp Kỷ "mọi việc đều kỵ": điểm cộng Trực nghi/hành không được kéo việc lên trên trần.
+    if (hk?.status === 'all_ji') adjustedFinal = Math.min(adjustedFinal, task.weight >= 4 ? DAY_HARD.monthBreakCap : 45);
     if (dayKy && f.canChi.branch === dayKy.branch) {
       adjustedFinal = Math.max(0, adjusted - HK_DAY_BRANCH_PENALTY);
       reasons.push(`Hiệp Kỷ: ${dayKy.why} — trừ điểm.`);
     }
     if (trucRules.nghi.includes(inp.trucIdx)) reasons.push(`Trực ${f.truc} nghi việc "${task.name}" (${trucRules.source}) — thêm điểm.`);
-    else if (inp.trucIdx !== 6 && trucRules.ky.includes(inp.trucIdx)) reasons.push(`Trực ${f.truc} kỵ việc "${task.name}" (${trucRules.source}) — trừ điểm.`);
+    else if (flatKy) reasons.push(`Trực ${f.truc} kỵ việc "${task.name}" (${trucRules.source}) — trừ điểm.`);
 
     if (adjustedFinal >= 55) okCount++;
 
-    const trucFit: 'nghi' | 'ky' | '' = trucRules.nghi.includes(inp.trucIdx) ? 'nghi' : (inp.trucIdx !== 6 && trucRules.ky.includes(inp.trucIdx)) ? 'ky' : '';
+    const hkBad = !!hk && (hk.status === 'ji' || hk.status === 'all_ji');
+    const trucFit: 'nghi' | 'ky' | '' = hk?.status === 'all_ji' ? 'ky' : trucRules.nghi.includes(inp.trucIdx) ? 'nghi' : (flatKy || (hkBad && !hk!.fromBreak)) ? 'ky' : '';
+    if (hkBad) reasons.push(`Hiệp Kỷ: ${hk!.note}${hk!.status === 'all_ji' ? ' — mọi việc đều kỵ' : ` — kỵ việc "${task.name}"`} — trừ điểm.`);
+    else if (hk?.breakExempt) reasons.push(`Nguyệt phá nhưng "${task.name}" nằm trong nhóm không kỵ (Hiệp Kỷ) — không trừ điểm; không kỵ ≠ nghi.`);
     const heavy = task.weight >= 4 && !isBreakExempt(task, group);
     const note =
-      heavy && inp.monthBreak ? 'Nguyệt phá'
+      hkBad && hk!.fromBreak ? 'Nguyệt phá'
+      : hkBad ? hk!.note
+      : heavy && inp.monthBreak && !hk ? 'Nguyệt phá'
       : heavy && inp.tuePha ? 'Tuế phá'
       : dayKy && f.canChi.branch === dayKy.branch ? dayKy.why
       : trucFit === 'nghi' ? `Trực ${f.truc} nghi`
@@ -270,13 +307,13 @@ function pickDays(taskCode: string, from: Date, to: Date, personal: AstrologyRes
     candidates.push({
       ...base,
       rating: ratingOfScore(adjustedFinal), score: sc ? sc.score : 0, score100: adjustedFinal,
-      reasons: reasons.slice(0, 5),
+      reasons: [...reasons, ...f.reasons].slice(0, 6),
       bestHours: personal ? goodBadHours(personal, date).good.slice(0, 3) : [],
       generalHours: auspiciousHours(date),
       direction: goodPhong ? goodPhong.huong : '',
       goodColor: goodPhong ? goodPhong.mau.split(';')[0].trim() : '',
       avoidColor: badPhong ? badPhong.mau.split(';')[0].trim() : '',
-      trucFit, note,
+      trucFit, note, hkLevel: hk?.status === 'all_ji' ? 'all_ji' : hkBad ? 'ji' : '',
     });
   }
 
@@ -311,17 +348,25 @@ export function pickGoodDaysGeneric(taskCode: string, from: Date, to: Date): Day
   return pickDays(taskCode, from, to, null);
 }
 
-export interface DayTaskFit { code: string; name: string; emoji: string; groupName: string; score100: number; note: string }
+export interface DayTaskFit {
+  code: string; name: string; emoji: string; groupName: string; score100: number; note: string;
+  /** 'nghi': Trực của ngày NGHI việc này (Hiệp Kỷ). 'thuan': Hiệp Kỷ không ghi nghi nhưng cũng KHÔNG vướng kỵ nào và điểm ngày cao — thuận, không phải nghi. */
+  tier?: 'nghi' | 'thuan';
+  /** Chỉ cho danh sách "nên tránh": 0 nặng (xung tuổi / mọi việc kỵ / Nguyệt phá / Tuế phá), 1 vừa (kỵ theo thần sát hoặc Trực), 2 nhẹ (chỉ vì điểm ngày thấp). */
+  severity?: 0 | 1 | 2;
+}
 
 /**
  * "Việc hợp / nên tránh hôm nay": chấm CHÍNH NGÀY ĐÓ cho 54 việc của "Xem ngày tốt" bằng đúng bộ máy pickDays (không công thức riêng).
- *  - HỢP: Trực của ngày NGHI việc đó (Hiệp Kỷ quyển 11) và điểm sau quy tắc ≥ 55.
+ *  - HỢP: (1) Trực của ngày NGHI việc đó (Hiệp Kỷ quyển 11) và điểm ≥ 55; (2) việc THUẬN: không vướng kỵ nào và điểm ≥ 55 (ngày tốt luôn có việc để khuyên).
  *  - NÊN TRÁNH: bị loại (xung tuổi), hoặc việc trọng đại gặp Nguyệt phá/Tuế phá, hoặc điểm < 40, hoặc Trực kỵ việc đó.
  * Nhóm "Xem số hợp mệnh" không có ngày nên không xét. Ô trống Hiệp Kỷ ≠ "được phép" nên việc không nghi cũng không kỵ không xuất hiện ở đâu cả.
  */
-export function tasksForDay(date: Date, personal: AstrologyResult | null): { good: DayTaskFit[]; avoid: DayTaskFit[] } {
+export function tasksForDay(date: Date, personal: AstrologyResult | null): { good: DayTaskFit[]; avoid: DayTaskFit[]; consider: DayTaskFit[] } {
   const good: DayTaskFit[] = [];
   const avoid: DayTaskFit[] = [];
+  const consider: DayTaskFit[] = [];
+  const rest: DayTaskFit[] = [];
   for (const g of DAY_PICK_GROUPS) {
     if (g.code === NUMBER_GROUP_CODE) continue;
     for (const task of g.tasks) {
@@ -330,11 +375,40 @@ export function tasksForDay(date: Date, personal: AstrologyResult | null): { goo
       const item: DayTaskFit = { code: task.code, name: task.name, emoji: g.emoji, groupName: g.name, score100: c.score100, note: c.note || '' };
       const excludedDay = c.score100 === 0 && c.rating.startsWith('Loại');
       const broken = c.note === 'Nguyệt phá' || c.note === 'Tuế phá';
-      if (excludedDay || broken || c.score100 < 40 || c.trucFit === 'ky') avoid.push({ ...item, note: item.note || 'Trực kỵ' });
-      else if (c.trucFit === 'nghi' && c.score100 >= 55) good.push(item);
+      // PHÂN HẠNG KỴ (anh Toàn chốt 07/10/2026):
+      //  • NÊN TRÁNH (nặng): xung tuổi, Nguyệt phá/Tuế phá với việc trọng đại, ngày Hiệp Kỷ "mọi việc đều kỵ".
+      //  • CÂN NHẮC (vừa): kỵ theo thần sát thường / Trực kỵ việc trọng đại, hoặc điểm ngày thấp với việc trọng đại — điểm vẫn bị trừ.
+      //  Việc NHẸ (mức ≤ 3) không dán nhãn kỵ nào (điểm vẫn bị trừ).
+      const heavyBad = excludedDay || broken || c.hkLevel === 'all_ji';
+      const softBad = (c.trucFit === 'ky' && task.weight >= 4) || (c.score100 < 40 && task.weight >= 4);
+      if (heavyBad) avoid.push({ ...item, note: item.note || 'Trực kỵ', severity: 0 });
+      else if (softBad) consider.push({ ...item, note: item.note || 'Trực kỵ', severity: 1 });
+      else if (c.trucFit === 'ky' || c.score100 < 40) { /* nhẹ: không liệt kê */ }
+      else if (c.trucFit === 'nghi' && c.score100 >= 55) good.push({ ...item, tier: 'nghi' });
+      // Ngày tốt nhưng Trực không nghi riêng việc này: nếu KHÔNG vướng kỵ nào và điểm cao thì vẫn là việc "thuận" (không gọi là nghi).
+      else if (c.trucFit === '' && c.score100 >= 55) good.push({ ...item, tier: 'thuan', note: 'không vướng kỵ' });
+      else if (c.trucFit === '' && c.score100 >= 50) rest.push({ ...item, tier: 'thuan', note: 'không vướng kỵ' });
     }
   }
-  good.sort((a, b) => b.score100 - a.score100);
+  // Ngày tốt nhưng không việc nào đạt ngưỡng: vẫn khuyên vài việc không vướng kỵ có điểm cao nhất.
+  if (!good.length && rest.length && avoid.length < 54) good.push(...rest.sort((a, b) => b.score100 - a.score100).slice(0, 4));
+  // Nghi (Hiệp Kỷ) đứng trước, rồi tới việc thuận; trong mỗi nhóm xếp theo điểm.
+  good.sort((a, b) => (a.tier === b.tier ? 0 : a.tier === 'nghi' ? -1 : 1) || b.score100 - a.score100);
   avoid.sort((a, b) => a.score100 - b.score100);
-  return { good, avoid };
+  consider.sort((a, b) => a.score100 - b.score100);
+  return { good, avoid, consider };
+}
+
+export interface AvoidGroup { note: string; severity: 0 | 1 | 2; items: DayTaskFit[] }
+
+/** Gom danh sách "nên tránh" theo LÝ DO (vd "Nguyệt phá" — 22 việc) để giao diện/báo cáo không phải liệt kê từng việc. Nặng trước, rồi nhiều việc trước. */
+export function groupAvoid(avoid: DayTaskFit[]): AvoidGroup[] {
+  const m = new Map<string, AvoidGroup>();
+  for (const a of avoid) {
+    const g = m.get(a.note) ?? { note: a.note, severity: (a.severity ?? 2) as 0 | 1 | 2, items: [] };
+    g.severity = Math.min(g.severity, a.severity ?? 2) as 0 | 1 | 2;
+    g.items.push(a);
+    m.set(a.note, g);
+  }
+  return [...m.values()].sort((x, y) => x.severity - y.severity || y.items.length - x.items.length);
 }

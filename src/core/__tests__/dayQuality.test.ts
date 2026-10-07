@@ -1,8 +1,9 @@
 import { dayCalendarFacts, jdFromDate } from '../dayCalendar';
+import { hkFacts, hkMonthBreak } from '../hiepKy';
 import {
   dayCanChi, trucNgayInfo, hoangDaoNgay, nhi28Info, genericDayFacts, scoreNhatVan, ratingOfScore, TRUC_NAMES,
 } from '../nhatVan';
-import { pickGoodDays, pickGoodDaysGeneric, trucRulesOf, isBreakExempt, tasksForDay } from '../dayPicker';
+import { pickGoodDays, pickGoodDaysGeneric, trucRulesOf, isBreakExempt, tasksForDay, groupAvoid } from '../dayPicker';
 import { HK_TRUC } from '../../data/hiepKyTruc';
 import { TASK_TO_HK } from '../dayQualityTables';
 import { DAY_PICK_GROUPS, findTaskByCode } from '../../data/dayPickTasks';
@@ -273,7 +274,7 @@ describe('Việc hợp / nên tránh hôm nay (tasksForDay)', () => {
         const { good, avoid } = tasksForDay(day, r);
         const codes = new Set(good.map(x => x.code));
         for (const a of avoid) expect(codes.has(a.code)).toBe(false);
-        for (const g of good) { expect(g.score100).toBeGreaterThanOrEqual(55); expect(g.code).not.toMatch(/^(PHONE|PLATE|BANK|HOUSE|LUCKY|COMPANY|ASSET)$/); }
+        for (const g of good) { expect(g.score100).toBeGreaterThanOrEqual(50); expect(g.code).not.toMatch(/^(PHONE|PLATE|BANK|HOUSE|LUCKY|COMPANY|ASSET)$/); }
       }
     }
   });
@@ -298,5 +299,137 @@ describe('Việc hợp / nên tránh hôm nay (tasksForDay)', () => {
       if (good.some(x => x.code === 'BIZ_OPEN_SHOP') || f.score100 < 40) checked++;
     }
     expect(checked).toBeGreaterThan(0);
+  });
+});
+
+describe('Tích hợp Hiệp Kỷ 1.2 vào chọn ngày theo việc', () => {
+  const find = (pred: (st: ReturnType<typeof hkMonthBreak>) => boolean): Date | null => {
+    for (let i = 0; i < 400; i++) {
+      const day = new Date(2026, 9, 1 + i);
+      const cal = dayCalendarFacts(day);
+      const cc = dayCanChi(day);
+      if (pred(hkMonthBreak(hkFacts(cal.monthBranch, cc.stem, cc.branch)))) return day;
+    }
+    return null;
+  };
+
+  it('ngày Nguyệt phá gia trọng (mọi việc kỵ): cả cầu y cũng nằm ở "nên tránh"', () => {
+    const day = find(s => s.status === 'all_ji')!;
+    expect(day).not.toBeNull();
+    const { avoid } = tasksForDay(day, null);
+    expect(avoid.some(x => x.code === 'HEALTH_SURGERY')).toBe(true);
+    expect(avoid.some(x => x.code === 'LOVE_WEDDING')).toBe(true);
+  });
+
+  it('ngày Nguyệt phá cơ sở: cầu y KHÔNG bị Nguyệt phá trừ điểm (không kỵ), cưới thì bị', () => {
+    const day = find(s => s.status === 'scoped_ji')!;
+    expect(day).not.toBeNull();
+    const { avoid } = tasksForDay(day, null);
+    expect(avoid.find(x => x.code === 'LOVE_WEDDING')?.note).toBe('Nguyệt phá');
+    expect(avoid.find(x => x.code === 'HEALTH_SURGERY')?.note).not.toBe('Nguyệt phá');
+  });
+});
+
+describe('Báo cáo Cơ bản khớp thẻ "Việc hợp / nên tránh"', () => {
+  it('"Nên làm"/"Không nên làm" nêu đúng các việc của tasksForDay, không còn câu chung "ký kết, khai trương" khi Trực không nghi', () => {
+    const { generateNhatVanOffline } = require('../nhatVanReport');
+    const r = allSampleResults()[0];
+    for (let i = 0; i < 40; i++) {
+      const day = new Date(2026, 9, 8 + i, 12);
+      const md: string = generateNhatVanOffline(r, day);
+      const fit = tasksForDay(day, r);
+      const nen = md.split('# Nên làm hôm nay')[1].split('# Không nên')[0];
+      const khong = md.split('# Không nên làm hôm nay')[1].split('# Khung giờ')[0];
+      if (fit.good.length) expect(nen).toContain(fit.good[0].name);
+      const firstGroup = groupAvoid(fit.avoid)[0];
+      if (firstGroup) expect(khong).toContain(firstGroup.items[0].name);
+      for (const g of fit.good.slice(0, 6)) expect(khong).not.toContain(g.name + ' (');
+      expect(md).not.toContain('Thuận để TIẾN HÀNH việc quan trọng');
+    }
+  });
+});
+
+describe('Ngày tốt luôn có việc để khuyên', () => {
+  it('ngày điểm ≥ 55 (không Nguyệt phá/Tuế phá/xung tuổi) → danh sách "việc hợp" không rỗng; việc thuận gắn nhãn "không vướng kỵ"', () => {
+    const r = allSampleResults()[0];
+    let checked = 0;
+    for (let i = 0; i < 120; i++) {
+      const day = new Date(2026, 9, 8 + i, 12);
+      const sc = scoreNhatVan(r, day);
+      if (sc.score100 < 55 || sc.monthBreak || sc.tuePha || sc.xungTuoi) continue;
+      const { good } = tasksForDay(day, r);
+      expect(good.length).toBeGreaterThan(0);
+      for (const g of good.filter(x => x.tier === 'thuan')) expect(g.note).toBe('không vướng kỵ');
+      const idx = good.findIndex(x => x.tier === 'thuan');
+      if (idx >= 0) expect(good.slice(0, idx).every(x => x.tier === 'nghi')).toBe(true);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(5);
+  });
+});
+
+describe('Ngày Hiệp Kỷ "mọi việc đều kỵ" nhất quán giữa màu ngày và danh sách việc', () => {
+  it('điểm ngày ≤ trần, có cảnh báo, và không việc nào được xếp "hợp"', () => {
+    let seen = 0;
+    for (let i = 0; i < 400 && seen < 8; i++) {
+      const day = new Date(2026, 9, 8 + i, 12);
+      const g = genericDayFacts(day);
+      if (!g.hkAllJi) continue;
+      seen++;
+      expect(g.score100).toBeLessThanOrEqual(42);
+      expect(g.warnings.some(w => w.includes('mọi việc đều kỵ'))).toBe(true);
+      expect(tasksForDay(day, null).good.filter(x => x.tier === 'nghi').length).toBe(0);
+    }
+    expect(seen).toBeGreaterThan(3);
+  });
+});
+
+describe('Phân hạng kỵ: Nên tránh (nặng) / Cân nhắc (vừa)', () => {
+  it('ba danh sách không giao nhau; "Nên tránh" chỉ gồm lý do nặng; "Cân nhắc" chỉ việc trọng đại', () => {
+    const r = allSampleResults()[0];
+    const { findTaskByCode } = require('../../data/dayPickTasks');
+    for (let i = 0; i < 60; i++) {
+      const day = new Date(2026, 9, 8 + i, 12);
+      const f = tasksForDay(day, r);
+      const all = [...f.good, ...f.avoid, ...f.consider].map(x => x.code);
+      expect(new Set(all).size).toBe(all.length);
+      for (const a of f.avoid) expect(['Nguyệt phá', 'Tuế phá', 'xung tuổi'].includes(a.note) || a.note.length > 0).toBe(true);
+      for (const c of f.consider) expect(findTaskByCode(c.code).task.weight).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('kỵ nhẹ (thần sát thường) rơi vào "Cân nhắc", không vào "Nên tránh"; chỉ ngày Nguyệt phá/mọi-việc-kỵ mới đầy "Nên tránh"', () => {
+    let sumAvoid = 0, sumConsider = 0, n = 0;
+    for (let i = 0; i < 365; i++) {
+      const day = new Date(2026, 9, 8 + i, 12);
+      const g = genericDayFacts(day);
+      const f = tasksForDay(day, null);
+      if (!g.hkAllJi && !g.monthBreak && !g.tuePha) {
+        expect(f.avoid.length).toBe(0);
+        sumConsider += f.consider.length;
+      } else sumAvoid += f.avoid.length;
+      n++;
+    }
+    expect(n).toBe(365);
+    expect(sumConsider).toBeGreaterThan(0);
+    expect(sumAvoid).toBeGreaterThan(0);
+  });
+});
+
+describe('Box Vận khí hôm nay (Home) khớp thẻ Việc hợp', () => {
+  it('dòng đầu "Nên" nêu đúng các việc đầu của tasksForDay; dòng "Hạn chế" nêu đúng nhóm nên tránh/cân nhắc', () => {
+    const { buildTodaySummary } = require('../todaySummary');
+    for (const r of [null, allSampleResults()[0]]) {
+      for (let i = 0; i < 40; i++) {
+        const day = new Date(2026, 9, 8 + i, 12);
+        const s = buildTodaySummary(r, day);
+        const f = tasksForDay(day, r);
+        if (f.good.length) expect(s.good[0]).toContain(f.good[0].name);
+        else expect(s.good[0]).not.toContain('Việc hợp:');
+        const bad = (s.bad as string[]).join(' | ');
+        if (f.avoid.length) expect(bad).toContain(f.avoid[0].name);
+        else if (f.consider.length) expect(bad).toContain(f.consider[0].name);
+      }
+    }
   });
 });

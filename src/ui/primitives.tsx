@@ -122,7 +122,8 @@ export function OutlineButton({ label, onPress, style }: { label: string; onPres
 /* ───────── Biểu đồ nhỏ ───────── */
 
 /** Vòng điểm 0–100 (Vận khí, Đại vận…). */
-export function ScoreRing({ score, size = 104, stroke = 8, numberSize }: { score: number; size?: number; stroke?: number; numberSize?: number }) {
+/** `color` (tùy chọn): tô vòng + số một màu đặc (vd màu theo mức ngày) thay cho gradient vàng mặc định. */
+export function ScoreRing({ score, size = 104, stroke = 8, numberSize, color }: { score: number; size?: number; stroke?: number; numberSize?: number; color?: string }) {
   const r = size / 2 - stroke / 2 - 1;
   const c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score));
@@ -138,13 +139,13 @@ export function ScoreRing({ score, size = 104, stroke = 8, numberSize }: { score
         </Defs>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.09)" strokeWidth={stroke} fill="none" />
         <Circle
-          cx={size / 2} cy={size / 2} r={r} stroke={`url(#${id})`} strokeWidth={stroke} fill="none"
+          cx={size / 2} cy={size / 2} r={r} stroke={color ?? `url(#${id})`} strokeWidth={stroke} fill="none"
           strokeLinecap="round" strokeDasharray={`${(c * pct) / 100} ${c}`}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ fontFamily: FONTS.displayBold, fontSize: numberSize ?? Math.round(size * 0.38), color: COLORS.goldLight, lineHeight: (numberSize ?? Math.round(size * 0.38)) * 1.05 }}>
+        <Text style={{ fontFamily: FONTS.displayBold, fontSize: numberSize ?? Math.round(size * 0.38), color: color ?? COLORS.goldLight, lineHeight: (numberSize ?? Math.round(size * 0.38)) * 1.05 }}>
           {Math.round(pct)}
         </Text>
         {size > 90 ? <Text style={{ fontFamily: FONTS.body, fontSize: 11, color: COLORS.textMuted }}>/ 100</Text> : null}

@@ -206,10 +206,10 @@ export default function NotesScreen({ navigation }: Props) {
 }
 
 const TONE_LABEL: Record<DayTone, { label: string; color: string }> = {
-  'tốt': { label: 'Tốt', color: TIER_COLORS.great },
-  'khá': { label: 'Khá', color: TIER_COLORS.good },
+  'tốt': { label: 'Rất tốt', color: TIER_COLORS.great },
+  'khá': { label: 'Tốt', color: TIER_COLORS.good },
   'trung bình': { label: 'Bình thường', color: TIER_COLORS.normal },
-  'thận trọng': { label: 'Thận trọng', color: TIER_COLORS.caution },
+  'thận trọng': { label: 'Cần thận trọng', color: TIER_COLORS.caution },
   'xấu': { label: 'Xấu', color: TIER_COLORS.bad },
 };
 

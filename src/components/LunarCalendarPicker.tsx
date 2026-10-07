@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { solarToLunar } from '../core/lunarCalendar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { CAL_TONE } from '../constants/theme';
-import { TONE_COLOR, type DayTone, type MonthHeatmap } from '../core/dailyPeriodService';
+import { TONE_COLOR, TONE_LABEL, type DayTone, type MonthHeatmap } from '../core/dailyPeriodService';
 
 export interface DayInfo { tone: DayTone; hasWarning: boolean }
 
@@ -26,13 +26,7 @@ const MONTH_VI = [
   'Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12',
 ];
-const LEGEND_ITEMS: { tone: DayTone; label: string }[] = [
-  { tone: 'tốt', label: 'Tốt' },
-  { tone: 'khá', label: 'Khá' },
-  { tone: 'trung bình', label: 'Trung bình' },
-  { tone: 'thận trọng', label: 'Thận trọng' },
-  { tone: 'xấu', label: 'Xấu' },
-];
+const LEGEND_ITEMS: { tone: DayTone; label: string }[] = (['tốt', 'khá', 'trung bình', 'thận trọng', 'xấu'] as DayTone[]).map(tone => ({ tone, label: TONE_LABEL[tone] }));
 
 function noon(d: Date) {
   const x = new Date(d); x.setHours(12, 0, 0, 0); return x;
