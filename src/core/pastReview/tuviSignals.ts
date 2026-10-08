@@ -9,6 +9,7 @@ import { computeAnnualPrediction } from '../annualEvents/engine';
 import { PALACE_CODE_TO_VN } from '../annualEvents/calendar';
 import type { EvidenceItem, ScoredEvent, TimeSource } from '../annualEvents/types';
 import { currentAgeOf } from '../ageUtil';
+import type { EventContextFlags } from '../annualEvents/applicability';
 import { AREAS, EVENT_MAX_AGE, EVENT_MIN_AGE, PAST_CONFIG, type AreaId } from './config';
 import { areaOfEvent } from './areaMap';
 import type { Layer, PastSignal } from './types';
@@ -47,8 +48,8 @@ function toSignal(ev: EvidenceItem, e: ScoredEvent, area: AreaId, supports: bool
   };
 }
 
-export function tuviYearRaw(result: AstrologyResult, year: number): TuviYearRaw {
-  const pred = computeAnnualPrediction(result, year, { skipMonthly: true });
+export function tuviYearRaw(result: AstrologyResult, year: number, context?: EventContextFlags): TuviYearRaw {
+  const pred = computeAnnualPrediction(result, year, { skipMonthly: true, context });
   const age = currentAgeOf(result, new Date(year, 0, 1));
   const dv = result.daiVans.find(d => age >= d.startAge && age <= d.endAge);
 

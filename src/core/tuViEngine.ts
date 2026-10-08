@@ -13,6 +13,7 @@ import {
   BRANCHES, STEMS, getStemIndex, getBranchIndex,
 } from '../data/napAm';
 import { placeAllStars, placeLuuStars, computeVongTruongSinhLabels } from './starPlacer';
+import { effLunarMonth } from './lunarFix';
 import { isYangStem } from './vongTruongSinh';
 
 // 12 cung — thứ tự chuẩn Tử Vi, đếm NGHỊCH chiều địa chi từ cung Mệnh:
@@ -175,11 +176,13 @@ export function calculateTuViChart(birthInfo: BirthInfo, viewingYear?: number): 
 
   // Step 3: Mệnh cung + Thân cung
   const hourBranchIdx = getHourBranchIndex(birthInfo.hour);
+  // Tháng NHUẬN khi an cung (Tuzi 2.1 / fixLeap): ngày 1–15 dùng số tháng nhuận mang, từ ngày 16 dùng tháng kế. Lịch thật (lunar.month) giữ nguyên để hiển thị.
+  const placeMonth = effLunarMonth(lunar.month, !!lunar.isLeapMonth, lunar.day);
   // An Mệnh: từ Dần khởi tháng Giêng thuận, đến tháng sinh rồi nghịch theo giờ sinh
   // Mệnh = (Dần + month - 1) - hour = BRANCHES[(2 + month - 1 - hour + 12) % 12]
-  const menhBranchIdx = ((2 + lunar.month - 1 - hourBranchIdx) % 12 + 12) % 12;
+  const menhBranchIdx = ((2 + placeMonth - 1 - hourBranchIdx) % 12 + 12) % 12;
   // Thân = (Dần + month - 1) + hour
-  const thanBranchIdx = ((2 + lunar.month - 1 + hourBranchIdx) % 12) % 12;
+  const thanBranchIdx = ((2 + placeMonth - 1 + hourBranchIdx) % 12) % 12;
   const menhBranch = getBranchByIndex(menhBranchIdx);
   const thanBranch = getBranchByIndex(thanBranchIdx);
 
@@ -234,7 +237,7 @@ export function calculateTuViChart(birthInfo: BirthInfo, viewingYear?: number): 
   }
 
   // Step 10: Đặt sao
-  const { tuanAt, trietAt } = placeAllStars(houses, tuViBranchIdx, lunar, birthInfo, cucSo, menhBranchIdx, isThuan);
+  const { tuanAt, trietAt } = placeAllStars(houses, tuViBranchIdx, { ...lunar, month: placeMonth }, birthInfo, cucSo, menhBranchIdx, isThuan);
 
   // Step 11: Vòng Trường Sinh labels
   const vongTSLabels = computeVongTruongSinhLabels(cucSo, lunar.yearStem, birthInfo.gender);

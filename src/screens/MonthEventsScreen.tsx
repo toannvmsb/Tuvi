@@ -13,17 +13,19 @@ import { COLORS } from '../constants/theme';
 import { Screen, Card, Body, SectionTitle } from '../ui';
 import { computeAnnualPrediction, primaryMonthOf, type ScoredEvent } from '../core/annualEvents';
 import type { AstrologyResult } from '../types';
+import { useEventContext } from '../lib/eventContext';
 
 export default function MonthEventsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { result, year, month } = route.params as { result: AstrologyResult; year: number; month: number };
 
+  const { ctx: eventCtx } = useEventContext(result);
   const events: ScoredEvent[] = useMemo(() => {
-    const pred = computeAnnualPrediction(result, year);
+    const pred = computeAnnualPrediction(result, year, { context: eventCtx });
     const all = pred.featuredGroups.flatMap(g => g.events);
     return all.filter(e => primaryMonthOf(e) === month).sort((a, b) => b.strength - a.strength);
-  }, [result, year, month]);
+  }, [result, year, month, eventCtx]);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>

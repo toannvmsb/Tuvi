@@ -13,17 +13,20 @@
  */
 import type { AstrologyResult, EarthlyBranch } from '../../types';
 import { BRANCHES, branchIndex } from './calendar';
+import { getHourBranchIndex } from '../lunarCalendar';
+import { effLunarMonth } from '../lunarFix';
 
 const mod12 = (n: number): number => ((n % 12) + 12) % 12;
 
-/** Chi giờ sinh — app lưu birthInfo.hour là mốc BẮT ĐẦU mỗi khung 2 giờ theo đúng thứ tự Tý=0…Hợi=22. */
+/** Chi giờ sinh — dùng đúng hàm của lõi (giờ 23 = Tý, như lúc an Mệnh); bản cũ `floor(hour/2)` xếp giờ 23 vào Hợi. */
 export function birthHourBranchIndex(result: AstrologyResult): number {
-  return Math.floor(result.birthInfo.hour / 2) % 12;
+  return getHourBranchIndex(result.birthInfo.hour);
 }
 
-/** Tháng sinh ÂM LỊCH (1–12, tháng nhuận tính như tháng thường theo đúng chính sách "SAME_AS_PREVIOUS_MONTH" mặc định của spec §19). */
+/** Tháng sinh ÂM LỊCH dùng để an Đẩu Quân (1–12). Sinh trong tháng nhuận: ngày 1–15 giữ số tháng, từ ngày 16 dùng tháng kế — cùng quy ước an Mệnh/Thân (core/lunarFix). */
 export function birthLunarMonth(result: AstrologyResult): number {
-  return result.tuViChart.lunarDate.month;
+  const l = result.tuViChart.lunarDate;
+  return effLunarMonth(l.month, !!l.isLeapMonth, l.day);
 }
 
 /** Chỉ số cung Đẩu Quân (0-11) cho 1 NĂM XEM — dùng chi năm xem + tháng/giờ sinh cố định. */

@@ -13,6 +13,8 @@ import DetailLinkButton from '../components/DetailLinkButton';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
 import { Screen, Card, Eyebrow, Body, Segmented } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
+import { useEventContext } from '../lib/eventContext';
+import EventContextNote from '../components/EventContextNote';
 import { webAlert } from '../lib/webAlert';
 import { track } from '../lib/track';
 import { listFeedback, saveFeedback, deleteFeedback } from '../lib/pastReviewStore';
@@ -78,6 +80,7 @@ export default function PastReviewScreen() {
   const route = useRoute<any>();
   const mine = useMyResult();
   const result: AstrologyResult | null = route.params?.result ?? mine.result;
+  const { ctx: eventCtx } = useEventContext(result);
 
   const [review, setReview] = useState<PastReview | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -165,6 +168,7 @@ export default function PastReviewScreen() {
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <ScreenHeader title="Nghiệm quá khứ" onBack={() => navigation.goBack()} />
       <Screen contentStyle={{ paddingTop: 12 }}>
+        {result && <EventContextNote result={result} ctx={eventCtx} past />}
         <Card hero style={{ gap: 8 }}>
           <View style={s.chipRow}>
             <View style={[s.pill, { borderColor: COLORS.purple + '88', backgroundColor: COLORS.purple + '22' }]}>

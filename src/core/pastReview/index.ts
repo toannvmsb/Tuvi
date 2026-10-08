@@ -9,6 +9,7 @@ import { solarToLunar } from '../lunarCalendar';
 import { currentAgeOf } from '../ageUtil';
 import { PAST_CONFIG, RULEBOOK_VERSION } from './config';
 import { tuviYearRaw } from './tuviSignals';
+import type { EventContextFlags } from '../annualEvents/applicability';
 import { buildBaziNatal, evaluateBaziYear, type BaziNatal } from './bazi/engine';
 import { scoreYears, type YearRaw } from './scoreYear';
 import { selectMarkers } from './selectMarkers';
@@ -41,8 +42,8 @@ export function candidateYears(result: AstrologyResult, now: Date): number[] {
   return years;
 }
 
-function rawForYear(result: AstrologyResult, natal: BaziNatal, year: number): YearRaw {
-  return { tv: tuviYearRaw(result, year), bz: evaluateBaziYear(natal, year) };
+function rawForYear(result: AstrologyResult, natal: BaziNatal, year: number, context?: EventContextFlags): YearRaw {
+  return { tv: tuviYearRaw(result, year, context), bz: evaluateBaziYear(natal, year) };
 }
 
 function finish(result: AstrologyResult, raws: YearRaw[], now: Date): PastReview {
@@ -52,23 +53,23 @@ function finish(result: AstrologyResult, raws: YearRaw[], now: Date): PastReview
   return { rulebookVersion: RULEBOOK_VERSION, currentLunarYear, scores, markers };
 }
 
-export function computePastReviewSync(result: AstrologyResult, opts: { now?: Date } = {}): PastReview {
+export function computePastReviewSync(result: AstrologyResult, opts: { now?: Date; context?: EventContextFlags } = {}): PastReview {
   const now = opts.now ?? new Date();
   const natal = buildBaziNatal(result);
-  const raws = candidateYears(result, now).map(y => rawForYear(result, natal, y));
+  const raws = candidateYears(result, now).map(y => rawForYear(result, natal, y, opts.context));
   return finish(result, raws, now);
 }
 
 export async function computePastReview(
   result: AstrologyResult,
-  opts: { now?: Date; onProgress?: (done: number, total: number) => void } = {},
+  opts: { now?: Date; context?: EventContextFlags; onProgress?: (done: number, total: number) => void } = {},
 ): Promise<PastReview> {
   const now = opts.now ?? new Date();
   const natal = buildBaziNatal(result);
   const years = candidateYears(result, now);
   const raws: YearRaw[] = [];
   for (let i = 0; i < years.length; i++) {
-    raws.push(rawForYear(result, natal, years[i]));
+    raws.push(rawForYear(result, natal, years[i], opts.context));
     opts.onProgress?.(i + 1, years.length);
     // Nhường luồng giao diện sau mỗi 2 năm (mỗi năm vài ms trên Node, có thể gấp vài lần trên máy yếu).
     if (i % 2 === 1) await new Promise<void>(r => setTimeout(r, 0));

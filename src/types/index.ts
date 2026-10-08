@@ -193,6 +193,7 @@ export type RootStackParamList = {
   PastLife: { result?: AstrologyResult };
   FutureReview: { result?: AstrologyResult };
   MonthEvents: { result: AstrologyResult; year: number; month: number };
+  EventContext: { result: AstrologyResult };
   Wallet: undefined;
   Privacy: undefined;
   Terms: undefined;

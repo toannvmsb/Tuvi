@@ -17,6 +17,8 @@ import AnnualEventCard from '../components/AnnualEventCard';
 import { COLORS, FONTS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, SectionTitle, Segmented, GoldButton } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
+import { useEventContext } from '../lib/eventContext';
+import EventContextNote from '../components/EventContextNote';
 import {
   computeAnnualPrediction, analyzeAnnualEventsWithAI,
   generateFullAnnualEventsExport, primaryMonthOf, INTENSITY_VN, type AnnualPrediction,
@@ -44,7 +46,8 @@ export default function AnnualEventsScreen() {
   const [unlockedAdvanced, setUnlockedAdvanced] = useState(false);
   const [ai, setAi] = useState<AiState>({ status: 'idle', text: '' });
 
-  const pred: AnnualPrediction | null = useMemo(() => (result ? computeAnnualPrediction(result, year) : null), [result, year]);
+  const { ctx: eventCtx } = useEventContext(result);
+  const pred: AnnualPrediction | null = useMemo(() => (result ? computeAnnualPrediction(result, year, { context: eventCtx }) : null), [result, year, eventCtx]);
   const advancedKey = result ? fkey(result, `annualEvents:${year}:adv`) : '';
   const aiKey = result ? fkey(result, `annualEvents:${year}:ai`) : '';
   const showAdvancedContent = isCurrentYear || unlockedAdvanced;
@@ -119,6 +122,8 @@ export default function AnnualEventsScreen() {
             <Text style={s.yearBtnTxt}>›</Text>
           </Pressable>
         </View>
+
+        {result && <EventContextNote result={result} ctx={eventCtx} />}
 
         {pred && (
           <Card hero style={{ gap: 10 }}>

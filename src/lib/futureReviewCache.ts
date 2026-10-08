@@ -5,6 +5,7 @@
 import type { AstrologyResult } from '../types';
 import { computeFutureReview, type FutureReview } from '../core/pastReview/futureReview';
 import { pastReviewSignature } from './pastReviewCache';
+import { loadEventContext } from './eventContext';
 
 const done = new Map<string, FutureReview>();
 
@@ -15,10 +16,11 @@ export function cachedFutureReview(r: AstrologyResult): FutureReview | undefined
 export async function getFutureReview(
   r: AstrologyResult, onProgress?: (done: number, total: number) => void,
 ): Promise<FutureReview> {
+  const context = await loadEventContext(r);
   const sig = pastReviewSignature(r);
   const hit = done.get(sig);
   if (hit) return hit;
-  const fr = await computeFutureReview(r, { onProgress });
+  const fr = await computeFutureReview(r, { onProgress, context });
   done.set(sig, fr);
   return fr;
 }

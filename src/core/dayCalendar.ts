@@ -10,7 +10,7 @@
  */
 import type { EarthlyBranch, HeavenlyStem } from '../types';
 import { getSolarTermDate } from './solarTerms';
-import { solarToLunar } from './lunarCalendar';
+import { lunarOfSolar } from './lunarFast';
 
 export const STEMS: HeavenlyStem[] = ['Giáp', 'Ất', 'Bính', 'Đinh', 'Mậu', 'Kỷ', 'Canh', 'Tân', 'Nhâm', 'Quý'];
 export const BRANCHES: EarthlyBranch[] = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'];
@@ -82,7 +82,7 @@ export function dayCalendarFacts(date: Date): DayCalendarFacts {
   const cur = jieMonthOf(y, key);
   const prevDay = new Date(y, day0.getMonth(), day0.getDate() - 1);
   const prev = jieMonthOf(prevDay.getFullYear(), keyOf(prevDay));
-  const ld = solarToLunar(day0.getDate(), day0.getMonth() + 1, y);
+  const ld = lunarOfSolar(day0);
   const facts: DayCalendarFacts = {
     monthBranch: MONTH_BRANCH_BY_K[cur.k],
     monthIdx: cur.k,

@@ -15,6 +15,8 @@ import { WhyBlock } from '../components/PastWhy';
 import { COLORS, FONTS, TIER_COLORS } from '../constants/theme';
 import { Screen, Card, Eyebrow, Body, Segmented, GoldButton } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
+import { useEventContext } from '../lib/eventContext';
+import EventContextNote from '../components/EventContextNote';
 import { PREMIUM, isUnlocked, xuVnd } from '../constants/premium';
 import { confirmAndUnlock } from '../lib/confirmCharge';
 import { fkey } from '../lib/featureKey';
@@ -74,6 +76,7 @@ export default function FutureReviewScreen() {
   const route = useRoute<any>();
   const mine = useMyResult();
   const result: AstrologyResult | null = route.params?.result ?? mine.result;
+  const { ctx: eventCtx } = useEventContext(result);
   const cw = useContentWidth();
   const unlockKey = result ? fkey(result, 'future:full') : '';
 
@@ -190,6 +193,7 @@ export default function FutureReviewScreen() {
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <ScreenHeader title="Luận tương lai" onBack={() => navigation.goBack()} />
       <Screen contentStyle={{ paddingTop: 12 }}>
+        {result && <EventContextNote result={result} ctx={eventCtx} />}
         <Card hero style={{ gap: 8 }}>
           <View style={s.chipRow}>
             <View style={[s.pill, { borderColor: COLORS.purple + '88', backgroundColor: COLORS.purple + '22' }]}>

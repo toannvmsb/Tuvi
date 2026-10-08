@@ -504,4 +504,19 @@ Công cụ (chạy bằng jest + biến môi trường, file trong `exports/` đ
 
 ---
 
+## 13. Sự kiện theo năm — engine CŨ (85 sự kiện) được GẮN LẠI + cải tiến từ đặc tả Tuzi 2.1 (08/10/2026)
+
+Luận sự kiện năm · Nghiệm quá khứ · Luận tương lai **dùng lại `core/annualEvents` (85 sự kiện, rule dạng dữ liệu)**. Anh Toàn thấy bộ 60 chủ đề của đặc tả 2.1 "áp dụng full chưa chuẩn", nên chỉ lấy
+các ý hay của 2.1 gắn vào bộ cũ (đừng đảo):
+- **Lọc theo hoàn cảnh + tuổi** (`annualEvents/applicability.ts`): `computeAnnualPrediction(result, year, { context })`. Cờ hoàn cảnh = `false` → sự kiện bị ẩn (`EVENT_HIDDEN_IF_FALSE`); cờ chưa khai → VẪN hiện
+  (khác 2.1, tránh kết quả thưa). Tuổi mụ ngoài `EVENT_AGE_WINDOW` → ẩn. ĐIỂM sự kiện không đổi; `allEvents/events/featuredGroups` chỉ gồm sự kiện áp dụng được, phần bị ẩn ở `hiddenEvents`.
+  `EVENT_AGE_WINDOW` là nguồn DUY NHẤT của khoảng tuổi (`pastReview/config.EVENT_MIN_AGE/MAX_AGE` suy ra từ đó). `RULEBOOK_VERSION='pr-0.4-tam'`.
+- **28 cờ hoàn cảnh**: màn `EventContextScreen` (route `EventContext`), lưu CỤC BỘ theo lá số (`lib/eventContext.ts`), dòng nhắc `components/EventContextNote` ở ba màn. Nghiệm quá khứ/Luận tương lai nạp cờ trong
+  `lib/pastReviewCache`/`futureReviewCache` (chữ ký cache có `contextSig`); hoàn cảnh là của HIỆN TẠI nên có thể chưa đúng với năm đã qua (đã ghi trên màn Nghiệm quá khứ).
+- **Đẩu Quân** (`annualEvents/douJun.ts`) sửa theo lõi: chi giờ dùng `getHourBranchIndex` (giờ 23 = Tý; cũ xếp vào Hợi), tháng sinh nhuận theo `effLunarMonth` (`core/lunarFix.ts`, nhuận ngày ≥16 dùng tháng kế).
+- Lõi dùng chung đã sửa kèm: an Mệnh/Thân theo `effLunarMonth` (`tuViEngine`), tra âm lịch nhanh `core/lunarFast.ts` + nhớ ngày Sóc trong `lunarCalendar`.
+- **Engine 2.1 ĐÃ GỠ khỏi repo** (08/10/2026, build web cho nhẹ; anh Toàn chưa dùng): `core/eventEngine`, `data/eventCatalog21`, `pastReview/eventYear`, `EventTopicCard`, test golden. Khôi phục từ git (commit trước commit gỡ) nếu cần; ghi chú: app đặt Linh Tinh ở Tý, iztro ở Ngọ — chưa chốt quy ước. Chỉ còn `data/eventContextLabels.ts` (nhãn 28 cờ hoàn cảnh).
+
+---
+
 _Cập nhật lần cuối: 07/10/2026, sau khi cập nhật logic ngày đẹp (dq-1.0)._

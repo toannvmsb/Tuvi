@@ -58,7 +58,18 @@ function jdToDate(jd: number): SolarDate {
  * 2 mốc epoch đúng bằng 1236.99999725 tuần trăng — làm tròn 1237 sai số ~7ms, không
  * đáng kể).
  */
+const newMoonMemo = new Map<number, number>();
 function getNewMoonDay(k: number, timeZone: number): number {
+  const mk = k * 100 + timeZone;
+  const hit = newMoonMemo.get(mk);
+  if (hit !== undefined) return hit;
+  const v = getNewMoonDayRaw(k, timeZone);
+  if (newMoonMemo.size > 5000) newMoonMemo.clear();
+  newMoonMemo.set(mk, v);
+  return v;
+}
+
+function getNewMoonDayRaw(k: number, timeZone: number): number {
   const dr = Math.PI / 180;
 
   // delta-T (chênh lệch giờ động lực TT so với UT) — vẫn dùng công thức cũ (khớp T

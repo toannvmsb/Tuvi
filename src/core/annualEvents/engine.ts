@@ -18,6 +18,7 @@ import { CONFLICT_RULES } from './conflictRules';
 import { CROSS_EVENT_RULES } from './crossEventRules';
 import { eventTitleOf, categoryTitleOf } from './eventTitles';
 import { yearCanChi } from './calendar';
+import { splitByApplicability, type EventContextFlags } from './applicability';
 
 function isUniform(c: EventRule['condition']): c is UniformCondition {
   return typeof (c as UniformCondition).signal === 'string';
@@ -64,7 +65,7 @@ function applyCrossEventRules(events: ScoredEvent[]): CompositeEvent[] {
 export function computeAnnualPrediction(
   result: AstrologyResult,
   targetYear: number,
-  opts: { skipMonthly?: boolean } = {},
+  opts: { skipMonthly?: boolean; context?: EventContextFlags } = {},
 ): AnnualPrediction {
   const ctx = buildAnnualContext(result, targetYear);
   const uniformRules = ALL_RULES.filter(r => isUniform(r.condition));
@@ -94,8 +95,10 @@ export function computeAnnualPrediction(
   applyConflictRules(scored);
   const composites = applyCrossEventRules(scored);
 
-  const top = rankEvents(scored);
-  const featuredGroups = groupFeaturedEvents(scored);
+  // Lọc theo tuổi + hoàn cảnh (applicability.ts): chỉ sự kiện áp dụng được mới vào xếp hạng/hiển thị. Điểm KHÔNG đổi.
+  const { applicable, hidden } = splitByApplicability(scored, ctx.targetAge, opts.context);
+  const top = rankEvents(applicable);
+  const featuredGroups = groupFeaturedEvents(applicable);
   const overallIntensity = intensityLevelOf(top.length ? Math.round(top.reduce((s, e) => s + e.strength, 0) / top.length) : 0);
   const annualTheme = top.map(e => `${categoryTitleOf(e.category)} — ${e.title} (${e.direction === 'POSITIVE' ? 'thuận' : e.direction === 'NEGATIVE' ? 'cần lưu ý' : 'hai chiều'})`);
   const { stem, branch } = yearCanChi(targetYear);
@@ -110,7 +113,8 @@ export function computeAnnualPrediction(
     overallIntensity,
     events: top,
     featuredGroups,
-    allEvents: scored,
+    allEvents: applicable,
+    hiddenEvents: hidden,
     composites,
     engineVersion: ENGINE_VERSION,
     ruleVersion: RULE_VERSION,

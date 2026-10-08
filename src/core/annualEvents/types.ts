@@ -161,6 +161,8 @@ export interface AnnualPrediction {
   featuredGroups: CategoryEventGroup[];
   /** Toàn bộ ~85 sự kiện đã chấm điểm (chưa lọc/xếp hạng) — dùng để xuất PDF đầy đủ theo ngưỡng riêng. */
   allEvents: ScoredEvent[];
+  /** Sự kiện đã chấm nhưng bị ẩn vì tuổi/hoàn cảnh không áp dụng (xem applicability.ts) — không nằm trong `allEvents`. */
+  hiddenEvents: { event: ScoredEvent; reason: 'age' | 'context' }[];
   composites: CompositeEvent[];
   engineVersion: string;
   ruleVersion: string;

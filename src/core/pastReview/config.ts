@@ -7,8 +7,10 @@
  * đang xét; BAZI_BASIS chỉ quyết định cách lập trụ NĂM và THÁNG của lá số gốc).
  */
 
+import { EVENT_AGE_WINDOW } from '../annualEvents/applicability';
+
 /** Tăng khi đổi bảng quy tắc/trọng số — điểm năm lưu kèm phiên bản này để biết mốc nào cần tính lại. */
-export const RULEBOOK_VERSION = 'pr-0.3-tam';
+export const RULEBOOK_VERSION = 'pr-0.4-tam';
 
 /**
  * Cơ sở lập trụ NĂM/THÁNG Bát Tự: 'tiet' = đúng phép (trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết). Từ 06/10/2026 màn Bát Tự của app
@@ -105,34 +107,12 @@ export const PAST_CONFIG = {
  * (vd không nói "kết hôn" hay "tranh chấp tiền bạc" ở tuổi 15). Sự kiện không có trong bảng: không giới hạn.
  * TẠM.
  */
-export const EVENT_MIN_AGE: Record<string, number> = {
-  RELATIONSHIP_ENGAGEMENT: 18, RELATIONSHIP_MARRIAGE: 18,
-  CAREER_PROMOTION: 18, CAREER_JOB_CHANGE: 17, CAREER_JOB_LOSS: 17, CAREER_ROLE_CHANGE: 18,
-  CAREER_INTERNAL_TRANSFER: 18, CAREER_LEADERSHIP: 22, CAREER_BUSINESS_START: 18, CAREER_BUSINESS_EXPANSION: 20,
-  CAREER_RESPONSIBILITY_INCREASE: 18, CAREER_WORK_CONFLICT: 17, CAREER_WORK_PRESSURE: 17,
-  CAREER_RECOGNITION: 17, CAREER_STAGNATION: 18, REPUTATION_RECOGNITION: 16,
-  FINANCE_INVESTMENT: 18, FINANCE_INVESTMENT_GAIN: 18, FINANCE_INVESTMENT_LOSS: 18, FINANCE_DEBT_INCREASE: 18,
-  FINANCE_DEBT_REDUCTION: 18, FINANCE_FINANCIAL_DISPUTE: 18, FINANCE_ASSET_ACCUMULATION: 18,
-  FINANCE_LARGE_EXPENSE: 17, FINANCE_CASHFLOW_PRESSURE: 17,
-  PROPERTY_PURCHASE: 20, PROPERTY_SALE: 20, PROPERTY_INVESTMENT: 20, PROPERTY_LARGE_EXPENSE: 20,
-  PROPERTY_RENOVATION: 20, PROPERTY_FAMILY_ASSET: 18, PROPERTY_DISPUTE: 18,
-  CHILD_PREGNANCY_SIGNAL: 20, CHILD_BIRTH_SIGNAL: 20, CHILD_EDUCATION_EVENT: 22, CHILD_MAJOR_CHANGE: 22,
-};
-
+export const EVENT_MIN_AGE: Record<string, number> = Object.fromEntries(Object.entries(EVENT_AGE_WINDOW).map(([k, w]) => [k, w[0]]));
 /**
- * Tuổi TỐI ĐA hợp lý cho một số sự kiện (chủ yếu để Luận tương lai không báo "được thăng chức" ở tuổi 90). Chỉ áp cho sự kiện có tên ở đây;
+ * Tuổi TỐI ĐA hợp lý cho một số sự kiện (nguồn duy nhất: annualEvents/applicability.EVENT_AGE_WINDOW; chủ yếu để Luận tương lai không báo "được thăng chức" ở tuổi 90). Chỉ áp cho sự kiện có tên ở đây;
  * sự kiện không ghi thì không giới hạn (vd được ghi nhận, sum họp gia đình). Giá trị TẠM; chỉ ảnh hưởng người trên ~50 tuổi.
  */
-export const EVENT_MAX_AGE: Record<string, number> = {
-  RELATIONSHIP_ENGAGEMENT: 65, RELATIONSHIP_MARRIAGE: 70,
-  CAREER_PROMOTION: 62, CAREER_JOB_CHANGE: 65, CAREER_JOB_LOSS: 65, CAREER_ROLE_CHANGE: 65, CAREER_INTERNAL_TRANSFER: 62,
-  CAREER_LEADERSHIP: 68, CAREER_BUSINESS_START: 70, CAREER_BUSINESS_EXPANSION: 70, CAREER_RESPONSIBILITY_INCREASE: 70,
-  CAREER_NEW_PROJECT: 75, CAREER_WORK_CONFLICT: 70, CAREER_WORK_PRESSURE: 70,
-  FINANCE_INVESTMENT: 85, FINANCE_INVESTMENT_GAIN: 85, FINANCE_INVESTMENT_LOSS: 85,
-  PROPERTY_PURCHASE: 80, PROPERTY_INVESTMENT: 80,
-  CHILD_PREGNANCY_SIGNAL: 50, CHILD_BIRTH_SIGNAL: 52, CHILD_EDUCATION_EVENT: 65,
-};
-
+export const EVENT_MAX_AGE: Record<string, number> = Object.fromEntries(Object.entries(EVENT_AGE_WINDOW).map(([k, w]) => [k, w[1]]));
 /**
  * Chuẩn hóa điểm mỗi hệ về 0..100 THEO TỪNG LÁ SỐ: cả hai hệ đều cho điểm nền ở hầu hết các năm (khảo sát
  * 3 lá số mẫu: Bát Tự có tín hiệu ở 16–26/30 năm, Tử Vi mọi năm), nên điểm tuyệt đối không phân biệt được

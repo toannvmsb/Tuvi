@@ -4,12 +4,13 @@
  */
 import type { AstrologyResult } from '../types';
 import { computePastReview, RULEBOOK_VERSION, type PastReview } from '../core/pastReview';
+import { loadEventContext, contextSig } from './eventContext';
 
 const done = new Map<string, PastReview>();
 
 export function pastReviewSignature(r: AstrologyResult): string {
   const b = r.birthInfo;
-  return `${b.chartId ?? 'local'}|${b.year}-${b.month}-${b.day}-${b.hour}|${b.gender}|${b.calendarType}|${RULEBOOK_VERSION}`;
+  return `${b.chartId ?? 'local'}|${b.year}-${b.month}-${b.day}-${b.hour}|${b.gender}|${b.calendarType}|${RULEBOOK_VERSION}|${contextSig(r)}`;
 }
 
 export function cachedPastReview(r: AstrologyResult): PastReview | undefined {
@@ -19,10 +20,11 @@ export function cachedPastReview(r: AstrologyResult): PastReview | undefined {
 export async function getPastReview(
   r: AstrologyResult, onProgress?: (done: number, total: number) => void,
 ): Promise<PastReview> {
+  const context = await loadEventContext(r); // nạp hoàn cảnh trước để chữ ký (contextSig) đúng
   const sig = pastReviewSignature(r);
   const hit = done.get(sig);
   if (hit) return hit;
-  const review = await computePastReview(r, { onProgress });
+  const review = await computePastReview(r, { onProgress, context });
   done.set(sig, review);
   return review;
 }
