@@ -16,6 +16,7 @@ import PlacePicker from '../components/PlacePicker';
 import { savePlaceForChart, type Place } from '../lib/weather';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { ScrollRef } from '../types/refs';
 
 type Props = Omit<NativeStackScreenProps<RootStackParamList, 'Input'>, 'route'> & { route?: { params?: { row?: SavedChartRow } } };
 
@@ -60,7 +61,7 @@ export default function InputScreen({ navigation, route }: Props) {
   const viewingYearOptions = Array.from({ length: (currentYear + 100) - 1900 + 1 }, (_, i) => (currentYear + 100) - i);
   const [viewingYearSearch, setViewingYearSearch] = useState('');
   const [yearSearch, setYearSearch] = useState('');
-  const pickerListRef = useRef<ScrollView>(null);
+  const pickerListRef = useRef<ScrollRef>(null);
   const PICKER_ROW_HEIGHT = 52;
 
   // Mở picker: LUÔN ẩn bàn phím trước (tránh bàn phím từ ô Họ tên / tìm Năm xem còn hiện).

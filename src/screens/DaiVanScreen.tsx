@@ -36,6 +36,7 @@ import { useStreamingAI } from '../hooks/useStreamingAI';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import type { ViewRef } from '../types/refs';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'DaiVan'>;
 
@@ -108,9 +109,9 @@ export default function DaiVanScreen({ route }: Props) {
   const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   // Chụp lá số (ẩn) để nhúng vào PDF.
-  const chartRef = useRef<View>(null);
-  const dvCellRefs = useRef<Record<number, View | null>>({});
-  const tvCellRef = useRef<View>(null);
+  const chartRef = useRef<ViewRef>(null);
+  const dvCellRefs = useRef<Record<number, ViewRef | null>>({});
+  const tvCellRef = useRef<ViewRef>(null);
   const headerLines = useMemo(() => chartHeaderLines(result), [result]);
   const captureChart = () => captureChartDataUri(chartRef);
   const captureCells = async (dvIndex: number) => ({

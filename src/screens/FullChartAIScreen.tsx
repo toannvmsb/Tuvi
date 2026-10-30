@@ -29,6 +29,7 @@ import MedDisclaimer from '../components/MedDisclaimer';
 import { runWithConcurrency } from '../lib/concurrency';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import type { ViewRef } from '../types/refs';
 
 // Toàn lá số có tới 11 phần — bắn hết cùng lúc từng làm chạm rate limit key AI dùng
 // chung phía server (hàng loạt phần lỗi/rớt về free model). Giới hạn 3 lượt cùng lúc.
@@ -67,9 +68,9 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
   const aiKey = fkey(result, `chart:ai:${yearKey}`);
 
   // Chụp lá số (ẩn) để nhúng vào PDF.
-  const chartRef = useRef<View>(null);
-  const dvCellRef = useRef<View>(null);
-  const tvCellRef = useRef<View>(null);
+  const chartRef = useRef<ViewRef>(null);
+  const dvCellRef = useRef<ViewRef>(null);
+  const tvCellRef = useRef<ViewRef>(null);
   const headerLines = useMemo(() => chartHeaderLines(result), [result]);
   const captureChart = () => captureChartDataUri(chartRef);
   const captureCells = async () => ({

@@ -48,6 +48,7 @@ import { getMyChartId } from '../lib/myChart';
 import { listCharts, getCachedCharts, rowToResult } from '../lib/charts';
 import { buildChatFactsBlock } from '../core/chatFacts';
 import type { AstrologyResult } from '../types';
+import type { ScrollRef } from '../types/refs';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const BUBBLE_SIZE = 56;
@@ -82,7 +83,7 @@ export default function AiChatBubble() {
   // lần bàn phím vừa hiện ra đầu tiên, bỏ qua mọi lần đo lại sau đó (xem effect
   // đo bàn phím bên dưới để rõ lý do).
   const keyboardOpenRef = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollRef>(null);
   const scrollToEnd = () => scrollRef.current?.scrollToEnd({ animated: true });
 
   useEffect(() => {

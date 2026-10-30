@@ -14,6 +14,7 @@ import type { TuViChart as TuViChartType, BirthInfo } from '../../types';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import { ELEMENT_COLOR } from '../../data/starElements';
 import HouseCell from './HouseCell';
+import type { ViewRef } from '../../types/refs';
 
 // Ngũ hành + màu (đồng bộ với màu sao trong lá số) — hiển thị thành 1 hàng gắn dưới lá số.
 const NGU_HANH: Array<[string, string]> = [
@@ -90,7 +91,7 @@ function menhCucRelation(menhEl: string, cucSo: number): string {
   return `${menhEl} - ${cucEl}`;
 }
 
-const TuViChart = forwardRef<View, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress, width: widthProp, scaled = false }, ref) {
+const TuViChart = forwardRef<ViewRef, Props>(function TuViChart({ chart, birthInfo, showLuuStars = false, onPalacePress, width: widthProp, scaled = false }, ref) {
   const autoWidth = useContentWidth();
   const width = widthProp ?? autoWidth;   // màn cha truyền bề rộng (zoom) → ưu tiên
   const lastTap = useRef<{ idx: number; time: number }>({ idx: -1, time: 0 });

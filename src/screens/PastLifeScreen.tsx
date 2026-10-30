@@ -31,6 +31,7 @@ import { describeMarker } from '../core/pastReview/phrases';
 import { buildTimeline, markerOfYear, type Timeline, type TimelineChapter, type TimelineYear } from '../core/pastReview/timeline';
 import { solarRangeLabel, FEEDBACK_LABEL, MISS_LABEL, type FeedbackValue } from '../core/pastReview/feedback';
 import type { AstrologyResult } from '../types';
+import type { ViewRef } from '../types/refs';
 
 type Tab = 'overview' | 'chapters' | 'diary' | 'share';
 
@@ -212,7 +213,7 @@ export default function PastLifeScreen() {
   const [unlocked, setUnlocked] = useState(() => (unlockKey ? isUnlocked(unlockKey) : false));
   const [showName, setShowName] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const shareRef = useRef<View>(null);
+  const shareRef = useRef<ViewRef>(null);
   const tracked = useRef(false);
 
   useEffect(() => { setUnlocked(unlockKey ? isUnlocked(unlockKey) : false); }, [unlockKey]);
@@ -320,11 +321,6 @@ export default function PastLifeScreen() {
       <ScreenHeader title="Dòng đời đã qua" onBack={() => navigation.goBack()} />
       <Screen contentStyle={{ paddingTop: 12 }}>
         <Card hero style={{ gap: 8 }}>
-          <View style={s.chipRow}>
-            <View style={[s.pill, { borderColor: COLORS.purple + '88', backgroundColor: COLORS.purple + '22' }]}>
-              <Text style={[s.pillTxt, { color: COLORS.purple }]}>Thử nghiệm</Text>
-            </View>
-          </View>
           <Eyebrow>{`Thăng trầm theo từng đại hạn của ${name}`}</Eyebrow>
           <Body size={13}>
             Mỗi chặng là một đại hạn 10 năm. Đường lên là năm thuận hơn, đường xuống là năm nhiều thử thách — chỉ là xu hướng

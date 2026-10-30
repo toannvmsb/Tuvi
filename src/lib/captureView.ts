@@ -7,8 +7,9 @@
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
 import { isWeb } from './platform';
+import type { ViewRef } from '../types/refs';
 
-export async function captureViewAsPng(ref: RefObject<View | null>, fileName: string): Promise<string> {
+export async function captureViewAsPng(ref: RefObject<ViewRef | null>, fileName: string): Promise<string> {
   if (!ref.current) throw new Error('Chưa dựng xong thẻ chia sẻ, vui lòng thử lại.');
   if (isWeb) {
     const html2canvas = (await import('html2canvas')).default;

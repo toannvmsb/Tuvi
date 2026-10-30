@@ -18,6 +18,7 @@ import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
 import { Display, Segmented, Body } from '../ui';
 import Icon from '../ui/Icon';
+import type { ViewRef } from '../types/refs';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'TuViChart'>;
 
@@ -29,8 +30,8 @@ export default function TuViChartScreen({ route, navigation }: Props) {
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [webChartOpen, setWebChartOpen] = useState(false);
   const [webExporting, setWebExporting] = useState(false);
-  const chartRef = useRef<View>(null);
-  const webChartContainerRef = useRef<View>(null);
+  const chartRef = useRef<ViewRef>(null);
+  const webChartContainerRef = useRef<ViewRef>(null);
   const { scrollRef, showTop, onScroll, scrollToTop } = useScrollToTop();
 
   // ── ZOOM lá số ────────────────────────────────────────────────────────

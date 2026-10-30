@@ -35,7 +35,7 @@ const KeyboardAwareScreen = forwardRef<any, ScrollViewProps>(function KeyboardAw
       enableOnAndroid
       extraScrollHeight={20}
       keyboardOpeningTime={0}
-      {...rest}
+      {...(rest as any)}
     >
       {children}
     </KeyboardAwareScrollView>

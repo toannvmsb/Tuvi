@@ -38,6 +38,7 @@ import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import { scrollInputAboveKeyboard } from '../lib/scrollToInput';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { costNote, PREMIUM, AI_VALUE_NOTE } from '../constants/premium';
+import type { ScrollRef, TextInputRef } from '../types/refs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EventDetail'>;
 
@@ -325,11 +326,11 @@ export default function EventDetailScreen({ route, navigation }: Props) {
   const [journalText, setJournalText] = useState('');
   const [journalSaving, setJournalSaving] = useState(false);
   const [journalEntries, setJournalEntries] = useState<LifeNote[]>([]);
-  const scrollRef = useRef<ScrollView>(null);
-  const journalInputRef = useRef<TextInput>(null);
-  const addTitleInputRef = useRef<TextInput>(null);
-  const addRelatedPeopleInputRef = useRef<TextInput>(null);
-  const notifyDaysInputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollRef>(null);
+  const journalInputRef = useRef<TextInputRef>(null);
+  const addTitleInputRef = useRef<TextInputRef>(null);
+  const addRelatedPeopleInputRef = useRef<TextInputRef>(null);
+  const notifyDaysInputRef = useRef<TextInputRef>(null);
   const journalDateISO = toISO(occursOn);
   const loadJournal = async () => {
     try { setJournalEntries(await listLifeNotes(undefined, journalDateISO)); }

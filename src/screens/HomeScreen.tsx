@@ -35,6 +35,7 @@ import { fetchEventPackages, listMyUserEvents } from '../lib/lifeEvents';
 import { pickUpcomingEvent, resolveAllUpcomingEvents, type ResolvedEvent, type EventPackage, type UserEvent } from '../core/lifeEventEngine';
 import { hideEventOccurrence, snoozeEvent, buildIsDismissed } from '../lib/eventDismiss';
 import { buildNotifyPrefLookup } from '../lib/eventNotifyPrefs';
+import type { ScrollRef, TextInputRef } from '../types/refs';
 
 function todayISO(): string {
   const d = new Date();
@@ -92,8 +93,8 @@ export default function HomeScreen({ navigation }: Props) {
   const [noteInput, setNoteInput] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [avatarId, setAvatarId] = useState<string | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-  const noteInputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollRef>(null);
+  const noteInputRef = useRef<TextInputRef>(null);
 
   const now = new Date();
   const nowLunar = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
@@ -317,7 +318,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" />
       <LinearGradient colors={[COLORS.background, '#1a0a3a', COLORS.background]} style={styles.gradient}>
         <View style={styles.topBar}>
           <NotificationBell />

@@ -53,7 +53,7 @@ export default function PlacePicker({ value, onChange }: { value: Place | null; 
               <Pressable style={[s.item, { borderColor: 'rgba(231,123,107,0.4)' }]} onPress={() => { onChange(null); close(); }}>
                 <Text style={[s.itemTxt, { color: COLORS.red }]}>Bỏ chọn (dùng Hà Nội)</Text>
               </Pressable>
-            ) : null}
+            ) : undefined}
             renderItem={({ item }) => {
               const on = value?.name === item.name;
               return (

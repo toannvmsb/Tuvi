@@ -8,6 +8,7 @@ import type { RefObject } from 'react';
 import type { View } from 'react-native';
 import { STAR_NAME_REGEX, getElementOfStar } from '../data/starElements';
 import type { FiveElement } from '../types';
+import type { ViewRef } from '../types/refs';
 
 export interface PdfDaiVanInfo {
   label: string;       // "24–33 tuổi"
@@ -265,7 +266,7 @@ export async function exportAnalysisToPdf(opts: PdfOptions): Promise<void> {
 }
 
 /** Chụp lá số thành data URI PNG để nhúng vào PDF. */
-export async function captureChartDataUri(chartRef: RefObject<View | null>): Promise<string | undefined> {
+export async function captureChartDataUri(chartRef: RefObject<ViewRef | null>): Promise<string | undefined> {
   return captureRefDataUri(chartRef);
 }
 

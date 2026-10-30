@@ -13,6 +13,7 @@ import { isWeb, saveImageOrDownload, shareFile } from '../lib/platform';
 import { webAlert } from '../lib/webAlert';
 import { track } from '../lib/track';
 import type { Timeline } from '../core/pastReview/timeline';
+import type { ViewRef } from '../types/refs';
 
 const ALL_LINES: Record<SeriesKey, boolean> = { total: true, career: true, wealth: true, love: true, family: true };
 
@@ -25,7 +26,7 @@ export default function ChartShareBlock({ timeline, mode, brand, footnote, fileN
   name: string;
   width: number;
 }) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewRef>(null);
   const [showName, setShowName] = useState(false);
   const [busy, setBusy] = useState(false);
 

@@ -6,6 +6,7 @@
 
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
+import type { ViewRef } from '../types/refs';
 
 export interface ExportResult {
   saved: boolean;   // true if saved to gallery
@@ -13,7 +14,7 @@ export interface ExportResult {
 }
 
 export async function exportChartAsImage(
-  chartRef: RefObject<View | null>,
+  chartRef: RefObject<ViewRef | null>,
   fileName: string = 'la-so-tu-vi.png',
 ): Promise<ExportResult> {
   // Lazy-require so app still builds if modules aren't installed yet

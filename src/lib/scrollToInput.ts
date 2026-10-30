@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
-import { findNodeHandle, ScrollView, TextInput } from 'react-native';
+import { findNodeHandle } from 'react-native';
+import type { ScrollRef, TextInputRef } from '../types/refs';
 
 /**
  * Cuộn ScrollView để đưa TextInput đang focus lên TRÊN bàn phím.
@@ -16,13 +17,13 @@ import { findNodeHandle, ScrollView, TextInput } from 'react-native';
  * phép đo mới chính xác (gọi ngay lúc focus, bàn phím chưa kịp chiếm chỗ).
  */
 export function scrollInputAboveKeyboard(
-  scrollRef: RefObject<ScrollView | null>,
-  inputRef: RefObject<TextInput | null>,
+  scrollRef: RefObject<ScrollRef | null>,
+  inputRef: RefObject<TextInputRef | null>,
   extraOffset = 24,
 ) {
   setTimeout(() => {
     const node = findNodeHandle(inputRef.current);
-    const responder = scrollRef.current?.getScrollResponder?.();
+    const responder = (scrollRef.current as any)?.getScrollResponder?.();
     if (!node || !responder) return;
     (responder as any).scrollResponderScrollNativeHandleToKeyboard?.(node, extraOffset, true);
   }, 120);

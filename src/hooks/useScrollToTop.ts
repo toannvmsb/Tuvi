@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
+import type { ScrollRef } from '../types/refs';
 
 const SHOW_THRESHOLD = 400; // px đã cuộn xuống mới hiện nút "Lên đầu trang"
 
@@ -10,7 +11,7 @@ const SHOW_THRESHOLD = 400; // px đã cuộn xuống mới hiện nút "Lên đ
  * nổi `ScrollToTopButton`.
  */
 export function useScrollToTop() {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollRef>(null);
   const [showTop, setShowTop] = useState(false);
 
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
