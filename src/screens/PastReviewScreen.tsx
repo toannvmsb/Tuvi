@@ -170,11 +170,6 @@ export default function PastReviewScreen() {
       <Screen contentStyle={{ paddingTop: 12 }}>
         {result && <EventContextNote result={result} ctx={eventCtx} past />}
         <Card hero style={{ gap: 8 }}>
-          <View style={s.chipRow}>
-            <View style={[s.pill, { borderColor: COLORS.purple + '88', backgroundColor: COLORS.purple + '22' }]}>
-              <Text style={[s.pillTxt, { color: COLORS.purple }]}>Thử nghiệm</Text>
-            </View>
-          </View>
           <Eyebrow>{`Những năm đã qua của ${name}`}</Eyebrow>
           <Body size={13}>
             Tuzi nhìn lại lá số và chọn ra vài năm có thể đã có biến động, kèm lý do theo cả Tử Vi lẫn Bát Tự.

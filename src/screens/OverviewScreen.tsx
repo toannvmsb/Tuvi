@@ -328,18 +328,17 @@ export default function OverviewScreen() {
       {/* Ghi chú: 5 ghi chú gần nhất + nhập nhanh */}
       <HomeNotesBox />
 
-      {/* Lối tắt: 2 hàng × 4 nút */}
+      {/* Lối tắt: hàng 1 = 3 nút chính (to, nổi bật) · hàng 2 = 4 nút */}
       <View style={{ gap: 12 }}>
         <Display size={24}>Lối tắt</Display>
         {[
           [
             { icon: 'user', label: 'Lá số của tôi', color: COLORS.gold, go: () => (myResult ? navigation.navigate('MainTabs', { result: myResult, screen: 'TuViChart', params: { result: myResult } }) : promptPersonalize(navigation)) },
-            { icon: 'chart', label: 'Lập lá số', color: COLORS.green, go: () => navigation.navigate('Input') },
+            { icon: 'chart', label: 'Lập lá số mới', color: COLORS.green, go: () => navigation.navigate('Input') },
             { icon: 'doc', label: 'Lá số đã lưu', color: COLORS.blue, go: () => navigation.navigate('MyCharts') },
-            { icon: 'calendar', label: 'Xem ngày', color: COLORS.purple, go: openDay },
           ],
           [
-            { icon: 'event', label: 'Ngày sự kiện', color: COLORS.gold, go: () => navigation.navigate('DayPicker', { result: myResult ?? undefined }) },
+            { icon: 'event', label: 'Xem ngày tốt', color: COLORS.gold, go: () => navigation.navigate('DayPicker', { result: myResult ?? undefined }) },
             { icon: 'coin', label: 'Tài lộc', color: COLORS.green, go: () => (myResult ? navigation.navigate('WealthChart', { result: myResult }) : promptPersonalize(navigation)) },
             { icon: 'compare', label: 'Tương hợp', color: COLORS.blue, go: () => navigation.navigate('CompareCharts', { preSelectedResult: myResult ?? undefined }) },
             { icon: 'spark', label: 'Ảnh tương hợp', color: COLORS.purple, go: () => navigation.navigate('Portrait', { result: myResult ?? undefined }) },
@@ -347,9 +346,9 @@ export default function OverviewScreen() {
         ].map((row, ri) => (
           <View key={ri} style={{ flexDirection: 'row', gap: 10 }}>
             {(row as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
-              <Pressable key={t.label} onPress={t.go} style={[s.shortcut, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
-                <View style={[s.shortcutIcon, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={22} color={t.color} /></View>
-                <Text style={s.shortcutTxt} numberOfLines={2}>{t.label}</Text>
+              <Pressable key={t.label} onPress={t.go} style={[s.shortcut, ri === 0 && s.shortcutMain, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
+                <View style={[s.shortcutIcon, ri === 0 && s.shortcutIconMain, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={ri === 0 ? 28 : 22} color={t.color} /></View>
+                <Text style={[s.shortcutTxt, ri === 0 && s.shortcutTxtMain]} numberOfLines={2}>{t.label}</Text>
               </Pressable>
             ))}
           </View>
@@ -417,6 +416,8 @@ const s = StyleSheet.create({
   askIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
   shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
+  shortcutMain: { minHeight: 124, borderWidth: 1.5, gap: 12 },
+  shortcutIconMain: { width: 56, height: 56, borderRadius: 18 },
   shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   vanBtn: { flex: 1, minHeight: 78, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
   vanLabel: { fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 0.4, textTransform: 'uppercase' },
@@ -425,5 +426,6 @@ const s = StyleSheet.create({
   lifeBtn: { minHeight: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 4 },
   lifeTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, lineHeight: 18, color: COLORS.textPrimary, textAlign: 'center' },
   lifeYear: { fontFamily: FONTS.display, fontSize: 20, lineHeight: 24, color: COLORS.goldLight },
+  shortcutTxtMain: { fontFamily: FONTS.bodyBold, fontSize: 14, lineHeight: 18 },
   shortcutTxt: { fontFamily: FONTS.bodySemi, fontSize: 12, lineHeight: 15, paddingHorizontal: 2, color: COLORS.textPrimary, textAlign: 'center' },
 });

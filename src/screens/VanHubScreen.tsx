@@ -81,7 +81,6 @@ export default function VanHubScreen() {
           <View style={{ flex: 1, gap: 3 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Eyebrow>{`Nghiệm quá khứ của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
-              <View style={s.betaPill}><Text style={s.betaTxt}>Thử nghiệm</Text></View>
             </View>
             <Display size={20} numberOfLines={2}>Những năm đã qua có thể đã xảy ra gì, và vì sao</Display>
           </View>
@@ -98,7 +97,6 @@ export default function VanHubScreen() {
           <View style={{ flex: 1, gap: 3 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Eyebrow>{`Luận tương lai của ${result.birthInfo.name || 'bạn'}`}</Eyebrow>
-              <View style={s.betaPill}><Text style={s.betaTxt}>Thử nghiệm</Text></View>
             </View>
             <Display size={20} numberOfLines={2}>Những năm sắp tới có xu hướng gì, nên chuẩn bị ra sao</Display>
           </View>

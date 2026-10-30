@@ -195,11 +195,6 @@ export default function FutureReviewScreen() {
       <Screen contentStyle={{ paddingTop: 12 }}>
         {result && <EventContextNote result={result} ctx={eventCtx} />}
         <Card hero style={{ gap: 8 }}>
-          <View style={s.chipRow}>
-            <View style={[s.pill, { borderColor: COLORS.purple + '88', backgroundColor: COLORS.purple + '22' }]}>
-              <Text style={[s.pillTxt, { color: COLORS.purple }]}>Thử nghiệm</Text>
-            </View>
-          </View>
           <Eyebrow>{`Những năm sắp tới của ${name}`}</Eyebrow>
           <Body size={13}>
             Tuzi nhìn về phía trước từ năm nay tới khi bạn đủ {FUTURE_CONFIG.untilAge} tuổi, chọn ra những năm có xu hướng nổi bật và nói rõ vì sao theo
