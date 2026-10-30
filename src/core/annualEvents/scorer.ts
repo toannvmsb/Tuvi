@@ -9,9 +9,9 @@ import type {
   AstrologySignal, EventDefinition, EventRule, EvidenceItem, EvidenceFamily,
   ScoredEvent, ScoreBreakdown, Direction, ConfidenceLevel, IntensityLevel, Palace, UniformCondition,
 } from './types';
-import { BASE_WEIGHTS, INTENSITY_BANDS, DIRECTION_DELTA, SUPPRESSION, CONFIDENCE_WEIGHTS } from './config';
+import { BASE_WEIGHTS, INTENSITY_BANDS, DIRECTION_DELTA, SUPPRESSION, CONFIDENCE_WEIGHTS, TUAN_TRIET_DAMP } from './config';
 import { countIndependentFamilies } from './convergence';
-import { PALACE_CODE_TO_VN } from './calendar';
+import { PALACE_CODE_TO_VN, PALACE_VN_TO_CODE } from './calendar';
 import { computeTieuHanAxisResult, type TieuHanAxisResult } from './tieuHanFocus';
 import type { AnnualSignalContext } from './signals';
 
@@ -34,7 +34,18 @@ function newAccum(): RawAccum {
 }
 
 /** Khớp 1338 rule đồng dạng cho 1 sự kiện, cộng dồn vào accum. Chỉ xét tín hiệu NATAL/DA_HAN/ANNUAL. */
-function applyUniformRules(rules: EventRule[], axisPalaces: Set<Palace>, axisWeights: Record<string, number>, signals: AstrologySignal[], acc: RawAccum) {
+/** Tập cung bị Tuần hoặc Triệt (mã cung gốc). */
+function blockedPalaces(chart: import('../../types').AstrologyResult['tuViChart']): Set<Palace> {
+  const out = new Set<Palace>();
+  for (const h of chart.houses) {
+    if (!h.tuanAt && !h.trietAt) continue;
+    const code = PALACE_VN_TO_CODE[h.palaceName];
+    if (code) out.add(code);
+  }
+  return out;
+}
+
+function applyUniformRules(rules: EventRule[], axisPalaces: Set<Palace>, axisWeights: Record<string, number>, signals: AstrologySignal[], acc: RawAccum, blocked: Set<Palace>) {
   for (const r of rules) {
     if (!isUniform(r.condition)) continue;
     for (const s of signals) {
@@ -43,7 +54,7 @@ function applyUniformRules(rules: EventRule[], axisPalaces: Set<Palace>, axisWei
       if (!axisPalaces.has(s.palace)) continue;
       const axisWeight = axisWeights[s.palace] ?? 0.5;
       const layerMult = r.layerMultipliers?.[s.source] ?? 1.0;
-      const contribution = r.baseWeight * axisWeight * layerMult * (s.intensity / 100);
+      const contribution = r.baseWeight * axisWeight * layerMult * (s.intensity / 100) * (blocked.has(s.palace) ? TUAN_TRIET_DAMP : 1);
       if (contribution <= 0) continue;
 
       acc.families.add(r.evidenceFamily);
@@ -69,14 +80,14 @@ function applyUniformRules(rules: EventRule[], axisPalaces: Set<Palace>, axisWei
 }
 
 /** Riêng "movingStars" (5% baseScore) = family MA_SYSTEM (Thiên Mã) ở tầng ANNUAL — tách khỏi annualAxis. */
-function movingStarsScore(rules: EventRule[], axisPalaces: Set<Palace>, axisWeights: Record<string, number>, signals: AstrologySignal[]): number {
+function movingStarsScore(rules: EventRule[], axisPalaces: Set<Palace>, axisWeights: Record<string, number>, signals: AstrologySignal[], blocked: Set<Palace>): number {
   let raw = 0;
   for (const r of rules) {
     if (!isUniform(r.condition) || r.evidenceFamily !== 'MA_SYSTEM') continue;
     for (const s of signals) {
       if (s.source !== 'ANNUAL' || s.signalType !== r.condition.signal || !axisPalaces.has(s.palace)) continue;
       const axisWeight = axisWeights[s.palace] ?? 0.5;
-      raw += r.baseWeight * axisWeight * (r.layerMultipliers?.ANNUAL ?? 1.0) * (s.intensity / 100);
+      raw += r.baseWeight * axisWeight * (r.layerMultipliers?.ANNUAL ?? 1.0) * (s.intensity / 100) * (blocked.has(s.palace) ? TUAN_TRIET_DAMP : 1);
     }
   }
   return clamp(raw);
@@ -115,9 +126,10 @@ export function scoreEventPass1(
 ): ScoreEventResult {
   const axisPalaces = new Set<Palace>([...event.axis.primary, ...event.axis.secondary]);
   const acc = newAccum();
-  applyUniformRules(rules, axisPalaces, event.axis.weights, ctx.signals, acc);
+  const blocked = blockedPalaces(result.tuViChart);
+  applyUniformRules(rules, axisPalaces, event.axis.weights, ctx.signals, acc, blocked);
 
-  const movingStars = movingStarsScore(rules, axisPalaces, event.axis.weights, ctx.signals);
+  const movingStars = movingStarsScore(rules, axisPalaces, event.axis.weights, ctx.signals, blocked);
   const structuralSupport = structuralSupportScore(event.axis.primary, result.tuViChart);
 
   const daHanBlended = clamp(0.6 * clamp(acc.daHan) + 0.4 * ctx.daHanStructuralScore);

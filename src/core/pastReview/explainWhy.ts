@@ -109,6 +109,9 @@ const SYSTEM_TITLE: Record<System, string> = { tuvi: 'Tử Vi', bazi: 'Bát Tự
 const BAZI_STAR_MEANING: Record<string, string> = {
   'Dịch Mã': 'chủ về di chuyển, thay đổi chỗ ở hoặc môi trường',
   'Đào Hoa': 'tăng sức hút, dễ có duyên mới',
+  'Hồng Loan': 'chủ về duyên tình cảm, tin vui về hôn nhân',
+  'Thiên Hỷ': 'chủ về chuyện vui trong nhà, hỷ sự',
+  'Thiên Ất Quý Nhân': 'dễ có người giúp đỡ, nâng đỡ',
 };
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -383,7 +386,7 @@ export function explainWhy(m: PastMarker, opts: { sensitive?: boolean } = {}): M
       notes: [
         `Cách đọc: "${LAYER_FRIENDLY.goc}" là ${LAYER_HINT.goc}; "${LAYER_FRIENDLY.nen}" là ${LAYER_HINT.nen}; "${LAYER_FRIENDLY.ngoi}" là ${LAYER_HINT.ngoi}.`,
         'Tử Vi: Tuzi luận theo Nam Phái (hệ thống Lê Quang Lăng kết hợp phương pháp Diệu Xuân), dựa trên các sao, cung và Tứ Hóa liên quan đến năm này.',
-        'Bát Tự: Tuzi dùng bộ quy tắc riêng; mức điểm hiện đang ở giai đoạn thử nghiệm và sẽ được tinh chỉnh dần.',
+        'Bát Tự: Tuzi dùng bộ quy tắc riêng; các mức điểm là giá trị khởi điểm và sẽ được tinh chỉnh dần.',
         BAZI_BASIS === 'tiet'
           ? 'Bát Tự: trụ năm và trụ tháng của lá số gốc được lập theo TIẾT KHÍ (trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết) — đúng phép Bát Tự. Màn Bát Tự của app đang lập theo tháng âm lịch nên trụ tháng ở đây có thể khác (khoảng 1 trên 6 người). Năm của "lưu niên" vẫn gọi theo năm âm lịch đang xét.'
           : 'Bát Tự: trụ năm/tháng của lá số gốc lấy theo màn Bát Tự của app (năm và tháng âm lịch), có thể khác cách lập theo tiết khí ở những người sinh gần ngày đổi tháng.',

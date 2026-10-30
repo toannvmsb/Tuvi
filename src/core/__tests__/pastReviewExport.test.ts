@@ -163,6 +163,10 @@ function describeMatcher(m: BzMatcher): string {
     case 'flow_fuyin': return `can và chi lưu niên trùng hệt can chi trụ ${PILLAR[m.pillar]} (Phục ngâm)`;
     case 'flow_fanyin': return `can lưu niên xung can trụ ${PILLAR[m.pillar]} và chi lưu niên xung chi trụ ${PILLAR[m.pillar]} (Phản ngâm)`;
     case 'flow_star': return `chi lưu niên trùng ${m.star === 'horse' ? 'Dịch Mã' : 'Đào Hoa'} (tính theo tam hợp của chi năm/chi ngày sinh)`;
+    case 'flow_stem_combine': return `can lưu niên ngũ hợp can trụ ${PILLAR[m.pillar]}`;
+    case 'flow_stem_clash': return `can lưu niên tương xung can trụ ${PILLAR[m.pillar]}`;
+    case 'flow_birth_star': return `chi lưu niên trùng ${m.star === 'hongLoan' ? 'Hồng Loan' : 'Thiên Hỷ'} (tính theo chi năm sinh)`;
+    case 'flow_noble': return 'chi lưu niên là chi Thiên Ất Quý Nhân của can ngày hoặc can năm sinh';
     case 'flow_wealth_el': return `can/chi lưu niên là Tài tinh và hành của nó là ${m.mode === 'fav' ? 'dụng thần' : 'kỵ thần'}`;
     case 'flow_rob': return 'can/chi lưu niên là Tỷ Kiên/Kiếp Tài, và lá số gốc có Tài';
     case 'flow_wealth_hurts_seal': return 'can/chi lưu niên là Tài tinh, và lá số gốc có Ấn';

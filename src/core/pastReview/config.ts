@@ -10,7 +10,7 @@
 import { EVENT_AGE_WINDOW } from '../annualEvents/applicability';
 
 /** Tăng khi đổi bảng quy tắc/trọng số — điểm năm lưu kèm phiên bản này để biết mốc nào cần tính lại. */
-export const RULEBOOK_VERSION = 'pr-0.4-tam';
+export const RULEBOOK_VERSION = 'pr-0.5-tam';
 
 /**
  * Cơ sở lập trụ NĂM/THÁNG Bát Tự: 'tiet' = đúng phép (trụ năm đổi ở Lập Xuân, trụ tháng đổi ở 12 tiết). Từ 06/10/2026 màn Bát Tự của app
@@ -31,7 +31,7 @@ export const AREA_LABEL: Record<AreaId, string> = {
 
 /**
  * NGƯỠNG CỔNG RA MẮT (thử mù, xem blindTest.ts) — CHỐT TẠM ngày 05/10/2026 theo yêu cầu của anh Toàn để chạy thật trước; điều chỉnh lại khi
- * có đủ dữ liệu thử nghiệm. Tính năng vẫn mang nhãn "Thử nghiệm" cho tới khi ĐẠT cổng này.
+ * có đủ dữ liệu thử nghiệm. Nhãn "Thử nghiệm" đã được GỠ theo quyết định của anh Toàn (27/10/2026) dù cổng này chưa đạt.
  *  - passDiff: tỉ lệ khớp của mốc do bộ máy chọn phải hơn năm ngẫu nhiên cùng mảng ít nhất ngần này (0.15 = 15 điểm phần trăm);
  *  - minPersons: số người thử tối thiểu trả lời cả hai nhóm.
  */

@@ -26,6 +26,13 @@ export type BzMatcher =
   | { kind: 'flow_fuyin'; pillar: PillarKey }
   /** Phản ngâm (thiên khắc địa xung): can lưu niên xung can trụ và chi lưu niên xung chi trụ. */
   | { kind: 'flow_fanyin'; pillar: PillarKey }
+  /** Thiên can lưu niên ngũ hợp (Giáp–Kỷ, Ất–Canh, Bính–Tân, Đinh–Nhâm, Mậu–Quý) / tương xung với can của trụ. */
+  | { kind: 'flow_stem_combine'; pillar: PillarKey }
+  | { kind: 'flow_stem_clash'; pillar: PillarKey }
+  /** Sao theo CHI NĂM SINH: Hồng Loan (Mão−chi, đếm ngược) / Thiên Hỷ (đối xung Hồng Loan) — chi lưu niên trùng sao. */
+  | { kind: 'flow_birth_star'; star: 'hongLoan' | 'thienHy' }
+  /** Thiên Ất Quý Nhân theo can ngày hoặc can năm sinh — chi lưu niên trùng một trong hai chi quý nhân. */
+  | { kind: 'flow_noble' }
   | { kind: 'flow_wealth_el'; mode: 'fav' | 'unfav' }
   | { kind: 'flow_rob' }
   | { kind: 'flow_wealth_hurts_seal' }
@@ -98,6 +105,21 @@ export const BZ_RULES: BzRule[] = [
   { id: 'BZ_FAM_COMBINE_YEAR', label: 'Chi lưu niên lục hợp chi năm', area: 'family', layer: 'ngoi', supports: true, tone: 1, weight: 12, match: { kind: 'flow_rel', rel: 'lucHop', pillar: 'year' } },
   { id: 'BZ_FAM_SEAL_HURT', label: 'Tài lưu niên khắc Ấn', area: 'family', layer: 'ngoi', supports: true, tone: -1, weight: 20, match: { kind: 'flow_wealth_hurts_seal' } },
   { id: 'BZ_FAM_LUCK_SEAL', label: 'Đại vận mang Ấn tinh', area: 'family', layer: 'nen', supports: true, tone: 1, weight: 8, match: { kind: 'luck_god', gods: AN } },
+
+  // ───────────── Bổ sung pr-0.5 (08/10/2026): thiên can hợp/xung, tam hợp tháng/năm, Hồng Loan, Thiên Hỷ, Thiên Ất ─────────────
+  // Nguồn: tài liệu dân gian/tổng hợp (ngũ hợp thiên can ứng hôn nhân & hợp tác; Hồng Loan–Thiên Hỷ ứng hỷ sự; thiên can + địa chi cùng xung thì biến động rõ).
+  // CHỜ ANH DUYỆT — trọng số TẠM.
+  { id: 'BZ_LOV_STEMCOMB_DAY', label: 'Can lưu niên hợp can ngày', area: 'love', layer: 'ngoi', supports: true, tone: 1, weight: 16, match: { kind: 'flow_stem_combine', pillar: 'day' } },
+  { id: 'BZ_LOV_HONGLOAN', label: 'Hồng Loan động (theo chi năm sinh)', area: 'love', layer: 'ngoi', supports: true, tone: 1, weight: 16, match: { kind: 'flow_birth_star', star: 'hongLoan' } },
+  { id: 'BZ_LOV_THIENHY', label: 'Thiên Hỷ động (theo chi năm sinh)', area: 'love', layer: 'ngoi', supports: true, tone: 1, weight: 12, match: { kind: 'flow_birth_star', star: 'thienHy' } },
+  { id: 'BZ_FAM_THIENHY', label: 'Thiên Hỷ động — hỷ sự trong nhà', area: 'family', layer: 'ngoi', supports: true, tone: 1, weight: 8, match: { kind: 'flow_birth_star', star: 'thienHy' } },
+  { id: 'BZ_FAM_STEMCOMB_YEAR', label: 'Can lưu niên hợp can năm sinh', area: 'family', layer: 'ngoi', supports: true, tone: 1, weight: 8, match: { kind: 'flow_stem_combine', pillar: 'year' } },
+  { id: 'BZ_FAM_TAMHOP_YEAR', label: 'Chi lưu niên tam hợp chi năm', area: 'family', layer: 'ngoi', supports: true, tone: 1, weight: 8, match: { kind: 'flow_rel', rel: 'tamHop', pillar: 'year' } },
+  { id: 'BZ_CAR_STEMCOMB_MONTH', label: 'Can lưu niên hợp can tháng — cơ hội hợp tác', area: 'career', layer: 'ngoi', supports: true, tone: 1, weight: 10, match: { kind: 'flow_stem_combine', pillar: 'month' } },
+  { id: 'BZ_CAR_TAMHOP_MONTH', label: 'Chi lưu niên tam hợp chi tháng', area: 'career', layer: 'ngoi', supports: true, tone: 1, weight: 10, match: { kind: 'flow_rel', rel: 'tamHop', pillar: 'month' } },
+  { id: 'BZ_CAR_STEMCLASH_MONTH', label: 'Can lưu niên xung can tháng', area: 'career', layer: 'ngoi', supports: true, tone: -1, weight: 12, match: { kind: 'flow_stem_clash', pillar: 'month' } },
+  { id: 'BZ_CAR_NOBLE', label: 'Thiên Ất Quý Nhân động', area: 'career', layer: 'ngoi', supports: true, tone: 1, weight: 6, match: { kind: 'flow_noble' } },
+  { id: 'BZ_HOM_STEMCLASH_DAY', label: 'Can lưu niên xung can ngày', area: 'home', layer: 'ngoi', supports: true, tone: -1, weight: 12, match: { kind: 'flow_stem_clash', pillar: 'day' } },
 ];
 
 /** Quy đổi tổng trọng số → điểm 0..100 của hệ Bát Tự (TẠM). */

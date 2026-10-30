@@ -411,7 +411,7 @@ cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu n�
 
 ---
 
-## 11. Nghiệm quá khứ, Dòng đời đã qua, Luận tương lai (nhãn "Thử nghiệm")
+## 11. Nghiệm quá khứ, Dòng đời đã qua, Luận tương lai (nhãn "Thử nghiệm" ĐÃ GỠ 27/10/2026 — chạy chính thức theo quyết định của anh Toàn; cổng ra mắt bên dưới vẫn CHƯA đạt)
 
 Các box nằm dưới box "Vận hạn diễn ra trong năm" ở `VanHubScreen` → route `PastReview` (rồi `FutureReview`). Đặc tả gốc của anh Toàn:
 `D:\Lap trinh\Tu vi\tuzi-nghiem-qua-khu-spec.md` (được phép chỉnh). Tiến độ: **GĐ1 bộ máy** + **GĐ2 Nghiệm quá khứ/Vì sao** (đã commit),
@@ -515,6 +515,12 @@ các ý hay của 2.1 gắn vào bộ cũ (đừng đảo):
   `lib/pastReviewCache`/`futureReviewCache` (chữ ký cache có `contextSig`); hoàn cảnh là của HIỆN TẠI nên có thể chưa đúng với năm đã qua (đã ghi trên màn Nghiệm quá khứ).
 - **Đẩu Quân** (`annualEvents/douJun.ts`) sửa theo lõi: chi giờ dùng `getHourBranchIndex` (giờ 23 = Tý; cũ xếp vào Hợi), tháng sinh nhuận theo `effLunarMonth` (`core/lunarFix.ts`, nhuận ngày ≥16 dùng tháng kế).
 - Lõi dùng chung đã sửa kèm: an Mệnh/Thân theo `effLunarMonth` (`tuViEngine`), tra âm lịch nhanh `core/lunarFast.ts` + nhớ ngày Sóc trong `lunarCalendar`.
+- **Nâng cấp 08/10/2026 (`RULEBOOK_VERSION='pr-0.5-tam'`, CHƯA commit, chờ anh duyệt trọng số):**
+  • Bát Tự (`pastReview/bazi/rules.ts` + `engine.ts`): +12 quy tắc — ngũ hợp/tương xung thiên can với can trụ ngày/tháng/năm, tam hợp chi tháng/chi năm, Hồng Loan & Thiên Hỷ (theo chi năm sinh), Thiên Ất Quý Nhân (theo can ngày/năm sinh, trọng số thấp vì xuất hiện ~1/3 số năm).
+    Nguồn: tài liệu dân gian/tổng hợp tra trên mạng (không có sách kinh điển để đối chiếu) — mọi trọng số TẠM.
+  • Tử Vi (`annualEvents/scorer.ts`, `config.TUAN_TRIET_DAMP=0.8`): tín hiệu đóng ĐÚNG cung bị Tuần/Triệt giảm 20% (không lan sang tam hợp, theo §2.2). Đặt 1 để tắt.
+  • Lưu nguyệt Bát Tự (`bazi/engine.evaluateBaziMonth(s)`, `bazi/monthNote.ts`, `lib/useBaziMonths.ts`): trụ tháng theo tiết khí (Ngũ Hổ Độn), hiện dòng "🧭 Bát Tự …" dưới từng cửa sổ tháng của thẻ sự kiện (chỉ đối chiếu, KHÔNG đổi điểm). Ngưỡng `BAZI_MONTH_NOTE_MIN=40`.
+  • Kiểm chứng (120 lá số tổng hợp): không quy tắc "chết"; tháng đỉnh Tử Vi trùng tháng có dấu hiệu Bát Tự 56,7% so với 44,6% tháng ngẫu nhiên (chỉ +12 điểm → Bát Tự theo tháng là tín hiệu YẾU, đừng diễn giải như bằng chứng độc lập).
 - **Engine 2.1 ĐÃ GỠ khỏi repo** (08/10/2026, build web cho nhẹ; anh Toàn chưa dùng): `core/eventEngine`, `data/eventCatalog21`, `pastReview/eventYear`, `EventTopicCard`, test golden. Khôi phục từ git (commit trước commit gỡ) nếu cần; ghi chú: app đặt Linh Tinh ở Tý, iztro ở Ngọ — chưa chốt quy ước. Chỉ còn `data/eventContextLabels.ts` (nhãn 28 cờ hoàn cảnh).
 
 ---

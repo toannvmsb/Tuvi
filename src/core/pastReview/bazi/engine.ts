@@ -15,10 +15,27 @@ import { birthSolarDate, computeBaziLuck, luckAtYear, type BaziLuck } from './lu
 import { truePillars, withTruePillars } from './truePillars';
 import { assessDayMasterStrength, type DayMasterStrength } from './strength';
 import { BAZI_BASIS } from '../config';
-import { STEM_ELEMENT, branchElement, horseBranchOf, mainHiddenStem, peachBranchOf } from './tables';
+import { lunarToSolar } from '../../lunarCalendar';
+import { dayCalendarFacts } from '../../dayCalendar';
+import { BRANCHES, STEM_ELEMENT, branchElement, horseBranchOf, mainHiddenStem, peachBranchOf } from './tables';
 
 /** Can tương xung (Giáp–Canh, Ất–Tân, Bính–Nhâm, Đinh–Quý). */
 const CAN_XUNG_PAIRS: [HeavenlyStem, HeavenlyStem][] = [['Giáp', 'Canh'], ['Ất', 'Tân'], ['Bính', 'Nhâm'], ['Đinh', 'Quý']];
+/** Ngũ hợp thiên can. */
+const CAN_HOP_PAIRS: [HeavenlyStem, HeavenlyStem][] = [['Giáp', 'Kỷ'], ['Ất', 'Canh'], ['Bính', 'Tân'], ['Đinh', 'Nhâm'], ['Mậu', 'Quý']];
+const pairHas = (pairs: [HeavenlyStem, HeavenlyStem][], a: HeavenlyStem, b: HeavenlyStem) =>
+  pairs.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+/** Hồng Loan theo chi năm sinh: Tý→Mão, Sửu→Dần, … (đếm ngược); Thiên Hỷ = đối xung Hồng Loan. */
+const hongLoanOf = (yb: EarthlyBranch): EarthlyBranch => BRANCHES[(15 - BRANCHES.indexOf(yb)) % 12];
+const thienHyOf = (yb: EarthlyBranch): EarthlyBranch => BRANCHES[(BRANCHES.indexOf(hongLoanOf(yb)) + 6) % 12];
+/** Thiên Ất Quý Nhân theo can (bảng cổ điển phổ biến). */
+const NOBLE_BY_STEM: Record<HeavenlyStem, [EarthlyBranch, EarthlyBranch]> = {
+  Giáp: ['Sửu', 'Mùi'], Mậu: ['Sửu', 'Mùi'], Canh: ['Sửu', 'Mùi'],
+  Ất: ['Tý', 'Thân'], Kỷ: ['Tý', 'Thân'],
+  Bính: ['Hợi', 'Dậu'], Đinh: ['Hợi', 'Dậu'],
+  Nhâm: ['Mão', 'Tị'], Quý: ['Mão', 'Tị'],
+  Tân: ['Dần', 'Ngọ'],
+};
 const PILLAR_INDEX: Record<PillarKey, number> = { year: 0, month: 1, day: 2, hour: 3 };
 const PILLAR_VN: Record<PillarKey, string> = { year: 'Năm', month: 'Tháng', day: 'Ngày', hour: 'Giờ' };
 const TAI_GODS: ThapThan[] = ['Chính Tài', 'Thiên Tài'];
@@ -95,8 +112,8 @@ interface FlowCtx {
   luckBranchGod: ThapThan | null;
 }
 
-function buildFlow(natal: BaziNatal, year: number): FlowCtx {
-  const { stem, branch } = yearCanChi(year);
+function buildFlow(natal: BaziNatal, year: number, override?: { stem: HeavenlyStem; branch: EarthlyBranch }): FlowCtx {
+  const { stem, branch } = override ?? yearCanChi(year);
   const stemEl = STEM_ELEMENT[stem];
   const branchEl = branchElement(branch);
   const fav = (e: FiveElement) => (natal.favorable.includes(e) ? 1 : natal.unfavorable.includes(e) ? -1 : 0);
@@ -159,6 +176,27 @@ function evalRule(rule: BzRule, natal: BaziNatal, f: FlowCtx): Pick<PastSignal, 
       if (!CAN_XUNG_PAIRS.some(([a, b]) => (a === f.stem && b === p.stem) || (b === f.stem && a === p.stem))) return null;
       if (!branchRelations(f.branch, p.branch).includes('xung')) return null;
       return { where: `${flowWhere(f)} ↔ ${pillarWhere(p)}`, param: { canLuuNien: f.stem, canTru: p.stem, chiLuuNien: f.branch, chiTru: p.branch, tru: PILLAR_VN[m.pillar] } };
+    }
+    case 'flow_stem_combine': {
+      const p = natal.pillars[PILLAR_INDEX[m.pillar]];
+      if (!pairHas(CAN_HOP_PAIRS, f.stem, p.stem)) return null;
+      return { where: `${flowWhere(f)} ↔ ${pillarWhere(p)}`, param: { canLuuNien: f.stem, canTru: p.stem, tru: PILLAR_VN[m.pillar], quanHe: 'hợp' } };
+    }
+    case 'flow_stem_clash': {
+      const p = natal.pillars[PILLAR_INDEX[m.pillar]];
+      if (!pairHas(CAN_XUNG_PAIRS, f.stem, p.stem)) return null;
+      return { where: `${flowWhere(f)} ↔ ${pillarWhere(p)}`, param: { canLuuNien: f.stem, canTru: p.stem, tru: PILLAR_VN[m.pillar], quanHe: 'xung' } };
+    }
+    case 'flow_birth_star': {
+      const yb = natal.pillars[0].branch;
+      const target = m.star === 'hongLoan' ? hongLoanOf(yb) : thienHyOf(yb);
+      if (f.branch !== target) return null;
+      return { where: flowWhere(f), param: { sao: m.star === 'hongLoan' ? 'Hồng Loan' : 'Thiên Hỷ', chi: f.branch } };
+    }
+    case 'flow_noble': {
+      const set = new Set<EarthlyBranch>([...NOBLE_BY_STEM[natal.dm], ...NOBLE_BY_STEM[natal.pillars[0].stem]]);
+      if (!set.has(f.branch)) return null;
+      return { where: flowWhere(f), param: { sao: 'Thiên Ất Quý Nhân', chi: f.branch } };
     }
     case 'flow_wealth_el': {
       const list = m.mode === 'fav' ? natal.favorable : natal.unfavorable;
@@ -251,4 +289,42 @@ export function evaluateBaziYear(natal: BaziNatal, year: number): BaziYearEval {
     out[area].balance = wSum > 0 ? toneSum / wSum : 0;
   }
   return out;
+}
+
+// ───────────────────────── Lưu nguyệt ─────────────────────────
+/** Các kiểu quy tắc chỉ có nghĩa ở cấp NĂM (không dùng cho tháng). */
+const YEAR_ONLY_KINDS = new Set<BzRule['match']['kind']>(['flow_same_branch', 'flow_fuyin']);
+
+/** Trụ tháng Bát Tự (theo TIẾT KHÍ) của tháng âm lịch `lunarMonth` thuộc năm âm `lunarYear` — lấy ngày 15 âm làm đại diện. */
+export function monthPillarOf(lunarYear: number, lunarMonth: number): { stem: HeavenlyStem; branch: EarthlyBranch } | null {
+  try {
+    const sd = lunarToSolar(15, lunarMonth, lunarYear, false);
+    const facts = dayCalendarFacts(new Date(sd.year, sd.month - 1, sd.day));
+    const STEMS: HeavenlyStem[] = ['Giáp', 'Ất', 'Bính', 'Đinh', 'Mậu', 'Kỷ', 'Canh', 'Tân', 'Nhâm', 'Quý'];
+    const first = ((STEMS.indexOf(facts.yearStem) % 5) * 2 + 2) % 10; // Ngũ Hổ Độn: tháng Dần
+    return { stem: STEMS[(first + facts.monthIdx) % 10], branch: facts.monthBranch };
+  } catch { return null; }
+}
+
+/** Điểm Bát Tự (0..100) của MỘT tháng âm lịch cho từng mảng: dùng các quy tắc "lưu niên" với can chi THÁNG làm dòng chảy; đại vận lấy của năm đó. */
+export function evaluateBaziMonth(natal: BaziNatal, lunarYear: number, lunarMonth: number): Record<AreaId, number> | null {
+  const mp = monthPillarOf(lunarYear, lunarMonth);
+  if (!mp) return null;
+  const f = buildFlow(natal, lunarYear, mp);
+  const out = {} as Record<AreaId, number>;
+  for (const a of AREAS) out[a] = 0;
+  const support: Record<string, number> = {}, against: Record<string, number> = {};
+  for (const rule of BZ_RULES) {
+    if (rule.layer !== 'ngoi' || rule.weight <= 0 || YEAR_ONLY_KINDS.has(rule.match.kind)) continue;
+    if (!evalRule(rule, natal, f)) continue;
+    const bucket = rule.supports ? support : against;
+    bucket[rule.area] = (bucket[rule.area] ?? 0) + rule.weight;
+  }
+  for (const a of AREAS) out[a] = clamp(((support[a] ?? 0) - BZ_SCORE.againstFactor * (against[a] ?? 0)) * BZ_SCORE.scale, 0, 100);
+  return out;
+}
+
+/** 12 tháng âm lịch của năm: [tháng 1..12] → điểm theo mảng (null nếu không dựng được trụ tháng). */
+export function evaluateBaziMonths(natal: BaziNatal, lunarYear: number): (Record<AreaId, number> | null)[] {
+  return Array.from({ length: 12 }, (_, i) => evaluateBaziMonth(natal, lunarYear, i + 1));
 }

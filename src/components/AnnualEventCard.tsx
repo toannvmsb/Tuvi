@@ -16,7 +16,8 @@ const DIRECTION_LABEL: Record<ScoredEvent['direction'], string> = {
   POSITIVE: 'Thuận lợi', NEGATIVE: 'Cần thận trọng', MIXED: 'Hai chiều',
 };
 
-export default function AnnualEventCard({ e }: { e: ScoredEvent }) {
+/** `baziNote(w)`: dòng đối chiếu Bát Tự cho từng cửa sổ tháng (xem core/pastReview/bazi/monthNote). */
+export default function AnnualEventCard({ e, baziNote }: { e: ScoredEvent; baziNote?: (startMonth: number, endMonth: number) => string | null }) {
   const [open, setOpen] = useState(false);
   const color = DIRECTION_COLOR[e.direction];
   const ex = useMemo(() => explainEvent(e), [e]);
@@ -56,7 +57,15 @@ export default function AnnualEventCard({ e }: { e: ScoredEvent }) {
             {e.peakMonths.length > 0 ? (
               <View style={{ gap: 4 }}>
                 <Text style={s.blockLabel}>Thời điểm cần lưu ý</Text>
-                {e.peakMonths.map((w, i) => <Body key={i} size={12.5} color={COLORS.goldLight} style={s.justify}>{explainMonthWindow(w)}</Body>)}
+                {e.peakMonths.map((w, i) => {
+                  const note = baziNote?.(w.startLunarMonth, w.endLunarMonth);
+                  return (
+                    <View key={i} style={{ gap: 2 }}>
+                      <Body size={12.5} color={COLORS.goldLight} style={s.justify}>{explainMonthWindow(w)}</Body>
+                      {note ? <Body size={12} style={s.justify}>🧭 {note}</Body> : null}
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <Body size={12.5}>Chưa đủ dữ liệu để khoanh vùng tháng cụ thể cho sự kiện này.</Body>

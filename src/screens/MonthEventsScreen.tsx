@@ -14,6 +14,7 @@ import { Screen, Card, Body, SectionTitle } from '../ui';
 import { computeAnnualPrediction, primaryMonthOf, type ScoredEvent } from '../core/annualEvents';
 import type { AstrologyResult } from '../types';
 import { useEventContext } from '../lib/eventContext';
+import { useBaziMonthNote } from '../lib/useBaziMonths';
 
 export default function MonthEventsScreen() {
   const navigation = useNavigation<any>();
@@ -21,6 +22,7 @@ export default function MonthEventsScreen() {
   const { result, year, month } = route.params as { result: AstrologyResult; year: number; month: number };
 
   const { ctx: eventCtx } = useEventContext(result);
+  const baziNoteOf = useBaziMonthNote(result, year);
   const events: ScoredEvent[] = useMemo(() => {
     const pred = computeAnnualPrediction(result, year, { context: eventCtx });
     const all = pred.featuredGroups.flatMap(g => g.events);
@@ -34,7 +36,7 @@ export default function MonthEventsScreen() {
         {events.length > 0 ? (
           <View style={{ gap: 10 }}>
             <SectionTitle title={`Tháng ${month} (âm lịch)`} sub={`${events.length} sự kiện`} />
-            {events.map(e => <AnnualEventCard key={e.eventId} e={e} />)}
+            {events.map(e => <AnnualEventCard key={e.eventId} e={e} baziNote={baziNoteOf(e.eventId)} />)}
           </View>
         ) : (
           <Card><Body>Không có sự kiện nào trong "Sự kiện nổi bật" rơi vào tháng {month} âm lịch năm {year}.</Body></Card>

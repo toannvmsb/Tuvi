@@ -354,14 +354,14 @@ describe('pastReview — bộ máy chọn mốc', () => {
 
   // KHÓA KẾT QUẢ trên 3 lá số cố định (ngày "hiện tại" cố định). Khi CHỦ Ý đổi bảng quy tắc/trọng số/cấu hình:
   // tăng RULEBOOK_VERSION (config.ts) rồi cập nhật mảng dưới đây — test này chỉ để bắt thay đổi NGOÀI Ý MUỐN.
-  test('golden: bộ mốc của 3 lá số mẫu (RULEBOOK pr-0.4-tam)', () => {
-    expect(RULEBOOK_VERSION).toBe('pr-0.4-tam');
+  test('golden: bộ mốc của 3 lá số mẫu (RULEBOOK pr-0.5-tam)', () => {
+    expect(RULEBOOK_VERSION).toBe('pr-0.5-tam');
     const got = allSampleResults().map(r =>
       computePastReviewSync(r, { now: NOW }).markers.map(m => `${m.year}:${m.area}:${m.tier}`));
     expect(got).toEqual([
-      ['2025:love:manh', '2023:love:manh', '2004:family:manh', '2010:wealth:vua', '2015:family:vua', '2007:career:vua', '2022:home:vua', '2019:wealth:vua'],
-      ['2008:home:manh', '2016:family:manh', '2013:career:manh', '2007:home:manh', '2003:love:manh', '2020:wealth:manh', '2012:career:vua', '2021:family:vua'],
-      ['2023:love:manh', '2024:home:manh', '2016:family:manh', '2017:love:manh', '2025:wealth:vua'],
+      ['2025:love:manh', '2022:family:manh', '2017:career:manh', '2010:wealth:vua', '2023:love:vua', '2015:family:vua', '2007:career:vua', '2013:home:vua'],
+      ['2008:home:manh', '2016:family:manh', '2007:home:manh', '2013:career:manh', '2003:love:manh', '2004:family:manh', '2012:career:vua', '2022:love:vua'],
+      ['2023:love:manh', '2024:love:manh', '2016:family:manh', '2025:career:vua', '2020:family:vua'],
     ]);
   });
 

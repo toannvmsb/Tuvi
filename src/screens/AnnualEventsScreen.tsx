@@ -18,6 +18,7 @@ import { COLORS, FONTS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, SectionTitle, Segmented, GoldButton } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { useEventContext } from '../lib/eventContext';
+import { useBaziMonthNote } from '../lib/useBaziMonths';
 import EventContextNote from '../components/EventContextNote';
 import {
   computeAnnualPrediction, analyzeAnnualEventsWithAI,
@@ -47,6 +48,7 @@ export default function AnnualEventsScreen() {
   const [ai, setAi] = useState<AiState>({ status: 'idle', text: '' });
 
   const { ctx: eventCtx } = useEventContext(result);
+  const baziNoteOf = useBaziMonthNote(result, year);
   const pred: AnnualPrediction | null = useMemo(() => (result ? computeAnnualPrediction(result, year, { context: eventCtx }) : null), [result, year, eventCtx]);
   const advancedKey = result ? fkey(result, `annualEvents:${year}:adv`) : '';
   const aiKey = result ? fkey(result, `annualEvents:${year}:ai`) : '';
@@ -184,7 +186,7 @@ export default function AnnualEventsScreen() {
                 {pred.featuredGroups.map(g => (
                   <View key={g.category} style={{ gap: 8 }}>
                     <Eyebrow color={COLORS.goldLight}>{g.label}</Eyebrow>
-                    {g.events.map(e => <AnnualEventCard key={e.eventId} e={e} />)}
+                    {g.events.map(e => <AnnualEventCard key={e.eventId} e={e} baziNote={baziNoteOf(e.eventId)} />)}
                   </View>
                 ))}
                 {pred.composites.length > 0 && (

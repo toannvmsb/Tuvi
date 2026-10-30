@@ -41,6 +41,13 @@ export const INTENSITY_BANDS: { min: number; max: number; level: import('./types
 
 export const DIRECTION_DELTA = 25;
 
+/**
+ * Cung bị TUẦN hoặc TRIỆT: các tín hiệu đóng ĐÚNG cung đó (đủ mọi tầng) bị giảm lực — Tuần/Triệt "chặn" cả sao tốt lẫn sao xấu.
+ * Chỉ áp cho cung mà lá số ghi nhận bị Tuần/Triệt, KHÔNG lan sang tam hợp/xung chiếu (CLAUDE.md §2.2). Hệ số TẠM (08/10/2026).
+ * Đặt 1 để tắt.
+ */
+export const TUAN_TRIET_DAMP = 0.8;
+
 export const SUPPRESSION = {
   daHanScoreLtCapFinal: { threshold: 25, cap: 59 },
   natalDaHanBlockMajor: { natalLt: 25, daHanLt: 30 },
