@@ -346,8 +346,11 @@ export default function OverviewScreen() {
         ].map((row, ri) => (
           <View key={ri} style={{ flexDirection: 'row', gap: 10 }}>
             {(row as { icon: IconName; label: string; color: string; go: () => void }[]).map(t => (
-              <Pressable key={t.label} onPress={t.go} style={[s.shortcut, ri === 0 && s.shortcutMain, { backgroundColor: t.color + '17', borderColor: t.color + '4D' }]} accessibilityRole="button">
-                <View style={[s.shortcutIcon, ri === 0 && s.shortcutIconMain, { backgroundColor: t.color + '2E' }]}><Icon name={t.icon} size={ri === 0 ? 28 : 22} color={t.color} /></View>
+              <Pressable key={t.label} onPress={t.go} style={[s.shortcut, ri === 0 && s.shortcutMain, { backgroundColor: t.color + (ri === 0 ? '33' : '17'), borderColor: t.color + '4D' }]} accessibilityRole="button">
+                {/* Hàng 1: viền như cũ, nền sáng hơn hàng 2 một chút, biểu tượng to + nét đậm. */}
+                <View style={[s.shortcutIcon, ri === 0 && s.shortcutIconMain, { backgroundColor: t.color + (ri === 0 ? '55' : '2E') }]}>
+                  <Icon name={t.icon} size={ri === 0 ? 32 : 22} color={t.color} strokeWidth={ri === 0 ? 2.8 : 1.8} />
+                </View>
                 <Text style={[s.shortcutTxt, ri === 0 && s.shortcutTxtMain]} numberOfLines={2}>{t.label}</Text>
               </Pressable>
             ))}
@@ -416,8 +419,8 @@ const s = StyleSheet.create({
   askIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
   shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
-  shortcutMain: { minHeight: 124, borderWidth: 1.5, gap: 12 },
-  shortcutIconMain: { width: 56, height: 56, borderRadius: 18 },
+  shortcutMain: { minHeight: 110, borderWidth: 1.5, gap: 10 },
+  shortcutIconMain: { width: 58, height: 58, borderRadius: 18 },
   shortcutIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   vanBtn: { flex: 1, minHeight: 78, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
   vanLabel: { fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 0.4, textTransform: 'uppercase' },
