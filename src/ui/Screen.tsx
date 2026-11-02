@@ -20,6 +20,8 @@ import { COLORS } from '../constants/theme';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 
 export const TAB_BAR_HEIGHT = 64;
+/** Khoảng đệm dưới nội dung các màn tab (thanh tab không đè lên nội dung) — thống nhất cả 5 tab. */
+export const TAB_BOTTOM_PAD = 35;
 
 export default function Screen({
   children, tabBarSpace = false, contentStyle, scroll = true, gap = 18, topOverlay,
@@ -34,7 +36,7 @@ export default function Screen({
   topOverlay?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const bottom = (tabBarSpace ? 72 : insets.bottom + 32);
+  const bottom = (tabBarSpace ? TAB_BOTTOM_PAD : insets.bottom + 32);
   const inner = [{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: bottom, gap }, contentStyle];
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>

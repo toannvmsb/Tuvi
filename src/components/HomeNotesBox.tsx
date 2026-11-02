@@ -1,5 +1,5 @@
 /**
- * Khối Ghi chú ở Tổng quan: 3 ghi chú gần nhất + ô nhập nhanh. Bấm vào tiêu đề hoặc 1 ghi chú → màn Ghi chú.
+ * Khối Ghi chú ở Tổng quan: 1 ghi chú gần nhất + ô nhập nhanh. Bấm vào tiêu đề hoặc 1 ghi chú → màn Ghi chú.
  * Cần đăng nhập (ghi chú lưu trên Supabase); lỗi/offline → báo nhẹ, không làm hỏng màn chính.
  */
 import React, { useCallback, useState } from 'react';
@@ -29,7 +29,7 @@ export default function HomeNotesBox() {
 
   const load = useCallback(async () => {
     try {
-      setNotes(await listLifeNotes(3));
+      setNotes(await listLifeNotes(1));
       setErr('');
     } catch {
       setErr('Chưa tải được ghi chú (cần đăng nhập và có mạng).');
@@ -60,7 +60,7 @@ export default function HomeNotesBox() {
   return (
     <Card style={{ gap: 12 }}>
       <Pressable onPress={open} accessibilityRole="button" accessibilityLabel="Mở màn Ghi chú">
-        <SectionTitle title="Ghi chú" right={<Icon name="chev" size={18} color={COLORS.gold} />} />
+        <SectionTitle title="Ghi chú" right={<View style={s.roundBtn}><Icon name="chev" size={18} color="#F5E0AE" /></View>} />
       </Pressable>
 
       {notes.map(n => (
@@ -91,6 +91,7 @@ export default function HomeNotesBox() {
 }
 
 const s = StyleSheet.create({
+  roundBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.3)' },
   item: {
     flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 10, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.14)',

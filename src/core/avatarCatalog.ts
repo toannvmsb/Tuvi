@@ -18,7 +18,6 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
   { id: 'sao-mai', label: 'Sao Mai', colors: ['#e8b34d', '#f6d992'], image: require('../../assets/avatars/sao-mai.png') },
   { id: 'nguyet-quang', label: 'Nguyệt Quang', colors: ['#9b8cff', '#c3b8ff'], image: require('../../assets/avatars/nguyet-quang.png') },
   { id: 'phuong-hoang', label: 'Phượng Hoàng', colors: ['#ef7b8e', '#f6a8b6'], image: require('../../assets/avatars/phuong-hoang.png') },
-  { id: 'thanh-long', label: 'Thanh Long', colors: ['#4fd694', '#8bd88a'], image: require('../../assets/avatars/thanh-long.png') },
   { id: 'cu-tri-tue', label: 'Cú Trí Tuệ', colors: ['#60a5fa', '#93c5fd'], image: require('../../assets/avatars/cu-tri-tue.png') },
   { id: 'than-tai', label: 'Thần Tài', colors: ['#f0c04d', '#fde68a'], image: require('../../assets/avatars/than-tai.png') },
   { id: 'sao-bang', label: 'Sao Băng', colors: ['#8b7bff', '#c3b8ff'], image: require('../../assets/avatars/sao-bang.png') },
@@ -41,6 +40,10 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
 
 export const DEFAULT_AVATAR_ID = AVATAR_OPTIONS[0].id;
 
+/** 'thanh-long' đã gỡ (trùng hình Thìn — Rồng): ai đã chọn thì chuyển sang Thìn — Rồng. */
+const LEGACY_AVATAR_ID: Record<string, string> = { 'thanh-long': 'thin-rong' };
+
 export function getAvatarOption(id?: string | null): AvatarOption {
-  return AVATAR_OPTIONS.find(a => a.id === id) ?? AVATAR_OPTIONS[0];
+  const key = (id && LEGACY_AVATAR_ID[id]) || id;
+  return AVATAR_OPTIONS.find(a => a.id === key) ?? AVATAR_OPTIONS[0];
 }

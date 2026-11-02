@@ -23,6 +23,7 @@ import { generateNhatVanOffline } from '../core/nhatVanReport';
 import { buildMonthHeatmap } from '../core/dailyPeriodService';
 import { buildGenericMonthHeatmapForMonth } from '../core/genericMonthHeatmap';
 import { buildTodaySummary } from '../core/todaySummary';
+import { TAB_BOTTOM_PAD } from '../ui/Screen';
 import { solarToLunar } from '../core/lunarCalendar';
 import { analyzeNhatVanWithAI } from '../utils/aiAnalysis';
 import LunarCalendarPicker from '../components/LunarCalendarPicker';
@@ -278,7 +279,7 @@ export default function DailyScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  scroll: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: TAB_BOTTOM_PAD },
   title: { fontSize: 28, lineHeight: 32, fontFamily: FONTS.display, color: COLORS.textPrimary },
 
   selectedBar: {

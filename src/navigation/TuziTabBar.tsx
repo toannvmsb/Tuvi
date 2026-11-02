@@ -12,7 +12,7 @@ import Icon, { type IconName } from '../ui/Icon';
 import { TAB_BAR_HEIGHT } from '../ui/Screen';
 
 const TABS: Record<string, { label: string; icon: IconName }> = {
-  Overview: { label: 'Trang chính', icon: 'spark' },
+  Overview: { label: 'Trang chủ', icon: 'home' },
   ChartHub: { label: 'Tổng quan', icon: 'chart' },
   VanHub: { label: 'Vận hạn', icon: 'wave' },
   DayView: { label: 'Xem ngày', icon: 'calendar' },

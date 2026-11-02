@@ -48,6 +48,12 @@ const TONE_TIER: Record<DayTone, string> = {
   'tốt': TIER_COLORS.great, 'khá': TIER_COLORS.good, 'trung bình': TIER_COLORS.normal,
   'thận trọng': TIER_COLORS.caution, 'xấu': TIER_COLORS.bad,
 };
+/** Lời chào theo buổi: sáng <11h, trưa 11–13h, chiều 13–18h, tối còn lại. */
+function greetingOf(d: Date): string {
+  const h = d.getHours();
+  return `Chào buổi ${h >= 4 && h < 11 ? 'sáng' : h >= 11 && h < 13 ? 'trưa' : h >= 13 && h < 18 ? 'chiều' : 'tối'}`;
+}
+
 const LEGEND: { c: (typeof CAL_TONE)['tốt']; t: string }[] = (['tốt', 'khá', 'trung bình', 'thận trọng', 'xấu'] as DayTone[]).map(k => ({ c: CAL_TONE[k], t: TONE_LABEL[k] }));
 
 function ratingLabel(score: number): { label: string; color: string } {
@@ -169,7 +175,7 @@ export default function OverviewScreen() {
       {/* Lời chào */}
       <View style={{ gap: 6 }}>
         <Eyebrow style={{ fontSize: 14, letterSpacing: 1.2 }}>{`${WEEKDAY_LONG[now.getDay()]} - ${now.getDate()}/${m}/${y} (${lunarNow.day}/${lunarNow.month}${lunarNow.isLeapMonth ? ' nhuận' : ''} âm lịch)`}</Eyebrow>
-        <Display size={30}>Xin chào, {displayName}</Display>
+        <Display size={30}>{greetingOf(now)}</Display>
         <Text style={s.dailyMsg}>{dailyMessage(todayScore, now)}</Text>
       </View>
 
@@ -190,7 +196,7 @@ export default function OverviewScreen() {
 
       {/* Thanh Hỏi Tuzi */}
       <Pressable style={s.askBar} onPress={openAiChat} accessibilityRole="button" accessibilityLabel="Hỏi Tuzi">
-        <View style={s.askIcon}><Icon name="spark" size={20} color="#1E1230" strokeWidth={2} /></View>
+        <View style={s.askIcon}><Icon name="spark" size={17} color="#1E1230" strokeWidth={2} /></View>
         <Text style={s.askTxt}>Hỏi Tuzi về lá số của bạn…</Text>
         <Icon name="chev" size={18} color={COLORS.gold} />
       </Pressable>
@@ -200,11 +206,22 @@ export default function OverviewScreen() {
         <View style={s.calHead}>
           <View style={{ flex: 1 }}>
             <Display size={26}>Lịch tháng {m} · {y}</Display>
-            <Text style={s.calSub}>{myResult ? 'Màu theo lá số của bạn' : 'Màu theo lịch chung, chưa cá nhân hóa'}</Text>
+            <Pressable style={s.calSubRow} onPress={() => navigation.navigate('MyCharts')} accessibilityRole="button" accessibilityLabel="Đổi lá số đang gắn">
+              <Text style={s.calSub} numberOfLines={1}>{myResult ? `Màu theo lá số của ${myResult.birthInfo.name || 'bạn'}` : 'Màu theo vận khí chung của từng ngày'}</Text>
+              <Icon name="swap" size={16} color={COLORS.gold} strokeWidth={2} />
+            </Pressable>
           </View>
           <Pressable style={s.roundBtn} onPress={openDay} accessibilityRole="button" accessibilityLabel="Mở xem ngày">
             <Icon name="chev" size={18} color="#F5E0AE" />
           </Pressable>
+        </View>
+        <View style={[s.legend, { marginTop: -4 }]}>
+        {LEGEND.map(l => (
+          <View key={l.t} style={s.legendItem}>
+            <View style={[s.legendSw, { backgroundColor: l.c.bg, borderWidth: 1, borderColor: l.c.border }]} />
+            <Text style={s.legendTxt}>{l.t === 'Cần thận trọng' ? 'Thận trọng' : l.t}</Text>
+          </View>
+        ))}
         </View>
         <View style={s.weekRow}>
           {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d, i) => (
@@ -235,15 +252,6 @@ export default function OverviewScreen() {
             );
           })}
         </View>
-        <View style={s.legend}>
-          {LEGEND.map(l => (
-            <View key={l.t} style={s.legendItem}>
-              <View style={[s.legendSw, { backgroundColor: l.c.bg, borderWidth: 1, borderColor: l.c.border }]} />
-              <Text style={s.legendTxt}>{l.t}</Text>
-            </View>
-          ))}
-          <View style={s.legendItem}><View style={[s.legendSw, { backgroundColor: 'transparent', borderWidth: 3, borderColor: '#FFFFFF' }]} /><Text style={s.legendTxt}>Hôm nay</Text></View>
-        </View>
         {event && (
           <Pressable
             style={s.specialStrip}
@@ -262,7 +270,14 @@ export default function OverviewScreen() {
 
       {/* Vận khí hiện tại */}
       <Card style={{ gap: 14 }}>
-        <SectionTitle title="Vận khí hiện tại" sub="10 năm · 1 năm · 30 ngày" />
+        <SectionTitle
+          title="Vận khí hiện tại"
+          right={myResult ? (
+            <Pressable style={s.roundBtn} onPress={() => navigation.navigate('VanHub')} accessibilityRole="button" accessibilityLabel="Xem toàn bộ vận hạn">
+              <Icon name="chev" size={18} color="#F5E0AE" />
+            </Pressable>
+          ) : undefined}
+        />
         {myResult ? (
           <>
             {/* Đại vận · Tiểu vận · Nguyệt vận: 3 nút ngang, mỗi nút 3 dòng (tên vận · mốc thời gian · cung) */}
@@ -309,10 +324,6 @@ export default function OverviewScreen() {
                 <Text style={s.lifeTxt} numberOfLines={2}>Luận tương lai</Text>
               </Pressable>
             </View>
-            <Pressable style={s.linkRow} onPress={() => navigation.navigate('VanHub')} accessibilityRole="button">
-              <Text style={s.linkTxt}>Xem toàn bộ vận hạn</Text>
-              <Icon name="arrow" size={18} color="#F5E0AE" />
-            </Pressable>
           </>
         ) : (
           <>
@@ -325,7 +336,7 @@ export default function OverviewScreen() {
         )}
       </Card>
 
-      {/* Ghi chú: 5 ghi chú gần nhất + nhập nhanh */}
+      {/* Ghi chú: 1 ghi chú gần nhất + nhập nhanh */}
       <HomeNotesBox />
 
       {/* Lối tắt: hàng 1 = 3 nút chính (to, nổi bật) · hàng 2 = 4 nút */}
@@ -377,7 +388,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.32)',
   },
   xuTxt: { fontFamily: FONTS.bodyBold, fontSize: 13, color: '#F5E0AE' },
-  dailyMsg: { fontFamily: FONTS.displayItalic, fontSize: 16, lineHeight: 21, color: '#E9D9B5', marginTop: 2 },
+  dailyMsg: { fontFamily: FONTS.body, fontSize: 16, lineHeight: 21, color: '#E9D9B5', marginTop: 2 },
   lunarLine: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   miniCard: { flex: 1, minHeight: 136, padding: 14, borderRadius: 20 },
   miniEyebrow: { fontSize: 10.5, letterSpacing: 1.4 },
@@ -385,7 +396,8 @@ const s = StyleSheet.create({
   eventName: { fontFamily: FONTS.bodySemi, fontSize: 14, lineHeight: 19, color: COLORS.textPrimary },
   eventDays: { fontFamily: FONTS.displayBold, fontSize: 24, color: COLORS.goldLight },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  calSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, paddingVertical: 2, alignSelf: 'flex-start', maxWidth: '100%' },
+  calSub: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.textMuted, flexShrink: 1 },
   roundBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(226,194,133,0.3)' },
   weekRow: { flexDirection: 'row' },
   weekTxt: { flex: 1, textAlign: 'center', fontFamily: FONTS.bodySemi, fontSize: 11, color: COLORS.textMuted },
@@ -396,16 +408,16 @@ const s = StyleSheet.create({
   cellNum: { fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.textPrimary, lineHeight: 16 },
   cellLunar: { fontFamily: FONTS.body, fontSize: 9.5, color: COLORS.textSecondary, lineHeight: 12 },
   eventDot: { position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 2 },
+  legend: { flexDirection: 'row', flexWrap: 'nowrap', gap: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSw: { width: 14, height: 14, borderRadius: 4 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
-  legendTxt: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textSecondary },
+  legendTxt: { fontFamily: FONTS.body, fontSize: 10.5, color: COLORS.textSecondary },
   specialStrip: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 42, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 12,
     backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: SURFACE.hairlineStrong,
   },
-  specialIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(226,194,133,0.25)', alignItems: 'center', justifyContent: 'center' },
+  specialIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(226,194,133,0.25)', alignItems: 'center', justifyContent: 'center' },
   specialTitle: { fontFamily: FONTS.bodySemi, fontSize: 13.5, color: COLORS.textPrimary },
   specialSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textSecondary },
   tierText: { fontFamily: FONTS.body, fontSize: 13.5, color: COLORS.textPrimary },
@@ -413,10 +425,10 @@ const s = StyleSheet.create({
   linkRow: { minHeight: 28, marginTop: -4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   linkTxt: { fontFamily: FONTS.bodySemi, fontSize: 14, color: '#F5E0AE' },
   askBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 30,
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 24,
     backgroundColor: 'rgba(226,194,133,0.12)', borderWidth: 1, borderColor: 'rgba(226,194,133,0.4)',
   },
-  askIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
+  askIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
   askTxt: { flex: 1, fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary },
   shortcut: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 10 },
   shortcutMain: { minHeight: 110, borderWidth: 1.5, gap: 10 },
