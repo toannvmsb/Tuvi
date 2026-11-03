@@ -1,7 +1,7 @@
 /**
  * KHUNG IAP (In-App Purchase) nạp xu cho bản phát hành STORE (iOS/Android).
  *
- * Thiết kế "lazy": chỉ nạp `react-native-iap` nếu có (bản build store). Ở Expo Go
+ * Thiết kế "lazy": chỉ nạp `expo-iap` nếu có (bản build store). Ở Expo Go
  * hoặc môi trường không có package → mọi hàm trả về an toàn, IAP coi như "không
  * khả dụng" và app vẫn chạy (dùng nạp VietQR như cũ).
  *
@@ -9,7 +9,7 @@
  * store xác nhận, listener verify (server) + cộng xu, rồi finishTransaction.
  *
  * ⚠ Trước khi phát hành:
- *   1) npx expo install react-native-iap  (và thêm config plugin nếu cần)
+ *   1) npx expo install expo-iap  (và thêm config plugin nếu cần)
  *   2) Tạo sản phẩm CONSUMABLE trên App Store Connect / Play Console với ID
  *      khớp XU_PACKS.productId (xu_100, xu_200, …).
  *   3) Dựng Edge Function `iap-verify` để XÁC THỰC biên nhận phía server rồi
@@ -22,7 +22,21 @@ import { supabase } from './supabase';
 import { isOnlineMode } from './auth';
 
 let RNIap: any = null;
-try { RNIap = require('react-native-iap'); } catch { RNIap = null; }
+let iapLoadTried = false;
+
+/** Nạp `expo-iap` muộn (khi thật sự cần); không có native module (Expo Go/web) thì tắt IAP. */
+function loadIap(): any {
+  if (iapLoadTried) return RNIap;
+  iapLoadTried = true;
+  try {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return null;
+    RNIap = require('expo-iap');
+  } catch (e) {
+    console.warn('[iap] không nạp được expo-iap:', e);
+    RNIap = null;
+  }
+  return RNIap;
+}
 
 let Constants: any = null;
 try { Constants = require('expo-constants').default; } catch { Constants = null; }
@@ -33,9 +47,9 @@ let initialized = false;
 
 /** IAP có khả dụng không (đã cài package + đang trên thiết bị thật, không phải Expo Go). */
 export function isIapAvailable(): boolean {
-  // Expo Go không có native module của react-native-iap → tắt hoàn toàn
+  // Expo Go không có native module của expo-iap → tắt hoàn toàn
   if (Constants?.appOwnership === 'expo') return false;
-  return !!RNIap && (Platform.OS === 'ios' || Platform.OS === 'android');
+  return !!loadIap() && (Platform.OS === 'ios' || Platform.OS === 'android');
 }
 
 const packOf = (productId: string): XuPack | undefined =>
@@ -107,7 +121,7 @@ export async function initIap(handlers?: {
   });
 
   purchaseErrorSub = RNIap.purchaseErrorListener((err: any) => {
-    if (err?.code === 'E_USER_CANCELLED') return;   // người dùng tự hủy → bỏ qua
+    if (err?.code === 'E_USER_CANCELLED' || err?.code === 'user-cancelled') return;   // người dùng tự hủy → bỏ qua
     handlers?.onError?.(err?.message || 'Giao dịch không thành công.');
   });
 
@@ -136,12 +150,12 @@ export async function buyXuPack(productId: string): Promise<void> {
   if (!isIapAvailable()) throw new Error('Nạp qua cửa hàng chỉ dùng trên bản cài từ App Store / CH Play.');
   if (!initialized) await initIap();
   console.log('[IAP] buyXuPack ->', productId);
-  // v15 API: type='inapp' bắt buộc, dùng ios/android (không phải apple/google)
+  // expo-iap: type='in-app' bắt buộc, request dùng apple/google
   await RNIap.requestPurchase({
-    type: 'inapp',
+    type: 'in-app',
     request: {
-      ios: { sku: productId },
-      android: { skus: [productId] },
+      apple: { sku: productId },
+      google: { skus: [productId] },
     },
   });
 }

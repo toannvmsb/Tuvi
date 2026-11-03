@@ -18,6 +18,8 @@ export interface TopupRow {
   status: TopupStatus;
   created_at: string;
   paid_at: string | null;
+  /** 'iap' = mua qua App Store / CH Play (không xóa được khỏi lịch sử). */
+  source?: 'iap';
 }
 
 /** Lịch sử nạp xu của user (mới nhất trước). */
@@ -27,13 +29,29 @@ export async function listTopupOrders(limit = 30): Promise<TopupRow[]> {
     const { data: ures } = await supabase.auth.getUser();
     const uid = ures.user?.id;
     if (!uid) return [];
-    const { data } = await supabase
-      .from('topup_orders')
-      .select('code, amount_vnd, xu, status, created_at, paid_at')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as TopupRow[]) ?? [];
+    const [{ data }, { data: iap }] = await Promise.all([
+      supabase
+        .from('topup_orders')
+        .select('code, amount_vnd, xu, status, created_at, paid_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      supabase
+        .from('iap_transactions')
+        .select('platform, transaction_id, xu, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+    ]);
+    // Giao dịch IAP: 1 xu = 100đ (khớp quy ước nạp xu), luôn là "đã thanh toán".
+    const iapRows: TopupRow[] = ((iap as any[]) ?? []).map(r => ({
+      code: `${r.platform === 'ios' ? 'APPLE' : 'GOOGLE'}-${String(r.transaction_id).slice(-8)}`,
+      amount_vnd: r.xu * 100, xu: r.xu, status: 'paid' as TopupStatus,
+      created_at: r.created_at, paid_at: r.created_at, source: 'iap' as const,
+    }));
+    return [...((data as TopupRow[]) ?? []), ...iapRows]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit);
   } catch { return []; }
 }
 

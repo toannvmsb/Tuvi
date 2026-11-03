@@ -59,7 +59,7 @@ export default function WalletScreen() {
   }, []);
   useEffect(() => { void loadHistory(); }, [loadHistory]);
 
-  // IAP (chỉ bật ở bản build store có react-native-iap).
+  // IAP (chỉ bật ở bản build store có expo-iap).
   const [iapReady, setIapReady] = useState(false);
   const [iapProducts, setIapProducts] = useState<any[]>([]);
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function WalletScreen() {
     let alive = true;
     (async () => {
       const ok = await initIap({
-        onCredited: (_pack, balance) => { setBal(balance); setMsg('✓ Nạp xu qua cửa hàng thành công!'); void addNotification({ id: `topup:${Date.now()}`, type: 'topup', title: 'Nạp xu thành công 🎉', body: 'Số dư của bạn đã được cập nhật.' }); },
+        onCredited: (_pack, balance) => { setBal(balance); void loadHistory(); setMsg('✓ Nạp xu qua cửa hàng thành công!'); void addNotification({ id: `topup:${Date.now()}`, type: 'topup', title: 'Nạp xu thành công 🎉', body: 'Số dư của bạn đã được cập nhật.' }); },
         onError: (m) => setMsg('⚠ ' + m),
       });
       if (!alive) return;
@@ -78,7 +78,7 @@ export default function WalletScreen() {
       }
     })();
     return () => { alive = false; void endIap(); };
-  }, []);
+  }, [loadHistory]);
 
   // Lá số để áp gói combo (combo mở khóa theo TỪNG lá số).
   const [charts, setCharts] = useState<SavedChartRow[]>(() => getCachedCharts() ?? []);
@@ -505,9 +505,11 @@ export default function WalletScreen() {
                         <Text style={styles.histSub}>{fmtDate(h.created_at)} · +{h.xu.toLocaleString('vi-VN')} xu · {h.amount_vnd.toLocaleString('vi-VN')}đ</Text>
                       </View>
                       <Text style={[styles.histStatus, { color: st.color, borderColor: st.color }]}>{st.txt}</Text>
-                      <TouchableOpacity onPress={() => removeHistory(h)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={styles.histDel}>🗑</Text>
-                      </TouchableOpacity>
+                      {h.source !== 'iap' && (
+                        <TouchableOpacity onPress={() => removeHistory(h)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Text style={styles.histDel}>🗑</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   );
                 })}

@@ -11,6 +11,7 @@ import { loadLanguage } from './src/i18n';
 import { COLORS, FONTS, SPACING } from './src/constants/theme';
 import StartupProgress from './src/components/StartupProgress';
 import WebAlertHost from './src/components/WebAlertHost';
+import AppErrorBoundary from './src/components/AppErrorBoundary';
 import AiChatBubble from './src/components/AiChatBubble';
 import { useAppFonts } from './src/ui/fonts';
 import { signInViaPartner } from './src/lib/partnerAuth';
@@ -133,9 +134,11 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <AuthProvider>
-          <Boot />
-        </AuthProvider>
+        <AppErrorBoundary>
+          <AuthProvider>
+            <Boot />
+          </AuthProvider>
+        </AppErrorBoundary>
         <WebAlertHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
