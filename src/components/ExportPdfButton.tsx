@@ -8,7 +8,7 @@ import { TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, View } fr
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { exportAnalysisToPdf, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 
-interface Props {
+export interface ExportPdfButtonProps {
   title: string;
   subtitle?: string;
   headerLines?: string[];
@@ -24,7 +24,7 @@ interface Props {
   label?: string;
 }
 
-export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart, captureCells, daiVanInfo, tieuVanInfo, label }: Props) {
+export default function ExportPdfButton({ title, subtitle, headerLines, badge, fileName, getContent, captureChart, captureCells, daiVanInfo, tieuVanInfo, label }: ExportPdfButtonProps) {
   const [busy, setBusy] = useState(false);
 
   const onPress = async () => {

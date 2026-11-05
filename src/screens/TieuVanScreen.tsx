@@ -20,10 +20,12 @@ import RadarChart from '../components/RadarChart';
 import Svg, { Polyline, Circle } from 'react-native-svg';
 import { tieuVanSections } from '../utils/aiAnalysis';
 import { generateOfflineTieuVan, cutAtSection } from '../core/offlineLuanGiai';
+import { summarizeOfflineTieuVan } from '../core/offlineSummary';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import PaidGate from '../components/PaidGate';
 import ExportPdfButton from '../components/ExportPdfButton';
+import { SummaryCard, AiSummaryCard, DetailHeader, type SummaryPdfProps } from '../components/AnalysisSummary';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { fkey } from '../lib/featureKey';
 import { costNote, PREMIUM, AI_PREVIEW } from '../constants/premium';
@@ -161,6 +163,15 @@ export default function TieuVanScreen({ route }: Props) {
   const cellW = Math.min(width - SPACING.lg * 2 - SPACING.md * 2, 320);
   const cellH = Math.round(cellW * 1.18);
 
+  // Thuộc tính PDF (dùng chung cho Tóm tắt + Chi tiết).
+  const pdfProps = (d: { age: number; year: number; stem: string; branch: string }, mode: 'off' | 'ai'): SummaryPdfProps => ({
+    title: `Tiểu Vận ${d.age} tuổi — năm ${d.year} (${d.stem} ${d.branch})`,
+    subtitle: mode === 'ai' ? 'Bản Phân tích AI' : 'Bản Nâng cao (offline)',
+    badge: mode === 'ai' ? 'PHÂN TÍCH AI' : 'NÂNG CAO',
+    headerLines,
+    fileName: `${result.birthInfo.name || 'Lá số'} - Tiểu vận ${d.age} tuổi năm ${d.year} - ${mode === 'ai' ? 'AI' : 'Nâng cao'}`,
+  });
+
   const openAiTab = (age: number) => {
     setTabMode(s => ({ ...s, [age]: 'ai' }));
     if (!ai[age]) showCached(age, fkey(result, `tv:${age}:ai`));
@@ -276,18 +287,14 @@ export default function TieuVanScreen({ route }: Props) {
                     <View style={styles.aiResult}>
                       {(() => {
                         const c = generateOfflineTieuVan(result, d.age);
+                        const pdf = pdfProps(d, 'off');
                         return (
                           <PaidGate unlockKey={fkey(result, `tv:${d.age}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
                             preview={cutAtSection(c, 'Sắc thái của năm')}>
+                        <SummaryCard markdown={summarizeOfflineTieuVan(result, d.age)} pdf={pdf} />
+                        <DetailHeader />
                         <SimpleMarkdown content={c} />
-                        <ExportPdfButton
-                          title={`Tiểu Vận ${d.age} tuổi — năm ${d.year} (${d.stem} ${d.branch})`}
-                          subtitle="Bản Nâng cao (offline)"
-                          badge="NÂNG CAO"
-                          headerLines={headerLines}
-                          fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận ${d.age} tuổi năm ${d.year} - Nâng cao`}
-                          getContent={() => c}
-                        />
+                        <ExportPdfButton {...pdf} label="📄 Xuất / In PDF — Chi tiết" getContent={() => c} />
                           </PaidGate>
                         );
                       })()}
@@ -305,6 +312,11 @@ export default function TieuVanScreen({ route }: Props) {
                         <AIProgressBar label={`AI đang luận năm ${d.year}…`} />
                       ) : a.status === 'done' ? (
                         <View style={styles.aiResult}>
+                          <AiSummaryCard
+                            summaryKey={fkey(result, `tv:${d.age}:ai:sum`)} kind="tv" result={result}
+                            pdf={pdfProps(d, 'ai')} detail={a.shown ?? a.text} ready={!a.fetchingMore && !a.missing}
+                          />
+                          <DetailHeader />
                           <SimpleMarkdown content={a.shown ?? a.text} />
                           {a.fetchingMore && (
                             <Text style={styles.dim}>✍️ AI đang soạn tiếp các phần sau… (bạn cứ đọc, nội dung sẽ nối tiếp)</Text>
@@ -314,14 +326,7 @@ export default function TieuVanScreen({ route }: Props) {
                             <MissingPartsNotice missing={a.missing} retrying={a.retrying} onRetry={() => retryMissing(d.age)} />
                           )}
                           {!a.fetchingMore && !a.missing && (
-                            <ExportPdfButton
-                              title={`Tiểu Vận ${d.age} tuổi — năm ${d.year} (${d.stem} ${d.branch})`}
-                              subtitle="Bản Phân tích AI"
-                              badge="PHÂN TÍCH AI"
-                              headerLines={headerLines}
-                              fileName={`${result.birthInfo.name || 'Lá số'} - Tiểu vận ${d.age} tuổi năm ${d.year} - AI`}
-                              getContent={() => a.shown ?? a.text}
-                            />
+                            <ExportPdfButton {...pdfProps(d, 'ai')} label="📄 Xuất / In PDF — Chi tiết" getContent={() => a.shown ?? a.text} />
                           )}
                           <TouchableOpacity onPress={() => runAI(d.age, true)}><Text style={styles.retry}>↻ Phân tích lại (−{PREMIUM.COST.aiLarge} xu)</Text></TouchableOpacity>
                         </View>

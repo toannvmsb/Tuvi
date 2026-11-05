@@ -15,10 +15,12 @@ import AIProgressBar from '../components/AIProgressBar';
 import TuViChart from '../components/TuViChart';
 import HouseCell from '../components/TuViChart/HouseCell';
 import ExportPdfButton from '../components/ExportPdfButton';
+import { SummaryCard, AiSummaryCard, DetailHeader, type SummaryPdfProps } from '../components/AnalysisSummary';
 import MissingPartsNotice from '../components/MissingPartsNotice';
 import { captureChartDataUri, captureRefDataUri, chartHeaderLines, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 import { fullChartSections } from '../utils/aiAnalysis';
 import { generateOfflineFullChart, cutAtSection } from '../core/offlineLuanGiai';
+import { summarizeOfflineFullChart } from '../core/offlineSummary';
 import { wallet, PREMIUM, premiumBadgeNote, costNote, xuVnd, AI_VALUE_NOTE, AI_PREVIEW } from '../constants/premium';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import PaidGate from '../components/PaidGate';
@@ -63,6 +65,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
 
   // Báo cáo offline rule-based — sẵn sàng ngay, không tốn xu/không cần mạng.
   const offlineText = useMemo(() => generateOfflineFullChart(result), [result]);
+  const offlineSummary = useMemo(() => summarizeOfflineFullChart(result), [result]);
   // Key trừ xu/cache GẮN VỚI NĂM XEM → mỗi năm trừ 1 lần, mở lại năm đó miễn phí.
   const yearKey = result.tuViChart.viewingYear ?? 'na';
   const aiKey = fkey(result, `chart:ai:${yearKey}`);
@@ -115,6 +118,23 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
     } : undefined;
     return { dvInfo, tvInfo };
   }, [result]);
+
+  const pdfBase = {
+    title: 'Phân tích toàn lá số',
+    headerLines,
+    captureChart,
+    captureCells,
+    daiVanInfo: pdfSideInfo.dvInfo,
+    tieuVanInfo: pdfSideInfo.tvInfo,
+  };
+  const pdfOffline: SummaryPdfProps = {
+    ...pdfBase, subtitle: 'Bản Nâng cao (offline)', badge: 'NÂNG CAO',
+    fileName: `${result.birthInfo.name || 'Lá số'} - Toàn lá số - Nâng cao`,
+  };
+  const pdfAi: SummaryPdfProps = {
+    ...pdfBase, subtitle: 'Bản Phân tích AI', badge: 'PHÂN TÍCH AI',
+    fileName: `${result.birthInfo.name || 'Lá số'} - Toàn lá số - AI`,
+  };
 
   // Đánh máy NỐI TIẾP: liên tục tiến `shown` về phía textRef.current (lớn dần khi
   // các phần sau tải xong). Tốc độ đánh máy đóng vai trò "đệm" che thời gian tải.
@@ -261,19 +281,10 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
 
             <PaidGate unlockKey={fkey(result, `chart:adv:${yearKey}`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
               preview={cutAtSection(offlineText, 'Tổng quan bố cục lá số')}>
+              <SummaryCard markdown={offlineSummary} pdf={pdfOffline} />
+              <DetailHeader />
               <SimpleMarkdown content={offlineText} />
-              <ExportPdfButton
-                title="Phân tích toàn lá số"
-                subtitle="Bản Nâng cao (offline)"
-                badge="NÂNG CAO"
-                headerLines={headerLines}
-                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn lá số - Nâng cao`}
-                getContent={() => offlineText}
-                captureChart={captureChart}
-                captureCells={captureCells}
-                daiVanInfo={pdfSideInfo.dvInfo}
-                tieuVanInfo={pdfSideInfo.tvInfo}
-              />
+              <ExportPdfButton {...pdfOffline} label="📄 Xuất / In PDF — Chi tiết" getContent={() => offlineText} />
             </PaidGate>
           </View>
         )}
@@ -316,6 +327,11 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
 
         {status === 'done' && (
           <View style={styles.resultBox}>
+            <AiSummaryCard
+              summaryKey={`${aiKey}:sum`} kind="chart" result={result} pdf={pdfAi}
+              detail={textRef.current || shown} ready={!fetchingMore && missing === 0}
+            />
+            <DetailHeader />
             <SimpleMarkdown content={shown} />
             {fetchingMore && (
               <Text style={styles.dim}>✍️ AI đang soạn tiếp các phần sau… (bạn cứ đọc, nội dung sẽ nối tiếp)</Text>
@@ -327,18 +343,7 @@ export default function FullChartAIScreen({ route, navigation }: Props) {
               <MissingPartsNotice missing={missing} retrying={retrying} onRetry={retryMissing} />
             )}
             {!fetchingMore && missing === 0 && (
-              <ExportPdfButton
-                title="Phân tích toàn lá số"
-                subtitle="Bản Phân tích AI"
-                badge="PHÂN TÍCH AI"
-                headerLines={headerLines}
-                fileName={`${result.birthInfo.name || 'Lá số'} - Toàn lá số - AI`}
-                getContent={() => textRef.current || shown}
-                captureChart={captureChart}
-                captureCells={captureCells}
-                daiVanInfo={pdfSideInfo.dvInfo}
-                tieuVanInfo={pdfSideInfo.tvInfo}
-              />
+              <ExportPdfButton {...pdfAi} label="📄 Xuất / In PDF — Chi tiết" getContent={() => textRef.current || shown} />
             )}
             <TouchableOpacity style={styles.retry} onPress={() => run(true)}>
               <Text style={styles.retryText}>↻ Phân tích lại (−{PREMIUM.COST.aiLarge} xu)</Text>

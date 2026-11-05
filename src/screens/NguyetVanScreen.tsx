@@ -18,10 +18,12 @@ import RadarChart from '../components/RadarChart';
 import MonthDayHeatmapPanel from '../components/MonthDayHeatmapPanel';
 import { solarToLunar } from '../core/lunarCalendar';
 import { generateOfflineNguyetVan, cutAtSection } from '../core/offlineLuanGiai';
+import { summarizeOfflineNguyetVan } from '../core/offlineSummary';
 import { analyzeNguyetVanWithAI } from '../utils/aiAnalysis';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import ExportPdfButton from '../components/ExportPdfButton';
+import { SummaryCard, AiSummaryCard, DetailHeader, type SummaryPdfProps } from '../components/AnalysisSummary';
 import { chartHeaderLines } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
 import VanTierHeader from '../ui/VanTierHeader';
@@ -144,6 +146,15 @@ export default function NguyetVanScreen({ route }: Props) {
 
   const chartW = width - SPACING.lg * 2 - SPACING.md * 2;
   const colW = Math.floor(chartW / 12);
+
+  // Thuộc tính PDF (dùng chung cho Tóm tắt + Chi tiết).
+  const pdfProps = (month: number, mode: 'off' | 'ai'): SummaryPdfProps => ({
+    title: `Nguyệt Vận tháng ${month}${year ? ` năm ${year}` : ''}`,
+    subtitle: mode === 'ai' ? 'Bản Phân tích AI' : 'Bản Nâng cao (offline)',
+    badge: mode === 'ai' ? 'PHÂN TÍCH AI' : 'NÂNG CAO',
+    headerLines: chartHeaderLines(result),
+    fileName: `${result.birthInfo.name || 'Lá số'} - Nguyệt vận tháng ${month}${year ? ` năm ${year}` : ''} - ${mode === 'ai' ? 'AI' : 'Nâng cao'}`,
+  });
 
   const openAiTab = (m: number) => {
     setTabMode(s => ({ ...s, [m]: 'ai' }));
@@ -332,15 +343,10 @@ export default function NguyetVanScreen({ route }: Props) {
                         return (
                           <PaidGate unlockKey={fkey(result, `nv:${age}:${d.month}:adv`)} kind="advanced"
                             preview={cutAtSection(c, 'Sắc thái của tháng')}>
+                            <SummaryCard markdown={summarizeOfflineNguyetVan(result, age, d.month)} pdf={pdfProps(d.month, 'off')} />
+                            <DetailHeader />
                             <SimpleMarkdown content={c} />
-                            <ExportPdfButton
-                              title={`Nguyệt Vận tháng ${d.month}${year ? ` năm ${year}` : ''}`}
-                              subtitle="Bản Nâng cao (offline)"
-                              badge="NÂNG CAO"
-                              headerLines={chartHeaderLines(result)}
-                              fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận tháng ${d.month}${year ? ` năm ${year}` : ''} - Nâng cao`}
-                              getContent={() => c}
-                            />
+                            <ExportPdfButton {...pdfProps(d.month, 'off')} label="📄 Xuất / In PDF — Chi tiết" getContent={() => c} />
                           </PaidGate>
                         );
                       })()}
@@ -358,16 +364,14 @@ export default function NguyetVanScreen({ route }: Props) {
                         <AIProgressBar label={`AI đang luận tháng ${d.month}…`} />
                       ) : a.status === 'done' ? (
                         <View style={styles.aiResult}>
+                          <AiSummaryCard
+                            summaryKey={fkey(result, `nv:${age}:${d.month}:ai:sum`)} kind="nv" result={result}
+                            pdf={pdfProps(d.month, 'ai')} detail={a.text} ready
+                          />
+                          <DetailHeader />
                           <SimpleMarkdown content={a.text} />
                           <Text style={styles.dim}>* Nội dung AI, mang tính tham khảo.</Text>
-                          <ExportPdfButton
-                            title={`Nguyệt Vận tháng ${d.month}${year ? ` năm ${year}` : ''}`}
-                            subtitle="Bản Phân tích AI"
-                            badge="PHÂN TÍCH AI"
-                            headerLines={chartHeaderLines(result)}
-                            fileName={`${result.birthInfo.name || 'Lá số'} - Nguyệt vận tháng ${d.month}${year ? ` năm ${year}` : ''} - AI`}
-                            getContent={() => a.text}
-                          />
+                          <ExportPdfButton {...pdfProps(d.month, 'ai')} label="📄 Xuất / In PDF — Chi tiết" getContent={() => a.text} />
                           <TouchableOpacity onPress={() => runAI(d.month, true)}><Text style={styles.retry}>↻ Phân tích lại (−{PREMIUM.COST.ai} xu)</Text></TouchableOpacity>
                         </View>
                       ) : (

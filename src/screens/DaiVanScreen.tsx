@@ -19,6 +19,7 @@ import { DaiVanRadarBlock, Years10Chart, DomainScoresPanel } from '../components
 import HouseCell from '../components/TuViChart/HouseCell';
 import TuViChart from '../components/TuViChart';
 import ExportPdfButton from '../components/ExportPdfButton';
+import { SummaryCard, AiSummaryCard, DetailHeader, type SummaryPdfProps } from '../components/AnalysisSummary';
 import { captureChartDataUri, captureRefDataUri, chartHeaderLines, type PdfDaiVanInfo, type PdfTieuVanInfo } from '../utils/pdfExport';
 import ScreenHeader from '../components/ScreenHeader';
 import VanTierHeader from '../ui/VanTierHeader';
@@ -26,6 +27,7 @@ import { navigationRef } from '../navigation/AppNavigator';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { daiVanSections } from '../utils/aiAnalysis';
 import { generateOfflineDaiVan, cutAtSection } from '../core/offlineLuanGiai';
+import { summarizeOfflineDaiVan } from '../core/offlineSummary';
 import SimpleMarkdown from '../components/SimpleMarkdown';
 import AIProgressBar from '../components/AIProgressBar';
 import PaidGate from '../components/PaidGate';
@@ -154,6 +156,19 @@ export default function DaiVanScreen({ route }: Props) {
     return { dvInfo, tvInfo };
   };
 
+  // Thuộc tính PDF bản AI (dùng chung cho Tóm tắt + Chi tiết).
+  const aiPdf = (d: { index: number; label: string; stem: string; branch: string; startAge: number; endAge: number }): SummaryPdfProps => ({
+    title: `Đại Vận ${d.label} tuổi (${d.stem} ${d.branch})`,
+    subtitle: 'Bản Phân tích AI',
+    badge: 'PHÂN TÍCH AI',
+    headerLines,
+    fileName: `${result.birthInfo.name || 'Lá số'} - Đại vận ${d.startAge}-${d.endAge} tuổi - AI`,
+    captureChart,
+    captureCells: () => captureCells(d.index),
+    daiVanInfo: getPdfSideInfo(d.index).dvInfo,
+    tieuVanInfo: getPdfSideInfo(d.index).tvInfo,
+  });
+
   // Mở tab AI của 1 đại vận: nếu đã có kết quả lưu → hiện lại ngay (miễn phí).
   const openAiTab = (idx: number) => {
     setTabMode(s => ({ ...s, [idx]: 'ai' }));
@@ -256,22 +271,24 @@ export default function DaiVanScreen({ route }: Props) {
                     <View style={styles.aiResult}>
                       {(() => {
                         const c = generateOfflineDaiVan(result, d.index);
+                        const pdf: SummaryPdfProps = {
+                          title: `Đại Vận ${d.label} tuổi (${d.stem} ${d.branch})`,
+                          subtitle: 'Bản Nâng cao (offline)',
+                          badge: 'NÂNG CAO',
+                          headerLines,
+                          fileName: `${result.birthInfo.name || 'Lá số'} - Đại vận ${d.startAge}-${d.endAge} tuổi - Nâng cao`,
+                          captureChart,
+                          captureCells: () => captureCells(d.index),
+                          daiVanInfo: getPdfSideInfo(d.index).dvInfo,
+                          tieuVanInfo: getPdfSideInfo(d.index).tvInfo,
+                        };
                         return (
                           <PaidGate unlockKey={fkey(result, `dv:${d.index}:adv`)} kind="advanced" cost={PREMIUM.COST.advancedMajor}
                             preview={cutAtSection(c, 'Cục diện chung của đại vận')}>
+                            <SummaryCard markdown={summarizeOfflineDaiVan(result, d.index)} pdf={pdf} />
+                            <DetailHeader />
                             <SimpleMarkdown content={c} />
-                            <ExportPdfButton
-                              title={`Đại Vận ${d.label} tuổi (${d.stem} ${d.branch})`}
-                              subtitle="Bản Nâng cao (offline)"
-                              badge="NÂNG CAO"
-                              headerLines={headerLines}
-                              fileName={`${result.birthInfo.name || 'Lá số'} - Đại vận ${d.startAge}-${d.endAge} tuổi - Nâng cao`}
-                              getContent={() => c}
-                              captureChart={captureChart}
-                              captureCells={() => captureCells(d.index)}
-                              daiVanInfo={getPdfSideInfo(d.index).dvInfo}
-                              tieuVanInfo={getPdfSideInfo(d.index).tvInfo}
-                            />
+                            <ExportPdfButton {...pdf} label="📄 Xuất / In PDF — Chi tiết" getContent={() => c} />
                           </PaidGate>
                         );
                       })()}
@@ -289,6 +306,11 @@ export default function DaiVanScreen({ route }: Props) {
                         <AIProgressBar label={`AI đang luận đại vận ${d.label}…`} />
                       ) : a.status === 'done' ? (
                         <View style={styles.aiResult}>
+                          <AiSummaryCard
+                            summaryKey={fkey(result, `dv:${d.index}:ai:sum`)} kind="dv" result={result}
+                            pdf={aiPdf(d)} detail={a.shown ?? a.text} ready={!a.fetchingMore && !a.missing}
+                          />
+                          <DetailHeader />
                           <SimpleMarkdown content={a.shown ?? a.text} />
                           {a.fetchingMore && (
                             <Text style={styles.dim}>✍️ AI đang soạn tiếp các phần sau… (bạn cứ đọc, nội dung sẽ nối tiếp)</Text>
@@ -298,18 +320,7 @@ export default function DaiVanScreen({ route }: Props) {
                             <MissingPartsNotice missing={a.missing} retrying={a.retrying} onRetry={() => retryMissing(d.index)} />
                           )}
                           {!a.fetchingMore && !a.missing && (
-                            <ExportPdfButton
-                              title={`Đại Vận ${d.label} tuổi (${d.stem} ${d.branch})`}
-                              subtitle="Bản Phân tích AI"
-                              badge="PHÂN TÍCH AI"
-                              headerLines={headerLines}
-                              fileName={`${result.birthInfo.name || 'Lá số'} - Đại vận ${d.startAge}-${d.endAge} tuổi - AI`}
-                              getContent={() => a.shown ?? a.text}
-                              captureChart={captureChart}
-                              captureCells={() => captureCells(d.index)}
-                              daiVanInfo={getPdfSideInfo(d.index).dvInfo}
-                              tieuVanInfo={getPdfSideInfo(d.index).tvInfo}
-                            />
+                            <ExportPdfButton {...aiPdf(d)} label="📄 Xuất / In PDF — Chi tiết" getContent={() => a.shown ?? a.text} />
                           )}
                           <TouchableOpacity onPress={() => runAI(d.index, true)}>
                             <Text style={styles.retry}>↻ Phân tích lại (−{PREMIUM.COST.aiLarge} xu)</Text>
