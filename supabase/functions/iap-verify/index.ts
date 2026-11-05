@@ -18,6 +18,8 @@
  * bao nhiêu lần cũng được). Giờ gọi THẬT App Store / Google Play Developer API.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { compactVerify, importX509 } from 'npm:jose@5';
+import { X509Certificate } from 'npm:@peculiar/x509@1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -39,7 +41,46 @@ const json = (b: unknown, s = 200) =>
 
 /** Xác thực biên nhận iOS qua App Store `verifyReceipt` (thử production trước, fallback sandbox
  * khi Apple trả status 21007 — receipt sandbox gửi nhầm endpoint production). */
+/** SHA-256 của Apple Root CA - G3 (gốc tin cậy của chữ ký StoreKit 2). */
+const APPLE_ROOT_G3_SHA256 = '63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179';
+const IOS_BUNDLE_ID = Deno.env.get('IOS_BUNDLE_ID') ?? 'com.tuzi.app';
+
+const toHex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+
+/** Xác thực giao dịch StoreKit 2 (JWS): chuỗi chứng chỉ x5c phải kết thúc ở Apple Root CA G3,
+ * chữ ký hợp lệ, đúng bundle + sản phẩm. Trả transactionId của Apple. */
+async function verifyAppleJws(jws: string, productId: string): Promise<{ ok: boolean; txnId?: string }> {
+  try {
+    const header = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(jws.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))));
+    const x5c: string[] = header.x5c ?? [];
+    if (header.alg !== 'ES256' || x5c.length < 2) return { ok: false };
+    const certs = x5c.map(c => new X509Certificate(c));
+    // Gốc phải đúng Apple Root CA G3.
+    const root = certs[certs.length - 1];
+    if (toHex(await crypto.subtle.digest('SHA-256', root.rawData)) !== APPLE_ROOT_G3_SHA256) return { ok: false };
+    // Mỗi chứng chỉ phải do chứng chỉ kế tiếp ký, và còn hạn.
+    const now = new Date();
+    for (let i = 0; i < certs.length; i++) {
+      if (now < certs[i].notBefore || now > certs[i].notAfter) return { ok: false };
+      const issuer = certs[i + 1] ?? certs[i];
+      if (!(await certs[i].verify({ publicKey: issuer.publicKey, signatureOnly: true }))) return { ok: false };
+    }
+    const key = await importX509(`-----BEGIN CERTIFICATE-----
+${x5c[0]}
+-----END CERTIFICATE-----`, 'ES256');
+    const { payload } = await compactVerify(jws, key);
+    const t = JSON.parse(new TextDecoder().decode(payload));
+    if (t.bundleId !== IOS_BUNDLE_ID || t.productId !== productId || t.revocationDate) return { ok: false };
+    return t.transactionId ? { ok: true, txnId: String(t.transactionId) } : { ok: false };
+  } catch (e) {
+    console.error('[iap-verify] JWS lỗi:', (e as Error)?.message);
+    return { ok: false };
+  }
+}
+
 async function verifyApple(receipt: string, productId: string): Promise<{ ok: boolean; txnId?: string }> {
+  // StoreKit 2 (expo-iap): purchaseToken là JWS 3 phần; biên nhận cũ (verifyReceipt) là base64 thường.
+  if (/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(receipt)) return verifyAppleJws(receipt, productId);
   const sharedSecret = Deno.env.get('APPLE_SHARED_SECRET') ?? '';
   if (!receipt || !sharedSecret) return { ok: false };
   const body = JSON.stringify({ 'receipt-data': receipt, password: sharedSecret, 'exclude-old-transactions': true });

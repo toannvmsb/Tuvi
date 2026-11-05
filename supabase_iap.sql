@@ -43,3 +43,8 @@ begin
 
   return newbal;
 end; $$;
+
+-- 4) Khóa quyền gọi: CHỈ service_role (Edge Function iap-verify) được cộng xu.
+--    Thiếu bước này, mọi user đăng nhập có thể tự gọi RPC credit_iap để cộng xu miễn phí.
+revoke all on function public.credit_iap(uuid, text, text, int, text) from public, anon, authenticated;
+grant execute on function public.credit_iap(uuid, text, text, int, text) to service_role;

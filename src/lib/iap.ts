@@ -63,7 +63,7 @@ const packOf = (productId: string): XuPack | undefined =>
  */
 async function creditPurchase(pack: XuPack, purchase: any): Promise<number> {
   if (isOnlineMode()) {
-    try {
+    {
       // QUAN TRỌNG: phải gửi ĐÚNG Product ID theo từng nền tảng (iOS: ios_xu_*, Android: xu_*).
       // Trước đây luôn gửi pack.productId (bản Android) kể cả khi mua trên iOS → server xác thực
       // Apple receipt so khớp productId sai, mọi giao dịch iOS đều bị từ chối (invalid_receipt)
@@ -74,7 +74,7 @@ async function creditPurchase(pack: XuPack, purchase: any): Promise<number> {
           platform: Platform.OS,
           productId,
           // iOS: transactionReceipt; Android: purchaseToken + packageName
-          receipt: purchase?.transactionReceipt,
+          receipt: purchase?.transactionReceipt ?? purchase?.purchaseToken,   // expo-iap iOS: purchaseToken = JWS StoreKit 2
           purchaseToken: purchase?.purchaseToken,
           transactionId: purchase?.transactionId,
         },
@@ -83,7 +83,11 @@ async function creditPurchase(pack: XuPack, purchase: any): Promise<number> {
         seedWallet({ balance: (data as any).balance });
         return (data as any).balance;
       }
-    } catch { /* chưa có function → fallback */ }
+      // Server từ chối/lỗi: KHÔNG cộng xu giả cục bộ (sẽ biến mất khi đồng bộ và không có trong lịch sử).
+      let detail = (data as any)?.error as string | undefined;
+      try { detail = detail ?? (await (error as any)?.context?.json?.())?.error; } catch {}
+      throw new Error(`Chưa xác thực được giao dịch (${detail || error?.message || 'lỗi máy chủ'}). Xu sẽ được cộng khi xác thực thành công — vui lòng mở lại màn Ví.`);
+    }
   }
   // Fallback (dev/test hoặc chưa dựng server): cộng cục bộ.
   return deposit(pack.xu);
@@ -114,9 +118,10 @@ export async function initIap(handlers?: {
         const bal = await creditPurchase(pack, purchase);
         handlers?.onCredited?.(pack, bal);
       }
-    } finally {
-      // Đánh dấu giao dịch đã xử lý (consumable → cho mua lại lần sau).
+      // Chỉ đánh dấu đã xử lý SAU khi server đã cộng xu; nếu lỗi, giao dịch còn treo để store gửi lại lần sau.
       try { await RNIap.finishTransaction({ purchase, isConsumable: true }); } catch {}
+    } catch (e: any) {
+      handlers?.onError?.(e?.message || 'Giao dịch chưa được xác thực.');
     }
   });
 
