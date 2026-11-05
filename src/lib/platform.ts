@@ -56,38 +56,50 @@ export async function printHtml(html: string, fileName?: string): Promise<void> 
   }
   try { Sharing = require('expo-sharing'); } catch {}
   const { uri } = await Print.printToFileAsync({ html, base64: false });
-  // expo-print đặt tên file ngẫu nhiên → đổi sang fileName mong muốn trước khi chia sẻ.
-  const shareUri = fileName ? (await renamePdfFile(uri, fileName)) ?? uri : uri;
-  if (Sharing && (await Sharing.isAvailableAsync())) {
-    await Sharing.shareAsync(shareUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+  // expo-print đặt tên file ngẫu nhiên → SAO CHÉP sang tên mong muốn (giữ nguyên file gốc làm đường lùi).
+  const named = fileName ? await renamePdfFile(uri, fileName) : undefined;
+  if (!Sharing || !(await Sharing.isAvailableAsync())) return;
+  // Thử lần lượt: file đã đặt tên → file gốc → file gốc sau một nhịp ngắn (iOS đôi khi từ chối "You don't
+  // have access to the provided file" khi chia sẻ ngay sau lần chia sẻ trước hoặc khi file mới tạo chưa sẵn sàng).
+  const attempts: { u: string; wait: number }[] = [];
+  if (named) attempts.push({ u: named, wait: 0 });
+  attempts.push({ u: uri, wait: 0 }, { u: uri, wait: 600 });
+  let lastErr: unknown;
+  for (const a of attempts) {
+    try {
+      if (a.wait) await new Promise(r => setTimeout(r, a.wait));
+      await Sharing.shareAsync(a.u, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      return;
+    } catch (e) { lastErr = e; }
   }
+  throw lastErr;
 }
 
-/** Đổi tên file PDF (expo-print tạo tên ngẫu nhiên) sang `${fileName}.pdf` trong thư mục cache.
+/** Sao chép file PDF (expo-print tạo tên ngẫu nhiên) sang `${fileName}.pdf` trong thư mục cache.
  *  Hỗ trợ cả API mới (expo-file-system v19 — File/Paths) lẫn API cũ (cacheDirectory/moveAsync). */
 async function renamePdfFile(uri: string, fileName: string): Promise<string | undefined> {
   const safe = fileName.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'phan-tich';
+  // Mỗi lần xuất vào MỘT THƯ MỤC MỚI (theo thời gian) → không bao giờ đè/xóa file cũ mà iOS còn đang giữ
+  // (nguyên nhân lỗi "You don't have access to the provided file" lúc được lúc không khi xuất lại cùng tên).
+  const stamp = `pdf-${Date.now()}`;
   try {
     const FS: any = require('expo-file-system');
-    if (FS?.File && FS?.Paths?.cache) {
-      const dest = new FS.File(FS.Paths.cache, `${safe}.pdf`);
-      try { if (dest.exists) dest.delete(); } catch {}
-      new FS.File(uri).move(dest);
-      return dest.uri ?? uri;
-    }
-    if (FS?.cacheDirectory && FS?.moveAsync) {
-      const target = `${FS.cacheDirectory}${safe}.pdf`;
-      try { await FS.deleteAsync(target, { idempotent: true }); } catch {}
-      await FS.moveAsync({ from: uri, to: target });
-      return target;
+    if (FS?.File && FS?.Directory && FS?.Paths?.cache) {
+      const dir = new FS.Directory(FS.Paths.cache, stamp);
+      dir.create();
+      const dest = new FS.File(dir, `${safe}.pdf`);
+      await new FS.File(uri).copy(dest);   // BẤT ĐỒNG BỘ (Promise) — phải chờ xong mới chia sẻ
+      return dest.uri ?? undefined;
     }
   } catch { /* thử legacy bên dưới */ }
   try {
     const Legacy: any = require('expo-file-system/legacy');
-    if (Legacy?.cacheDirectory && Legacy?.moveAsync) {
-      const target = `${Legacy.cacheDirectory}${safe}.pdf`;
-      try { await Legacy.deleteAsync(target, { idempotent: true }); } catch {}
-      await Legacy.moveAsync({ from: uri, to: target });
+    if (Legacy?.cacheDirectory && Legacy?.copyAsync && Legacy?.makeDirectoryAsync) {
+      const dir = `${Legacy.cacheDirectory}${stamp}/`;
+      await Legacy.makeDirectoryAsync(dir, { intermediates: true });
+      // Đường dẫn dạng URI phải mã hóa dấu cách/tiếng Việt.
+      const target = `${dir}${encodeURIComponent(safe)}.pdf`;
+      await Legacy.copyAsync({ from: uri, to: target });
       return target;
     }
   } catch { /* giữ uri gốc */ }

@@ -165,7 +165,7 @@ export function summarizeOfflineFullChart(result: AstrologyResult): string {
   out.push(`1. Xây cuộc đời quanh **${best.k}** — đó là chỗ lá số cho bạn nhiều lực nhất.`);
   out.push(`2. Với **${worst.k}**: ${worst.v <= 4 ? 'đặt thành ưu tiên phòng ngừa, có kế hoạch dự phòng rõ ràng' : 'theo dõi định kỳ, không để thành điểm nghẽn'}.`);
   out.push('3. Bám nhịp đại vận: dồn lực khi vận thuận, thủ thế khi vận nhiều thách thức; xem phần chi tiết bên dưới để biết từng cung.');
-  out.push('', '_Tóm tắt mang tính tham khảo theo Nam Phái; chi tiết từng cung ở phần Phân tích chi tiết._');
+  out.push('', 'ℹ Tóm tắt mang tính tham khảo theo Nam Phái; chi tiết từng cung ở phần Phân tích chi tiết.');
   return out.join('\n');
 }
 
@@ -174,7 +174,7 @@ export function summarizeOfflineFullChart(result: AstrologyResult): string {
 // ════════════════════════════════════════════════════════════════
 export function summarizeOfflineDaiVan(result: AstrologyResult, dvIndex: number): string {
   const dv = result.daiVans.find(d => d.index === dvIndex);
-  if (!dv) return '_Không tìm thấy đại vận này._';
+  if (!dv) return 'Không tìm thấy đại vận này.';
   const sc: DaiVanScore = scoreDaiVan(result, dv);
   const h = result.tuViChart.houses.find(x => x.branch === dv.branch);
   const tone = ratingTone(sc.rating);
@@ -201,7 +201,7 @@ export function summarizeOfflineDaiVan(result: AstrologyResult, dvIndex: number)
 
   out.push('# 3 việc nên làm trong đại vận này');
   actionsByTone(tone, top, low, 'giai đoạn').forEach((t, i) => out.push(`${i + 1}. ${t}`));
-  out.push('', '_Tóm tắt mang tính tham khảo; xem phần Phân tích chi tiết để biết từng giai đoạn nhỏ trong đại vận._');
+  out.push('', 'ℹ Tóm tắt mang tính tham khảo; xem phần Phân tích chi tiết để biết từng giai đoạn nhỏ trong đại vận.');
   return out.join('\n');
 }
 
@@ -210,7 +210,7 @@ export function summarizeOfflineDaiVan(result: AstrologyResult, dvIndex: number)
 // ════════════════════════════════════════════════════════════════
 export function summarizeOfflineTieuVan(result: AstrologyResult, age: number): string {
   const tv = result.tieuVans.find(x => x.age === age);
-  if (!tv) return '_Không tìm thấy tiểu vận này._';
+  if (!tv) return 'Không tìm thấy tiểu vận này.';
   const sc: TieuVanScore = scoreTieuVan(result, tv);
   const h = result.tuViChart.houses.find(x => x.branch === tv.branch);
   const dv = result.daiVans[tv.daiVanIndex];
@@ -252,7 +252,7 @@ export function summarizeOfflineTieuVan(result: AstrologyResult, age: number): s
 
   out.push('# Kế hoạch hành động cho năm');
   actionsByTone(tone, top, low, 'năm').forEach((t, i) => out.push(`${i + 1}. ${t}`));
-  out.push('', '_Tiểu vận là kế hoạch 1 năm, không phải định mệnh cố định. Xem Phân tích chi tiết để biết từng cung và từng tháng._');
+  out.push('', 'ℹ Tiểu vận là kế hoạch 1 năm, không phải định mệnh cố định. Xem Phân tích chi tiết để biết từng cung và từng tháng.');
   return out.join('\n');
 }
 
@@ -262,7 +262,7 @@ export function summarizeOfflineTieuVan(result: AstrologyResult, age: number): s
 export function summarizeOfflineNguyetVan(result: AstrologyResult, age: number, month: number): string {
   const sc = scoreNguyetVan(result, age, month);
   const dt = nguyetVanDetail(result, age, month);
-  if (!sc || !dt) return '_Chưa đủ dữ liệu để tóm tắt tháng này._';
+  if (!sc || !dt) return 'Chưa đủ dữ liệu để tóm tắt tháng này.';
   const tv = result.tieuVans.find(x => x.age === age);
   const out: string[] = [];
 
@@ -292,6 +292,6 @@ export function summarizeOfflineNguyetVan(result: AstrologyResult, age: number, 
   const acts = [strong[0]?.action, strong[1]?.action, (weak[0]?.score ?? 10) <= 6 ? weak[0]?.action : undefined].filter((x): x is string => !!x);
   acts.forEach((t, i) => out.push(`${i + 1}. ${t}`));
   if (!acts.length) out.push('1. Giữ nhịp sinh hoạt ổn định; tập trung việc đang dở trước khi mở việc mới.');
-  out.push('', '_Tóm tắt mang tính tham khảo; chi tiết từng chủ đề và từng tuần ở phần Phân tích chi tiết._');
+  out.push('', 'ℹ Tóm tắt mang tính tham khảo; chi tiết từng chủ đề và từng tuần ở phần Phân tích chi tiết.');
   return out.join('\n');
 }
