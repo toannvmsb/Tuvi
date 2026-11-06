@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { solarToLunar } from '../core/lunarCalendar';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { CAL_TONE } from '../constants/theme';
+import { CAL_TONE, fadeColor } from '../constants/theme';
 import { TONE_COLOR, TONE_LABEL, type DayTone, type MonthHeatmap } from '../core/dailyPeriodService';
 
 export interface DayInfo { tone: DayTone; hasWarning: boolean }
@@ -19,7 +19,11 @@ interface Props {
   monthHeatmap?: MonthHeatmap;
   /** Bắn ra khi người dùng đổi tháng xem (bấm ‹ ›) hoặc lần đầu mount — để parent tính lại monthHeatmap cho đúng tháng. */
   onViewMonthChange?: (year: number, month0: number) => void;
+  /** Có truyền → lịch hiện thêm ngày MỜ của tháng trước/sau (có màu theo bản đồ nhiệt của tháng đó). */
+  getHeatmap?: (year: number, month1: number) => MonthHeatmap;
 }
+
+type Cell = { y: number; m0: number; d: number; out: boolean } | null;
 
 const WEEK_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const MONTH_VI = [
@@ -37,7 +41,7 @@ function isSameDay(a: Date, b: Date) {
     a.getDate() === b.getDate();
 }
 
-export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthHeatmap, onViewMonthChange }: Props) {
+export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthHeatmap, onViewMonthChange, getHeatmap }: Props) {
   const todayDate = useMemo(() => noon(new Date()), []);
   const [viewYear, setViewYear]   = useState(selectedDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
@@ -65,15 +69,45 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
     else setViewMonth(m => m + 1);
   };
 
-  // Ô lưới ngày (Mon-first)
-  const cells = useMemo<(number | null)[]>(() => {
+  // Ô lưới ngày (Mon-first). Có `getHeatmap` → ô trống đầu/cuối tuần được lấp bằng ngày MỜ của tháng trước/sau.
+  const cells = useMemo<Cell[]>(() => {
     const firstDow = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
     const total    = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const arr: (number | null)[] = Array(firstDow).fill(null);
-    for (let d = 1; d <= total; d++) arr.push(d);
-    while (arr.length % 7 !== 0) arr.push(null);
+    const fade = !!getHeatmap;
+    const arr: Cell[] = [];
+    if (fade) {
+      const prevTotal = new Date(viewYear, viewMonth, 0).getDate();
+      const pm0 = viewMonth === 0 ? 11 : viewMonth - 1;
+      const py = viewMonth === 0 ? viewYear - 1 : viewYear;
+      for (let i = firstDow; i > 0; i--) arr.push({ y: py, m0: pm0, d: prevTotal - i + 1, out: true });
+    } else {
+      for (let i = 0; i < firstDow; i++) arr.push(null);
+    }
+    for (let d = 1; d <= total; d++) arr.push({ y: viewYear, m0: viewMonth, d, out: false });
+    const nm0 = viewMonth === 11 ? 0 : viewMonth + 1;
+    const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
+    let nd = 1;
+    while (arr.length % 7 !== 0) arr.push(fade ? { y: ny, m0: nm0, d: nd++, out: true } : null);
     return arr;
-  }, [viewYear, viewMonth]);
+  }, [viewYear, viewMonth, !!getHeatmap]);
+
+  // Bản đồ nhiệt của tháng trước/sau (cho ngày mờ).
+  const adjInfo = useMemo(() => {
+    const out: Record<string, DayInfo> = {};
+    if (!getHeatmap) return out;
+    const seen = new Set<string>();
+    for (const c of cells) {
+      if (!c || !c.out) continue;
+      const k = `${c.y}-${c.m0}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      try {
+        const hm = getHeatmap(c.y, c.m0 + 1);
+        for (const d of hm.days) out[`${c.y}-${c.m0}-${d.day}`] = { tone: d.tone, hasWarning: d.hasWarning };
+      } catch { /* ngày mờ không màu */ }
+    }
+    return out;
+  }, [cells, getHeatmap]);
 
   // Âm lịch tất cả ngày trong tháng (memo tránh tính lại)
   const lunarMap = useMemo(() => {
@@ -91,7 +125,7 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
     return m;
   }, [monthHeatmap, viewYear, viewMonth]);
 
-  const rows: (number | null)[][] = [];
+  const rows: Cell[][] = [];
   for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
 
   return (
@@ -124,15 +158,16 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
       {/* Lưới ngày */}
       {rows.map((row, ri) => (
         <View key={ri} style={styles.row}>
-          {row.map((day, ci) => {
-            if (!day) return <View key={ci} style={styles.cell} />;
+          {row.map((cell, ci) => {
+            if (!cell) return <View key={ci} style={styles.cell} />;
 
-            const lunar      = lunarMap[day];
-            const selDate    = new Date(viewYear, viewMonth, day);
+            const day        = cell.d;
+            const lunar      = cell.out ? solarToLunar(day, cell.m0 + 1, cell.y) : lunarMap[day];
+            const selDate    = new Date(cell.y, cell.m0, day);
             const isSel      = isSameDay(selDate, selectedDate);
             const isToday    = isSameDay(selDate, todayDate);
             const isSun      = ci === 6;
-            const info       = dayInfo?.[day];
+            const info       = cell.out ? adjInfo[`${cell.y}-${cell.m0}-${day}`] : dayInfo?.[day];
             const isHighlight = isToday || isSel;
 
             // Nhãn âm lịch: ngày 1 hiện "d/m", ngày khác chỉ hiện số ngày
@@ -145,11 +180,11 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
                 key={ci}
                 style={[
                   styles.cell,
-                  info && { backgroundColor: CAL_TONE[info.tone].bg, borderWidth: 1, borderColor: CAL_TONE[info.tone].border },
+                  info && { backgroundColor: fadeColor(CAL_TONE[info.tone].bg, cell.out ? 0.25 : 1), borderWidth: 1, borderColor: fadeColor(CAL_TONE[info.tone].border, cell.out ? 0.25 : 1) },
                   // Hôm nay VÀ ngày đang chọn KHÔNG đổi màu nền — chỉ viền trắng nổi bật.
                   isHighlight && styles.cellHighlight,
                 ]}
-                onPress={() => onSelectDate(noon(new Date(viewYear, viewMonth, day)))}
+                onPress={() => onSelectDate(noon(selDate))}
                 activeOpacity={0.7}
               >
                 <Text style={[
@@ -157,10 +192,11 @@ export default function LunarCalendarPicker({ selectedDate, onSelectDate, monthH
                   !info && isSun && styles.sunTxt,
                   !info && isToday && styles.todayNumTxt,
                   info && styles.tonedTxt,
+                  cell.out && styles.outTxt,
                 ]}>
                   {day}
                 </Text>
-                <Text style={[styles.lunar, info && styles.tonedLunarTxt]}>
+                <Text style={[styles.lunar, info && styles.tonedLunarTxt, cell.out && styles.outTxt]}>
                   {lunarLbl}
                 </Text>
                 {info?.hasWarning && <View style={styles.warnDot} />}
@@ -263,6 +299,7 @@ const styles = StyleSheet.create({
     minHeight: 44, borderRadius: 8, paddingVertical: 3, gap: 1, position: 'relative',
   },
   cellHighlight: { borderWidth: 3, borderColor: '#FFFFFF' },
+  outTxt: { opacity: 0.4 },
 
   solar: { color: COLORS.textPrimary, fontSize: FONTS.size.sm, fontWeight: '800' },
   sunTxt:      { color: '#ef4444' },

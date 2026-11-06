@@ -10,7 +10,7 @@
  * và nút "Xem ngày tốt cho việc cụ thể" (đều cần lá số thật, không có bản
  * chung tương đương) — thay bằng 1 lời mời cá nhân hóa.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -33,6 +33,7 @@ import ExportPdfButton from '../components/ExportPdfButton';
 import { chartHeaderLines } from '../utils/pdfExport';
 import { WeatherPanel } from '../components/WeatherCards';
 import ScreenHeader from '../components/ScreenHeader';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { fkey } from '../lib/featureKey';
 import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
@@ -95,6 +96,12 @@ export default function DailyScreen({ route, navigation }: Props) {
     [result, viewYM.year, viewYM.month0],
   );
 
+  // Bản đồ nhiệt tháng bất kỳ — để tô màu các ngày MỜ của tháng trước/sau trên lịch.
+  const getHeatmap = useCallback(
+    (year: number, month1: number) => (result ? buildMonthHeatmap(result, year, month1) : buildGenericMonthHeatmapForMonth(year, month1)),
+    [result],
+  );
+
   const sc = useMemo(() => (result ? scoreNhatVan(result, date) : null), [result, date]);
   const genericSummary = useMemo(() => (result ? null : buildTodaySummary(null, date)), [result, date]);
   const genericCanChi = useMemo(() => dayCanChi(date), [date]);
@@ -137,7 +144,7 @@ export default function DailyScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Xem theo ngày" onBack={() => navigation.goBack()} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
-        <Text style={styles.title}>{result ? `Xem ngày cho ${result.birthInfo.name || 'bạn'}` : 'Xem theo ngày (chế độ cơ bản)'}</Text>
+        <ChartSwitchLine replaceScreen currentId={result?.birthInfo.chartId} text={result ? `Xem ngày cho ${result.birthInfo.name || 'bạn'}` : 'Xem theo ngày (chế độ cơ bản)'} textStyle={styles.title} iconSize={20} style={{ alignSelf: 'flex-start' }} />
 
         {/* Lịch âm dương chọn ngày — đã hợp nhất bản đồ nhiệt + thống kê tháng
             ngay bên dưới lưới ngày (không tách khối riêng). */}
@@ -145,6 +152,7 @@ export default function DailyScreen({ route, navigation }: Props) {
           selectedDate={date}
           onSelectDate={selectDate}
           monthHeatmap={heatmap}
+          getHeatmap={getHeatmap}
           onViewMonthChange={(year, month0) => setViewYM({ year, month0 })}
         />
 

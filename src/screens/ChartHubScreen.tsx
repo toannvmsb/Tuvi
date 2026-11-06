@@ -11,6 +11,7 @@ import { Screen, Card, Display, Eyebrow, Body, SectionTitle, GoldButton } from '
 import Icon, { type IconName } from '../ui/Icon';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import type { AstrologyResult } from '../types';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 
 function Row({ icon, title, sub, color, onPress }: { icon: IconName; title: string; sub: string; color: string; onPress: () => void }) {
   return (
@@ -44,10 +45,12 @@ export default function ChartHubScreen() {
   return (
     <Screen tabBarSpace>
       <Display size={34}>Tổng quan lá số</Display>
-      <Text style={s.who}>
-        <Text style={{ fontFamily: FONTS.bodyBold, color: COLORS.textPrimary }}>{r.birthInfo.name || 'Hồ sơ của tôi'}</Text>
-        {` · ${genderLabel} · ${c.lunarDate.yearStem} ${c.lunarDate.yearBranch} ${r.birthInfo.year}`}
-      </Text>
+      {/* Đổi lá số: lưu làm "lá số của tôi" → useMyResult tự nạp lại, mọi thông tin bên dưới đổi theo. */}
+      <ChartSwitchLine
+        style={{ alignSelf: 'flex-start', marginTop: -6 }}
+        text={`${r.birthInfo.name || 'Hồ sơ của tôi'} · ${genderLabel} · ${c.lunarDate.yearStem} ${c.lunarDate.yearBranch} ${r.birthInfo.year}`}
+        currentId={r.birthInfo.chartId}
+      />
 
       <Card hero style={{ gap: 12 }}>
         <Eyebrow>Tử Vi</Eyebrow>
@@ -83,7 +86,7 @@ export default function ChartHubScreen() {
           onPress={() => navigation.navigate('MyCharts')} />
         <Row icon="compare" color={COLORS.blue} title="So sánh với lá số khác" sub="Tương hợp Bát Tự và Tử Vi"
           onPress={() => navigation.navigate('CompareCharts', { preSelectedResult: r })} />
-        <Row icon="user" color={COLORS.red} title="Chân dung người tương hợp" sub="AI vẽ từ cung Phu Thê của bạn"
+        <Row icon="user" color={COLORS.red} title="Chân dung người tương hợp" sub="Dựa trên luận giải cung Phu Thê"
           onPress={() => navigation.navigate('Portrait', { result: r })} />
       </View>
     </Screen>

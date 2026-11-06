@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Image, ActivityIndicator, Pressable, Modal, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { COLORS, FONTS } from '../constants/theme';
 import { PREMIUM, wallet, chargeAgain } from '../constants/premium';
@@ -165,7 +166,13 @@ export default function PortraitScreen() {
       <ScreenHeader title="Chân dung tương hợp" onBack={() => navigation.goBack()} />
       <KeyboardAwareScreen contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <Card hero style={{ gap: 8 }}>
-          <Eyebrow>Từ cung Phu Thê</Eyebrow>
+          <ChartSwitchLine
+            replaceScreen
+            currentId={result.birthInfo.chartId}
+            text={`Từ cung Phu Thê của ${result.birthInfo.name || 'bạn'}`.toUpperCase()}
+            textStyle={{ fontFamily: FONTS.bodyBold, fontSize: 12, letterSpacing: 1.6, color: COLORS.gold, textAlign: 'left' }}
+            style={{ alignSelf: 'flex-start' }}
+          />
           <Body>Dựa trên các sao tọa thủ cung Phu Thê trong lá số, AI gợi ý gương mặt của người bạn đời/đối tác tương hợp. Đây chỉ là hình minh họa mang tính tham khảo.</Body>
         </Card>
 

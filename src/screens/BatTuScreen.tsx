@@ -25,6 +25,7 @@ import { t } from '../i18n';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
 import { Display, Segmented } from '../ui';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import Icon from '../ui/Icon';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BatTu'>;
@@ -63,16 +64,18 @@ export default function BatTuScreen({ route, navigation }: Props) {
           <Display size={34}>Lá số</Display>
         </View>
         <Segmented
-          options={[{ value: 'tuvi', label: '紫微 Tử Vi' }, { value: 'battu', label: '八字 Bát Tự' }]}
+          options={[{ value: 'tuvi', label: 'Tử Vi' }, { value: 'battu', label: 'Bát Tự' }]}
           value="battu"
           onChange={(v) => { if (v === 'tuvi') navigation.navigate('TuViChart', { result }); }}
+        />
+        <ChartSwitchLine
+          text={`${result.birthInfo.name || 'Hồ sơ'} - ${result.birthInfo.gender === 'nu' ? 'Nữ' : 'Nam'} - ${result.tuViChart.lunarDate.yearStem} ${result.tuViChart.lunarDate.yearBranch} ${result.birthInfo.year}`}
+          currentId={result.birthInfo.chartId}
+          onPicked={(r) => navigation.navigate('MainTabs' as any, { result: r, screen: 'BatTu', params: { result: r } } as any)}
         />
       </View>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         <Text style={styles.title}>{t('batTuTitle')}</Text>
-        <Text style={styles.subtitle}>
-          {result.birthInfo.name} • {result.birthInfo.gender === 'nam' ? '♂ Nam' : '♀ Nữ'}
-        </Text>
 
         <BatTuChartComponent chart={batTuChart} />
 

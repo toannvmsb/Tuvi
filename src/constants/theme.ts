@@ -102,3 +102,12 @@ export const SURFACE = {
   hairline: 'rgba(226,194,133,0.18)',
   hairlineStrong: 'rgba(226,194,133,0.34)',
 };
+
+/** Nhân độ trong suốt của màu (hex #RRGGBB hoặc rgba(...)) với k — dùng cho ô ngày mờ (nền/viền mờ độc lập với chữ). */
+export function fadeColor(color: string, k: number): string {
+  const m = color.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (m) return `rgba(${m[1]},${m[2]},${m[3]},${(m[4] === undefined ? 1 : parseFloat(m[4])) * k})`;
+  const h = color.replace('#', '');
+  if (h.length === 6) return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${k})`;
+  return color;
+}

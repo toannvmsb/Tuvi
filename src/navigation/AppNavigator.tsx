@@ -103,6 +103,8 @@ function MainTabs({ route }: any) {
   const result: AstrologyResult = route.params.result;
   return (
     <Tab.Navigator
+      // Đổi lá số → dựng lại các tab với lá số mới (initialParams cố định theo lần dựng).
+      key={result.birthInfo.chartId ?? `${result.birthInfo.name}|${result.birthInfo.year}-${result.birthInfo.month}-${result.birthInfo.day}-${result.birthInfo.hour}`}
       tabBar={(p) => <SharedTabBar {...p} />}
       screenOptions={{ headerShown: false }}
     >

@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS } from '../constants/theme';
 import { Screen, Card, Display, Eyebrow, Body, ScoreRing, SectionTitle } from '../ui';
 import Icon from '../ui/Icon';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
 import { currentAgeOf } from '../core/ageUtil';
 import { scoreNhatVan } from '../core/nhatVan';
@@ -55,7 +56,11 @@ export default function VanHubScreen() {
     <Screen tabBarSpace>
       <View style={{ gap: 6 }}>
         <Display size={34}>Vận hạn tổng quát</Display>
-        <Body>Bốn tầng thời gian lồng vào nhau. Chọn một tầng để xem chi tiết.</Body>
+        <ChartSwitchLine
+          style={{ alignSelf: 'flex-start' }}
+          currentId={result.birthInfo.chartId}
+          text={`${result.birthInfo.name || 'Hồ sơ'} - ${result.birthInfo.gender === 'nu' ? 'Nữ' : 'Nam'} - ${result.tuViChart.lunarDate.yearStem} ${result.tuViChart.lunarDate.yearBranch} ${result.birthInfo.year}`}
+        />
       </View>
 
       <Pressable

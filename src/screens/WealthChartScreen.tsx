@@ -23,6 +23,7 @@ import { getAiResult, setAiResult, clearAiResult } from '../lib/aiResults';
 import { confirmAndUnlock, confirmReanalyze } from '../lib/confirmCharge';
 import { useContentWidth } from '../lib/platform';
 import ScreenHeader from '../components/ScreenHeader';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import AIProgressBar from '../components/AIProgressBar';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
@@ -88,7 +89,7 @@ export default function WealthChartScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Tài Lộc" onBack={() => navigation.goBack()} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
-        <Text style={styles.title}>Tài Lộc của {result.birthInfo.name || 'bạn'}</Text>
+        <ChartSwitchLine replaceScreen currentId={result.birthInfo.chartId} text={`Tài Lộc của ${result.birthInfo.name || 'bạn'}`} textStyle={styles.title} iconSize={20} />
         <Text style={styles.subtitle}>Xu hướng tài lộc qua các đại vận cả đời</Text>
 
         <View style={styles.statsRow}>

@@ -11,7 +11,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { COLORS, FONTS, TIER_COLORS, CAL_TONE, SURFACE } from '../constants/theme';
+import { COLORS, FONTS, TIER_COLORS, CAL_TONE, SURFACE, fadeColor } from '../constants/theme';
 import { Screen, Card, Chip, Display, Eyebrow, SectionTitle, ScoreRing, ProgressBar, Body } from '../ui';
 import Icon, { type IconName } from '../ui/Icon';
 import NotificationBell from '../components/NotificationBell';
@@ -130,6 +130,41 @@ export default function OverviewScreen() {
   const rating = ratingLabel(todayScore);
   const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // T2 = cột đầu
 
+  // Ngày mờ tháng trước/sau — cùng cách tô màu theo lá số (hoặc công thức chung) như tháng đang xem.
+  const trail = (7 - ((lead + hm.days.length) % 7)) % 7;
+  const { outLead, outTrail } = useMemo(() => {
+    const build = (yy: number, mm: number) => (myResult ? buildMonthHeatmap(myResult, yy, mm) : buildGenericMonthHeatmapForMonth(yy, mm));
+    const pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y;
+    const nm = m === 12 ? 1 : m + 1, ny = m === 12 ? y + 1 : y;
+    const pick = (yy: number, mm: number, days: number[]) => {
+      let map: Record<number, DayTone> = {};
+      try { for (const d of build(yy, mm).days) map[d.day] = d.tone; } catch { map = {}; }
+      return days.map(day => ({ day, month: mm, year: yy, tone: map[day] }));
+    };
+    const pTotal = new Date(py, pm, 0).getDate();
+    return {
+      outLead: pick(py, pm, Array.from({ length: lead }, (_, i) => pTotal - lead + 1 + i)),
+      outTrail: pick(ny, nm, Array.from({ length: trail }, (_, i) => i + 1)),
+    };
+  }, [myResult, y, m, lead, trail]);
+
+  const renderOut = (o: { day: number; month: number; year: number; tone?: DayTone }, pfx: string) => {
+    const c = o.tone ? CAL_TONE[o.tone] : undefined;
+    const l = solarToLunar(o.day, o.month, o.year);
+    return (
+      <View key={`${pfx}${o.day}`} style={s.cellWrap}>
+        <Pressable
+          onPress={openDay}
+          style={[s.cell, c && { backgroundColor: fadeColor(c.bg, 0.25), borderColor: fadeColor(c.border, 0.25) }]}
+          accessibilityRole="button" accessibilityLabel={`Ngày ${o.day}/${o.month}`}
+        >
+          <Text style={[s.cellNum, { opacity: 0.4 }]}>{o.day}</Text>
+          <Text style={[s.cellLunar, { opacity: 0.4 }]}>{l.day === 1 ? `1/${l.month}` : l.day}</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   const goPersonal = (go: () => void) => (myResult ? go() : promptPersonalize(navigation, go));
   const openDay = () => goPersonal(() => navigation.navigate('DayView'));
 
@@ -229,7 +264,8 @@ export default function OverviewScreen() {
           ))}
         </View>
         <View style={s.grid}>
-          {Array.from({ length: lead }).map((_, i) => <View key={`b${i}`} style={s.cellWrap} />)}
+          {/* Ngày MỜ của tháng trước (lấp đầu tuần) */}
+          {outLead.map(o => renderOut(o, 'p'))}
           {hm.days.map(d => {
             const c = CAL_TONE[d.tone];
             const isToday = d.day === now.getDate();
@@ -251,6 +287,8 @@ export default function OverviewScreen() {
               </View>
             );
           })}
+          {/* Ngày MỜ của tháng sau (lấp cuối tuần) */}
+          {outTrail.map(o => renderOut(o, 'n'))}
         </View>
         {event && (
           <Pressable

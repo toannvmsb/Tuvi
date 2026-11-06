@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import ScreenHeader from '../components/ScreenHeader';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import MedDisclaimer from '../components/MedDisclaimer';
 import { DAY_PICK_GROUPS, NUMBER_GROUP_CODE, type DayPickGroup, type DayPickTask } from '../data/dayPickTasks';
 import { pickGoodDays, pickGoodDaysGeneric, type DayPickOutput } from '../core/dayPicker';
@@ -166,13 +167,12 @@ export default function DayPickerScreen({ route, navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hàng giới thiệu: lá số đang xem, hoặc báo chế độ cơ bản nếu chưa gắn lá số */}
-        <Text style={styles.chartFor}>
-          {result ? (
-            <>Xem ngày tốt cho <Text style={styles.chartName}>{result.birthInfo.name || '(không tên)'}</Text></>
-          ) : (
-            'Xem ngày tốt (chế độ cơ bản — chưa gắn lá số)'
-          )}
-        </Text>
+        <ChartSwitchLine
+          replaceScreen
+          currentId={result?.birthInfo.chartId}
+          text={result ? `Xem ngày tốt cho ${result.birthInfo.name || '(không tên)'}` : 'Xem ngày tốt (chế độ cơ bản — chưa gắn lá số)'}
+          textStyle={styles.chartFor}
+        />
 
         {/* Hàng 1: 2 droplist (nhóm + việc) */}
         <View style={styles.card}>

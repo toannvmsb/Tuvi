@@ -16,7 +16,8 @@ import { navigationRef, popStack } from '../navigation/AppNavigator';
 import { isWeb, useContentWidth, saveImageOrDownload } from '../lib/platform';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import ScrollToTopButton from '../components/ScrollToTopButton';
-import { Display, Segmented, Body } from '../ui';
+import { Display, Segmented } from '../ui';
+import ChartSwitchLine from '../components/ChartSwitchLine';
 import Icon from '../ui/Icon';
 import type { ViewRef } from '../types/refs';
 
@@ -189,13 +190,15 @@ export default function TuViChartScreen({ route, navigation }: Props) {
           <Display size={30}>Lá số chi tiết</Display>
         </View>
         <Segmented
-          options={[{ value: 'tuvi', label: '紫微 Tử Vi' }, { value: 'battu', label: '八字 Bát Tự' }]}
+          options={[{ value: 'tuvi', label: 'Tử Vi' }, { value: 'battu', label: 'Bát Tự' }]}
           value="tuvi"
           onChange={(v) => { if (v === 'battu') navigation.navigate('BatTu', { result }); }}
         />
-        <Body size={12.5}>
-          {`${birthInfo.name || 'Hồ sơ'} · ${birthInfo.gender === 'nu' ? 'Nữ' : 'Nam'} · ${chart.lunarDate.yearStem} ${chart.lunarDate.yearBranch}`}
-        </Body>
+        <ChartSwitchLine
+          text={`${birthInfo.name || 'Hồ sơ'} - ${birthInfo.gender === 'nu' ? 'Nữ' : 'Nam'} - ${chart.lunarDate.yearStem} ${chart.lunarDate.yearBranch} ${birthInfo.year}`}
+          currentId={birthInfo.chartId}
+          onPicked={(r) => navigation.navigate('MainTabs' as any, { result: r, screen: 'TuViChart', params: { result: r } } as any)}
+        />
       </View>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} onScroll={onScroll} scrollEventThrottle={16}>
         {/* Lối tắt — Tài lộc · Nhật vận · Xem ngày tốt */}

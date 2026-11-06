@@ -3,11 +3,11 @@
  * Cùng cơ chế với NotesScreen/TasksScreen: đọc id đã gắn (myChart) + danh sách lá số
  * (online → server, offline → cache) rồi dựng AstrologyResult. Nạp lại mỗi lần màn lấy focus.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { getMyChartId } from '../lib/myChart';
+import { getMyChartId, subscribeMyChart } from '../lib/myChart';
 import { listCharts, getCachedCharts, rowToResult } from '../lib/charts';
 import type { AstrologyResult } from '../types';
 import { COLORS, FONTS } from '../constants/theme';
@@ -17,6 +17,10 @@ export function useMyResult(): { result: AstrologyResult | null; loading: boolea
   const { online } = useAuth();
   const [result, setResult] = useState<AstrologyResult | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [tick, setTick] = useState(0);
+  // Đổi lá số ở bất kỳ đâu (bộ đổi lá số) → nạp lại ngay.
+  useEffect(() => subscribeMyChart(() => setTick(n => n + 1)), []);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
@@ -34,7 +38,7 @@ export function useMyResult(): { result: AstrologyResult | null; loading: boolea
       }
     })();
     return () => { cancelled = true; };
-  }, [online]));
+  }, [online, tick]));
 
   return { result, loading };
 }
