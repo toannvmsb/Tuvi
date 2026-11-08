@@ -1,5 +1,7 @@
 # CLAUDE.md — Handover cho session sau
 
+> ⚠ **ĐỌC `HANDOVER.md` (cùng thư mục) TRƯỚC** — trạng thái mới nhất (11/2026), checklist backup, dựng lại môi trường, quy ước làm việc. Phần "TÌNH TRẠNG WEB" bên dưới là bản cũ tháng 6/2026.
+
 Tài liệu này dành cho Claude (và Claude Code agent) khi mở session mới trên codebase
 này. Đọc kỹ trước khi sửa code.
 
