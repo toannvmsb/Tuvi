@@ -78,7 +78,7 @@ function flankStarsOf(houses: TuViHouse[], pivotBranch: string, includeLuu = fal
 }
 
 /** Dựng đầy đủ bối cảnh sao quanh 1 cung (dùng cho detectCachCucAt/detectNearCachCucAt). */
-function buildPivotContext(houses: TuViHouse[], h: TuViHouse): PivotStarContext {
+export function buildPivotContext(houses: TuViHouse[], h: TuViHouse): PivotStarContext {
   return {
     palaceName: h.palaceName,
     branch: h.branch,

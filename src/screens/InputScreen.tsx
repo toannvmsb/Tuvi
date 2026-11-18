@@ -17,6 +17,7 @@ import { savePlaceForChart, type Place } from '../lib/weather';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ScrollRef } from '../types/refs';
+import BirthHourGuessModal from '../components/BirthHourGuessModal';
 
 type Props = Omit<NativeStackScreenProps<RootStackParamList, 'Input'>, 'route'> & { route?: { params?: { row?: SavedChartRow } } };
 
@@ -47,6 +48,11 @@ export default function InputScreen({ navigation, route }: Props) {
   const [hour, setHour] = useState(editRow ? editRow.birth_hour : 12);
   const [isLeapMonth, setIsLeapMonth] = useState(editRow?.is_leap ?? false);
   const [loading, setLoading] = useState(false);
+  const [guessOpen, setGuessOpen] = useState(false);
+  // Ngày/tháng/năm sinh đã được người dùng CHỦ ĐỘNG chọn chưa (giá trị mặc định 1/1/1990 không tính). Sửa lá số có sẵn → coi như đã chọn.
+  const [touched, setTouched] = useState({ day: !!editRow, month: !!editRow, year: !!editRow });
+  const markTouched = (k: 'day' | 'month' | 'year') => setTouched(t => (t[k] ? t : { ...t, [k]: true }));
+  const [hourPickedNote, setHourPickedNote] = useState('');
   // Nơi ở/Nơi sinh đọc thẳng từ dòng lá số (server) — không phụ thuộc máy đang mở, nên sửa ở
   // máy nào cũng thấy đúng giá trị đã lưu trước đó (kể cả lưu từ máy khác).
   const [place, setPlace] = useState<Place | null>(editRow ? placeOfRow(editRow) : null);
@@ -102,6 +108,38 @@ export default function InputScreen({ navigation, route }: Props) {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickerOpen]);
+
+  // Thông tin sinh (chưa có giờ) cho tính năng suy đoán giờ sinh; null nếu ngày sinh chưa hợp lệ.
+  function guessBase(): Omit<BirthInfo, 'hour' | 'minute'> | null {
+    const y = parseInt(year); const m = parseInt(month); const d = parseInt(day);
+    if (!y || !m || !d || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    return {
+      name: name.trim() || 'Bạn', gender, birthplace: '', calendarType, year: y, month: m, day: d,
+      isLeapMonth, language: 'vi',
+    };
+  }
+
+  function openGuess() {
+    Keyboard.dismiss();
+    const missing = [!touched.day && 'Ngày', !touched.month && 'Tháng', !touched.year && 'Năm'].filter(Boolean) as string[];
+    if (!guessBase() || missing.length > 0) {
+      Alert.alert(
+        'Chưa chọn đủ thông tin',
+        `Để suy đoán giờ sinh chính xác nhất, bạn cần chọn đầy đủ ngày, tháng, năm sinh (đúng loại lịch dương/âm) ở phía trên.${missing.length ? `\n\nBạn chưa chọn: ${missing.join(', ')}.` : ''}\n\nHãy quay lại chọn rồi bấm lại nút này.`,
+        [{ text: 'Quay lại chọn' }],
+      );
+      return;
+    }
+    const lunar = calendarType === 'lunar';
+    Alert.alert(
+      'Xác nhận thông tin sinh',
+      `Kết quả chỉ đáng tin khi thông tin dưới đây đúng:\n\n• Giới tính: ${gender === 'nam' ? 'Nam' : 'Nữ'}\n• Ngày sinh: ${day}/${month}/${year} (${lunar ? `Âm lịch${isLeapMonth ? ', tháng nhuận' : ''}` : 'Dương lịch'})\n\nBạn đã chọn đúng chưa?`,
+      [
+        { text: 'Quay lại sửa', style: 'cancel' },
+        { text: 'Đúng, tiếp tục', onPress: () => setGuessOpen(true) },
+      ],
+    );
+  }
 
   async function handleCalculate() {
     if (!name.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập họ và tên'); return; }
@@ -275,7 +313,7 @@ export default function InputScreen({ navigation, route }: Props) {
                     <TouchableOpacity
                       key={opt.value} activeOpacity={0.8}
                       style={[styles.hourBtn, on && styles.hourBtnOn]}
-                      onPress={() => setHour(opt.value)}
+                      onPress={() => { setHour(opt.value); setHourPickedNote(''); }}
                       accessibilityRole="button" accessibilityState={{ selected: on }}
                       accessibilityLabel={`Giờ ${opt.name}, ${opt.range}`}
                     >
@@ -287,6 +325,10 @@ export default function InputScreen({ navigation, route }: Props) {
               </View>
             ))}
           </View>
+          {!!hourPickedNote && <Text style={styles.guessNote}>{hourPickedNote}</Text>}
+          <TouchableOpacity style={styles.guessBtn} onPress={openGuess} activeOpacity={0.8} accessibilityRole="button">
+            <Text style={styles.guessBtnText}>🔮 Không nhớ giờ sinh? Để Tuzi suy đoán</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Nơi ở / nơi sinh — căn cứ lấy thời tiết */}
@@ -306,6 +348,17 @@ export default function InputScreen({ navigation, route }: Props) {
           }
         </TouchableOpacity>
       </ScrollView>
+
+      <BirthHourGuessModal
+        visible={guessOpen}
+        onClose={() => setGuessOpen(false)}
+        base={guessOpen ? guessBase() : null}
+        onConfirm={(h, branch) => {
+          setHour(h);
+          setHourPickedNote(`Đã chọn giờ ${branch} theo suy đoán của Tuzi (không phải giờ sinh chính xác đã biết).`);
+          setGuessOpen(false);
+        }}
+      />
 
       {/* Date picker modal — dùng chung cho day / month / year */}
       <Modal
@@ -358,6 +411,7 @@ export default function InputScreen({ navigation, route }: Props) {
                   const n = parseInt(text, 10);
                   if (!isNaN(n) && text.length === 4 && n >= 1900 && n <= currentYear) {
                     setYear(String(n));
+                    markTouched('year');
                   }
                 }}
                 placeholder="Nhập năm sinh (vd 1990)..."
@@ -386,9 +440,9 @@ export default function InputScreen({ navigation, route }: Props) {
                     style={[styles.provinceItem, isActive && styles.provinceItemActive]}
                     onPress={() => {
                       const v = String(item);
-                      if (pickerOpen === 'day') setDay(v);
-                      else if (pickerOpen === 'month') setMonth(v);
-                      else if (pickerOpen === 'year') setYear(v);
+                      if (pickerOpen === 'day') { setDay(v); markTouched('day'); }
+                      else if (pickerOpen === 'month') { setMonth(v); markTouched('month'); }
+                      else if (pickerOpen === 'year') { setYear(v); markTouched('year'); }
                       else if (pickerOpen === 'viewingYear') setViewingYear(v);
                       setPickerOpen(null);
                       // Sau khi chọn xong → đóng luôn bàn phím (nếu đang mở do ô tìm kiếm)
@@ -451,6 +505,12 @@ const styles = StyleSheet.create({
   hourHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   hourHeadSub: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary },
   hourRow: { flexDirection: 'row', gap: 8 },
+  guessBtn: {
+    marginTop: SPACING.sm, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: COLORS.gold, backgroundColor: COLORS.gold + '14',
+  },
+  guessBtnText: { fontFamily: FONTS.bodyBold, fontSize: 14.5, color: COLORS.gold },
+  guessNote: { marginTop: SPACING.sm, fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textSecondary },
   hourBtn: {
     flex: 1, minHeight: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2,
     backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',

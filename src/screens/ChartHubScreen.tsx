@@ -88,6 +88,8 @@ export default function ChartHubScreen() {
           onPress={() => navigation.navigate('CompareCharts', { preSelectedResult: r })} />
         <Row icon="user" color={COLORS.red} title="Chân dung người tương hợp" sub="Dựa trên luận giải cung Phu Thê"
           onPress={() => navigation.navigate('Portrait', { result: r })} />
+        <Row icon="spark" color={COLORS.gold} title="Chọn ngày giờ sinh cho con" sub="Trong khoảng dự sinh, hợp với lá số bố/mẹ"
+          onPress={() => navigation.navigate('BabyBirth', { result: r })} />
       </View>
     </Screen>
   );

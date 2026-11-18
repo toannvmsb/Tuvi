@@ -38,6 +38,7 @@ import AnnualEventsScreen from '../screens/AnnualEventsScreen';
 import PastReviewScreen from '../screens/PastReviewScreen';
 import PastLifeScreen from '../screens/PastLifeScreen';
 import FutureReviewScreen from '../screens/FutureReviewScreen';
+import BabyBirthScreen from '../screens/BabyBirthScreen';
 import MonthEventsScreen from '../screens/MonthEventsScreen';
 import EventContextScreen from '../screens/EventContextScreen';
 import { COLORS } from '../constants/theme';
@@ -151,6 +152,7 @@ const ROUTE_TITLES: Record<string, string> = {
   PastReview: 'Nghiệm quá khứ',
   PastLife: 'Dòng đời đã qua',
   FutureReview: 'Luận tương lai',
+  BabyBirth: 'Chọn ngày giờ sinh cho con',
   MonthEvents: 'Sự kiện theo tháng',
   EventContext: 'Hoàn cảnh của bạn',
   CompareCharts: 'So sánh tương hợp',
@@ -203,6 +205,7 @@ export default function AppNavigator() {
         <Stack.Screen name="PastReview" component={PastReviewScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PastLife" component={PastLifeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="FutureReview" component={FutureReviewScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="BabyBirth" component={BabyBirthScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MonthEvents" component={MonthEventsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="EventContext" component={EventContextScreen} options={{ headerShown: false }} />
         <Stack.Screen name="DailyView" component={DailyScreen} options={{ headerShown: false }} />
