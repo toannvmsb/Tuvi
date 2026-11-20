@@ -1,0 +1,17 @@
+# Header cho bản WEB (Netlify). File này nằm trong public/ nên Expo tự chép vào dist/ khi build —
+# cần vì bản đang deploy KHÔNG đọc netlify.toml (đã kiểm tra: tuzi.vn trả về không có X-Frame-Options/CSP).
+# Giữ NỘI DUNG ĐỒNG BỘ với khối [[headers]] trong netlify.toml.
+#
+# Cả site: chỉ cho chính tuzi.vn nhúng (chống clickjacking).
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# /embed (Partner SSO): bỏ X-Frame-Options, dùng CSP frame-ancestors để chỉ định ai được nhúng.
+# Khi có đối tác thật, thêm domain của họ vào dòng CSP bên dưới (cách nhau bằng dấu cách), vd:
+#   Content-Security-Policy: frame-ancestors 'self' https://app.doi-tac.vn
+# rồi build + deploy lại. KIỂM TRA sau deploy:  curl -sI https://tuzi.vn/embed
+/embed
+  ! X-Frame-Options
+  Content-Security-Policy: frame-ancestors 'self'

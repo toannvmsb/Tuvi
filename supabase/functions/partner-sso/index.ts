@@ -6,9 +6,10 @@
  *
  * Luồng:
  *   1. Đối tác ký 1 JWT ngắn hạn (HS256, secret ở cột `partners.secret`, `sub` =
- *      external_user_id của họ, `iat`/`exp` bắt buộc, tuổi token ≤120s; có thể kèm
+ *      external_user_id của họ, `iat` VÀ `exp` bắt buộc, tuổi token ≤120s, `exp−iat` ≤300s; có thể kèm
  *      claim tuỳ chọn `employeeCode` — mã nhân viên của đối tác, cho các đối tác cần
- *      quản lý tới cấp nhân viên, xem bước 3b) rồi mở
+ *      quản lý tới cấp nhân viên, xem bước 3b) và claim `name` — tên/biệt danh khách, lưu làm tên hiển thị
+ *      (hồ sơ; chỉ cập nhật nếu khách chưa tự đổi tên) — rồi mở
  *      `https://tuzi.vn/embed?partner=<code>&token=<jwt>` (webview/iframe).
  *   2. Web Tuzi gọi function này với `{ partnerCode, token }`.
  *   3. Function verify token bằng secret của đúng đối tác, map external_user_id
@@ -32,14 +33,15 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { jwtVerify } from 'npm:jose@5';
+import { checkTokenTiming } from './claims.ts';
+import { DEFAULT_PARTNER_DISPLAY_NAME, pickLoginEmail, sanitizeDisplayName, shouldUpdateDisplayName } from './identity.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-// Tuổi tối đa của token (giây) kể từ lúc đối tác ký (`iat`) — chống phát lại 1 URL cũ đã lộ
-// (vd lưu trong lịch sử trình duyệt/log proxy). Ngắn hơn `exp` do đối tác tự đặt nếu họ đặt dài hơn.
-const MAX_TOKEN_AGE_SEC = 120;
+// Luật thời gian của token (iat/exp bắt buộc, iat không ở tương lai, tuổi ≤120s, sống ≤300s) nằm ở ./claims.ts
+// để có test (src/core/__tests__/partnerSsoClaims.test.ts).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,12 +88,13 @@ Deno.serve(async (req) => {
   try {
     const secretKey = new TextEncoder().encode(partner.secret);
     const { payload } = await jwtVerify(token, secretKey, { algorithms: ['HS256'] });
-    if (typeof payload.iat !== 'number') throw new Error('missing_iat');
-    if (Date.now() / 1000 - payload.iat > MAX_TOKEN_AGE_SEC) throw new Error('token_too_old');
+    const timingErr = checkTokenTiming(payload, Date.now() / 1000);
+    if (timingErr) throw new Error(timingErr);
     externalUserId = String(payload.sub ?? '');
     if (!externalUserId) throw new Error('missing_sub');
     const claims = payload as Record<string, unknown>;
-    displayName = typeof claims.name === 'string' ? claims.name : undefined;
+    // Tên/biệt danh khách do đối tác gửi (tuỳ chọn) — lưu để hiển thị (xem bước 3).
+    displayName = sanitizeDisplayName(claims.name);
     // Mã nhân viên đối tác (tuỳ chọn) — vd đối tác ngân hàng cần biết nhân viên nào dẫn khách vào
     // dùng Tuzi. Lưu lại ở bước 3b/5b, KHÔNG ảnh hưởng gì tới việc map/tạo user (vẫn dựa hoàn toàn
     // vào external_user_id).
@@ -109,7 +112,10 @@ Deno.serve(async (req) => {
     .eq('external_user_id', externalUserId)
     .maybeSingle();
 
-  const email = syntheticEmail(partner.code, externalUserId);
+  const synthetic = syntheticEmail(partner.code, externalUserId);
+  // Email dùng để phát hành phiên: user mới → email giả; user ĐÃ có liên kết → email HIỆN TẠI của tài khoản
+  // (sau "Nâng cấp tài khoản" email đã đổi sang email thật, dùng lại email giả sẽ không khớp tài khoản cũ).
+  let email = synthetic;
   let userId: string;
   let linkId: string;
   let bonusCredited: boolean;
@@ -118,11 +124,38 @@ Deno.serve(async (req) => {
     userId = existingLink.user_id;
     linkId = existingLink.id;
     bonusCredited = existingLink.bonus_credited;
+
+    const { data: existingUser, error: getErr } = await supa.auth.admin.getUserById(userId);
+    if (getErr || !existingUser?.user) {
+      console.error('[partner-sso] getUserById lỗi:', getErr?.message);
+      return json({ error: 'user_lookup_failed' }, 500);
+    }
+    email = pickLoginEmail(existingUser.user.email, synthetic);
+
+    // Tên đối tác gửi lần này: cập nhật hiển thị nếu người dùng CHƯA tự đổi tên (không ghi đè tên họ tự đặt).
+    if (displayName) {
+      const meta = (existingUser.user.user_metadata ?? {}) as Record<string, unknown>;
+      const lastPartnerName = typeof meta.display_name === 'string' ? meta.display_name : undefined;
+      const { data: prof } = await supa.from('profiles').select('display_name').eq('id', userId).maybeSingle();
+      if (shouldUpdateDisplayName(prof?.display_name, lastPartnerName, displayName)) {
+        const { error: pErr } = await supa.from('profiles').update({ display_name: displayName }).eq('id', userId);
+        if (pErr) console.error('[partner-sso] cập nhật profiles.display_name lỗi:', pErr.message);
+      }
+      // Luôn nhớ "tên đối tác gửi gần nhất" để lần sau còn biết người dùng đã tự đổi tên hay chưa.
+      if (lastPartnerName !== displayName) {
+        const { error: mErr } = await supa.auth.admin.updateUserById(userId, { user_metadata: { ...meta, display_name: displayName } });
+        if (mErr) console.error('[partner-sso] cập nhật user_metadata lỗi:', mErr.message);
+      }
+    }
   } else {
     const { data: created, error: createErr } = await supa.auth.admin.createUser({
       email,
       email_confirm: true,
-      user_metadata: { partner_code: partner.code, external_user_id: externalUserId, display_name: displayName },
+      // display_name là nguồn của trigger handle_new_user() cho profiles.display_name. Không có tên thì dùng "Khách"
+      // (KHÔNG để trigger lấy phần trước @ của email giả — sẽ lộ ID người dùng của đối tác).
+      user_metadata: {
+        partner_code: partner.code, external_user_id: externalUserId, display_name: displayName ?? DEFAULT_PARTNER_DISPLAY_NAME,
+      },
     });
     if (createErr || !created?.user) {
       console.error('[partner-sso] createUser lỗi:', createErr?.message);

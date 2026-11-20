@@ -346,7 +346,7 @@ khoản đầy đủ, lá số/lịch sử lưu lâu dài). Giữ nguyên thươ
 white-label/theme riêng theo đối tác.
 
 **Kiến trúc**: đối tác tự ký 1 JWT ngắn hạn (HS256, secret dùng chung, `sub`=external_user_id,
-`iat`/`exp` bắt buộc, tuổi token ≤120s) → mở `https://tuzi.vn/embed?partner=<code>&token=<jwt>`
+`iat` và `exp` BẮT BUỘC, `iat` không ở tương lai quá 60s, tuổi token ≤120s, `exp−iat` ≤300s — luật ở `supabase/functions/partner-sso/claims.ts`, có test `partnerSsoClaims.test.ts`) → mở `https://tuzi.vn/embed?partner=<code>&token=<jwt>`
 (webview/iframe) → `App.tsx`'s `Boot()` phát hiện path `/embed` (web only, đọc thẳng
 `window.location`, KHÔNG qua React Navigation) → gọi Edge Function `partner-sso` → verify token,
 map/tạo user qua bảng `partner_user_links`, cấp bonus xu riêng của đối tác (CỘNG THÊM vào 100 xu
@@ -367,7 +367,7 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
   đúng khuôn `admin_create_broadcast`). `code` KHÔNG đổi được sau khi tạo (đối tác đã dùng trong
   URL nhúng thật).
 - `supabase/functions/partner-sso/index.ts` — verify JWT bằng `npm:jose`, tạo/map user, phát
-  session, cấp bonus. Đọc thêm claim tuỳ chọn `employeeCode` (mã nhân viên đối tác) từ JWT, ghi vào
+  session, cấp bonus. Đọc thêm claim tuỳ chọn `employeeCode` (mã nhân viên đối tác) và `name` (tên/biệt danh khách → lưu làm tên hiển thị; không gửi thì dùng "Khách", KHÔNG lộ ID đối tác; chỉ ghi đè tên hiển thị khi khách chưa tự đổi — luật ở `partner-sso/identity.ts`) từ JWT, ghi vào
   `partner_sso_logins` mỗi lần đăng nhập + cập nhật giá trị GẦN NHẤT vào `partner_user_links`.
 - `src/lib/partnerAuth.ts` — `signInViaPartner(partnerCode, token)` gọi function trên rồi
   `supabase.auth.setSession(...)`.
@@ -376,6 +376,8 @@ KHÔNG cần mật khẩu (`admin.generateLink` magiclink + `verifyOtp` ngay tro
   độc lập với React Navigation).
 - `netlify.toml` — block `[[headers]] for = "/embed"` nới CSP `frame-ancestors` riêng cho path này
   (path khác vẫn giữ `X-Frame-Options: SAMEORIGIN` như cũ).
+- `public/_headers` — BẢN CÓ HIỆU LỰC của các header trên (11/2026: bản deploy KHÔNG đọc `netlify.toml`, `tuzi.vn/embed` từng không có CSP/XFO).
+  Dùng `! X-Frame-Options` ở `/embed` để bỏ header của `/*`. Giữ ĐỒNG BỘ với `netlify.toml`; sau mỗi lần deploy kiểm tra: `curl -sI https://tuzi.vn/embed`.
 - `tuvi-admin/src/pages/Partners.tsx` — trang "🤝 Đối tác" trong dashboard admin để tự tạo/sửa/bật-tắt
   đối tác (không cần vào SQL Editor nữa), có nút sinh secret ngẫu nhiên + copy URL nhúng.
 - `tools/partner-sso-simulator.html` — công cụ DEV để tự ký JWT test (Web Crypto SubtleCrypto ngay
@@ -398,14 +400,16 @@ cấp tài khoản", chỉ hiện khi `user.isPartnerAccount` — tín hiệu n�
    (qua đối tác lẫn trực tiếp) sau khi nâng cấp.
 - `src/lib/auth.ts`: `AuthUser.isPartnerAccount`, `requestPartnerUpgrade()`, `confirmPartnerUpgrade()`.
 
+**Map user cũ**: luôn theo `partner_user_links(partner_id, external_user_id)` → `user_id`. Phiên được phát hành bằng email HIỆN TẠI của tài khoản (`auth.admin.getUserById`), nên user đã "Nâng cấp tài khoản" (đổi sang email thật + có mật khẩu) vẫn vào đúng tài khoản cũ khi đi từ app đối tác, không cần nhập mật khẩu.
+
 **Thêm 1 đối tác mới**:
 1. Vào `tuvi-admin` → trang "🤝 Đối tác" → tạo mới (mã, tên, secret sinh sẵn, bonus xu, thông tin
    pháp lý). Secret hiện nguyên văn trong danh sách để copy gửi lại cho đối tác bất cứ lúc nào.
-2. Sửa `netlify.toml`, thêm domain thật của đối tác vào dòng `Content-Security-Policy:
-   frame-ancestors` của block `/embed`, rồi build + deploy lại web.
+2. Sửa `public/_headers` VÀ `netlify.toml`, thêm domain thật của đối tác vào dòng `Content-Security-Policy:
+   frame-ancestors` của `/embed`, rồi build + deploy lại web và kiểm tra bằng `curl -sI https://tuzi.vn/embed`.
 3. Gửi đối tác: URL `https://tuzi.vn/embed?partner=<code>` (copy sẵn trong trang Đối tác) + hướng
-   dẫn ký JWT (HS256, secret đã cấp, `sub`=ID user của họ, `iat`=thời điểm hiện tại, `exp`≤120s sau
-   `iat`, tuỳ chọn thêm `employeeCode` nếu đối tác cần theo dõi tới cấp nhân viên).
+   dẫn ký JWT (HS256, secret đã cấp, `sub`=ID user của họ, `iat`=thời điểm hiện tại, `exp` BẮT BUỘC và ≤300s sau
+   `iat` (khuyên 60s), tuỳ chọn thêm `employeeCode` nếu đối tác cần theo dõi tới cấp nhân viên).
 
 **Việc CHƯA làm** (chờ có đối tác thật mới cần): UI báo cáo/thống kê theo `employee_code` (dữ liệu
 đã ghi vào `partner_sso_logins`, chỉ chưa có màn hình xem), chống phát lại bằng nonce-store riêng
