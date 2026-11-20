@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import AnimatedAvatar from '../components/AnimatedAvatar';
@@ -23,6 +23,9 @@ import { getSelectedAvatarId, setSelectedAvatarId } from '../lib/avatarPrefs';
 
 export default function AccountScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  // Mở từ lời mời nâng cấp ở Trang chủ → đưa thẻ "Nâng cấp tài khoản" lên đầu trang.
+  const focusUpgrade = route.params?.focus === 'upgrade';
   const { online, user, refresh, logout } = useAuth();
 
   const [name, setName] = useState(user?.displayName || wallet.userName || '');
@@ -71,7 +74,7 @@ export default function AccountScreen() {
       const email = await confirmPartnerUpgrade(upgCode, upgPw1);
       setUpgCode(''); setUpgPw1(''); setUpgPw2(''); setUpgEmail(''); setUpgradeStep('form');
       await refresh();
-      Alert.alert('🎉 Nâng cấp thành công', `Từ giờ bạn có thể đăng nhập trực tiếp tại tuzi.vn bằng email ${email} và mật khẩu vừa đặt.`);
+      Alert.alert('🎉 Tài khoản đã được bảo vệ', `Bạn có thể dùng email ${email} và mật khẩu vừa đặt để đăng nhập lại khi cần.`);
     } catch (e: any) {
       Alert.alert('Lỗi', e?.message || 'Không xác nhận được mã.');
     } finally { setUpgConfirming(false); }
@@ -142,10 +145,71 @@ export default function AccountScreen() {
     ]);
   };
 
+  const upgradeCard = online && user?.isPartnerAccount ? (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>🔐 Bảo vệ tài khoản</Text>
+      <Text style={styles.note}>
+        Thêm email thật và đặt mật khẩu để khôi phục tài khoản khi cần, không mất lá số, số xu nếu đổi điện thoại
+        hoặc cài lại ứng dụng. Bạn vẫn dùng Tuzi như hiện tại; dữ liệu hiện có được giữ nguyên.
+      </Text>
+      {upgradeStep === 'form' ? (
+        <>
+          <TextInput
+            style={styles.input}
+            value={upgEmail}
+            onChangeText={setUpgEmail}
+            placeholder="Email thật của bạn"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="email-address" autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            value={upgPw1}
+            onChangeText={setUpgPw1}
+            placeholder="Mật khẩu muốn đặt (≥ 6 ký tự)"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            value={upgPw2}
+            onChangeText={setUpgPw2}
+            placeholder="Nhập lại mật khẩu"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry autoCapitalize="none"
+          />
+          <TouchableOpacity style={styles.btn} onPress={onRequestUpgrade} disabled={upgSending} activeOpacity={0.85}>
+            {upgSending ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Gửi mã xác nhận</Text>}
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Text style={styles.note}>Mã xác nhận đã gửi tới {upgEmail}, hết hạn sau 10 phút.</Text>
+          <TextInput
+            style={styles.input}
+            value={upgCode}
+            onChangeText={setUpgCode}
+            placeholder="Mã xác nhận (6 số)"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="number-pad"
+          />
+          <TouchableOpacity style={styles.btn} onPress={onConfirmUpgrade} disabled={upgConfirming} activeOpacity={0.85}>
+            {upgConfirming ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Xác nhận &amp; Hoàn tất</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setUpgradeStep('form'); setUpgCode(''); }} activeOpacity={0.7}>
+            <Text style={styles.linkText}>Đổi email khác</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  ) : null;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScreenHeader title="Thông tin tài khoản" onBack={() => navigation.goBack()} />
       <KeyboardAwareScreen contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {focusUpgrade && upgradeCard}
+
         {/* Hồ sơ */}
         <View style={styles.card}>
           <Text style={styles.greeting}>Xin chào{user?.displayName ? ` - ${user.displayName}` : (wallet.userName ? ` - ${wallet.userName}` : '')} 👋</Text>
@@ -231,65 +295,8 @@ export default function AccountScreen() {
               </View>
             )}
 
-            {/* Nâng cấp tài khoản — chỉ hiện cho user vào qua đối tác (Partner SSO) */}
-            {user.isPartnerAccount && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>🚀 Nâng cấp tài khoản</Text>
-                <Text style={styles.note}>
-                  Bạn đang vào Tuzi qua đối tác. Gắn email thật + đặt mật khẩu để có thể đăng nhập
-                  trực tiếp tại tuzi.vn — dữ liệu, lá số, xu hiện có vẫn được giữ nguyên.
-                </Text>
-                {upgradeStep === 'form' ? (
-                  <>
-                    <TextInput
-                      style={styles.input}
-                      value={upgEmail}
-                      onChangeText={setUpgEmail}
-                      placeholder="Email thật của bạn"
-                      placeholderTextColor={COLORS.textMuted}
-                      keyboardType="email-address" autoCapitalize="none"
-                    />
-                    <TextInput
-                      style={styles.input}
-                      value={upgPw1}
-                      onChangeText={setUpgPw1}
-                      placeholder="Mật khẩu muốn đặt (≥ 6 ký tự)"
-                      placeholderTextColor={COLORS.textMuted}
-                      secureTextEntry autoCapitalize="none"
-                    />
-                    <TextInput
-                      style={styles.input}
-                      value={upgPw2}
-                      onChangeText={setUpgPw2}
-                      placeholder="Nhập lại mật khẩu"
-                      placeholderTextColor={COLORS.textMuted}
-                      secureTextEntry autoCapitalize="none"
-                    />
-                    <TouchableOpacity style={styles.btn} onPress={onRequestUpgrade} disabled={upgSending} activeOpacity={0.85}>
-                      {upgSending ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Gửi mã xác nhận</Text>}
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.note}>Mã xác nhận đã gửi tới {upgEmail}, hết hạn sau 10 phút.</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={upgCode}
-                      onChangeText={setUpgCode}
-                      placeholder="Mã xác nhận (6 số)"
-                      placeholderTextColor={COLORS.textMuted}
-                      keyboardType="number-pad"
-                    />
-                    <TouchableOpacity style={styles.btn} onPress={onConfirmUpgrade} disabled={upgConfirming} activeOpacity={0.85}>
-                      {upgConfirming ? <ActivityIndicator color="#1a0a00" /> : <Text style={styles.btnText}>Xác nhận &amp; Hoàn tất</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setUpgradeStep('form'); setUpgCode(''); }} activeOpacity={0.7}>
-                      <Text style={styles.linkText}>Đổi email khác</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
+            {/* Nâng cấp tài khoản — chỉ hiện cho user vào qua đối tác (Partner SSO); khi mở từ lời mời nó nằm ĐẦU trang (xem upgradeCard). */}
+            {!focusUpgrade && upgradeCard}
           </>
         )}
 

@@ -8,6 +8,31 @@ import { Platform, useWindowDimensions } from 'react-native';
 export const isWeb = Platform.OS === 'web';
 
 /**
+ * Sao chép văn bản vào clipboard — CHỈ web (nạp xu bằng chuyển khoản chỉ hiện trên web). Dùng Clipboard API, lùi về
+ * textarea + execCommand('copy') vì WebView/iframe của đối tác thường chặn navigator.clipboard. Trả về true nếu chép được.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  if (!isWeb || typeof document === 'undefined') return false;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && (window as any).isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* thử cách dự phòng bên dưới */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch { return false; }
+}
+
+/**
  * Chiều rộng content thực tế = full chiều ngang thiết bị (cả web lẫn mobile).
  * Web: app fluid, tự fit khung màn hình thiết bị; lá số & biểu đồ fill trọn
  * chiều rộng cửa sổ, cỡ chữ lá số scale theo (xem HouseCell).

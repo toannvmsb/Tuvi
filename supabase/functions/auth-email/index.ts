@@ -183,14 +183,14 @@ Deno.serve(async (req) => {
     // Debug tạm: chỉ ra ở log Edge Function (supabase functions logs auth-email), KHÔNG trả về client.
     console.log('[auth-email] OTP debug (request_partner_upgrade):', code, '→', newEmail);
 
-    const html = wrap('Xác nhận email để nâng cấp tài khoản', `
-      <p>Bạn vừa yêu cầu gắn email này vào tài khoản Tuzi của mình để có thể đăng nhập trực tiếp tại
-      <b>tuzi.vn</b> (ngoài việc vào qua đối tác như hiện tại). Mã xác nhận của bạn:</p>
+    const html = wrap('Xác nhận email để bảo vệ tài khoản', `
+      <p>Bạn vừa yêu cầu gắn email này vào tài khoản Tuzi của mình để khôi phục tài khoản khi cần
+      (bạn vẫn dùng Tuzi như hiện tại). Mã xác nhận của bạn:</p>
       <div style="background:#1a1430;border:1px solid #3a2f5a;border-radius:8px;padding:16px;margin:12px 0;text-align:center">
         <span style="font-size:28px;letter-spacing:6px;color:#e0b341;font-weight:800">${esc(code)}</span>
       </div>
       <p style="font-size:13px;color:#bbb">Mã có hiệu lực trong 10 phút. Nếu không phải bạn yêu cầu, hãy bỏ qua email này.</p>`);
-    const sent = await sendEmail(newEmail, `Mã xác nhận nâng cấp tài khoản — ${APP_NAME}`, html);
+    const sent = await sendEmail(newEmail, `Mã xác nhận bảo vệ tài khoản — ${APP_NAME}`, html);
     return json({ ok: sent });
   }
 
@@ -237,11 +237,11 @@ Deno.serve(async (req) => {
     }
     await supa.from('partner_upgrade_otps').delete().eq('id', otp.id);
 
-    const html = wrap('Nâng cấp tài khoản thành công 🎉', `
-      <p>Tài khoản Tuzi của bạn đã được gắn email này làm email đăng nhập chính. Từ giờ bạn có thể
-      vào thẳng <b>tuzi.vn</b> hoặc app Tuzi bằng email + mật khẩu vừa đặt, không cần qua đối tác nữa
-      (vẫn có thể tiếp tục vào qua đối tác như bình thường nếu muốn — dữ liệu dùng chung 1 tài khoản).</p>`);
-    void sendEmail(otp.new_email, `Nâng cấp tài khoản thành công — ${APP_NAME}`, html);
+    const html = wrap('Tài khoản đã được bảo vệ 🎉', `
+      <p>Tài khoản Tuzi của bạn đã được gắn email này. Bạn có thể dùng email và mật khẩu vừa đặt để đăng nhập
+      lại khi cần (ví dụ khi đổi điện thoại). Bạn vẫn có thể tiếp tục dùng Tuzi như bình thường — dữ liệu
+      dùng chung một tài khoản.</p>`);
+    void sendEmail(otp.new_email, `Tài khoản đã được bảo vệ — ${APP_NAME}`, html);
 
     return json({ ok: true, email: otp.new_email });
   }

@@ -12,6 +12,7 @@ import Icon, { type IconName } from '../ui/Icon';
 import { useAuth } from '../context/AuthContext';
 import { wallet } from '../constants/premium';
 import { APP_VERSION } from '../constants/appInfo';
+import PartnerUpgradeInvite from '../components/PartnerUpgradeInvite';
 
 type Item = { icon: IconName; label: string; sub?: string; color?: string; onPress: () => void };
 
@@ -76,6 +77,10 @@ export default function MenuScreen() {
         </Pressable>
         <GoldButton label="Nạp xu" onPress={go('Wallet')} style={{ minWidth: 110 }} />
       </View>
+
+      {/* Lời mời giữ tài khoản — đặt ở Menu (không ở Trang chủ) để không gây cảm giác "giành khách" của đối tác.
+          Chỉ hiện cho user vào qua đối tác; tự ẩn khi đã nâng cấp hoặc bấm "Để sau". */}
+      <PartnerUpgradeInvite />
 
       <Group title="Cá nhân hóa" items={[
         { icon: 'user', label: 'Lá số đã lưu', sub: 'Quản lý và gắn hồ sơ của tôi', color: COLORS.gold, onPress: go('MyCharts') },

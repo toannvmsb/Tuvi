@@ -169,7 +169,7 @@ export type RootStackParamList = {
   Home: undefined;
   Input: undefined;
   Settings: undefined;
-  Account: undefined;
+  Account: { focus?: 'upgrade' } | undefined;
   MainTabs: { result: AstrologyResult };
   PalaceDetail: { result: AstrologyResult; branchIndex: number };
   FullChartAI: { result: AstrologyResult };

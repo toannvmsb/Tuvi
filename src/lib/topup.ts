@@ -1,8 +1,7 @@
 /**
  * Đơn NẠP XU qua chuyển khoản VietQR.
  *
- * HIỆN TẠI (UI-first): tạo đơn `pending` trên bảng `topup_orders` (nếu đã có) và
- * cho phép app POLL trạng thái. Khi tích hợp SePay/Casso + Edge Function webhook,
+ * Tạo đơn `pending` trên bảng `topup_orders` và cho phép app POLL trạng thái. Khi tích hợp SePay/Casso + Edge Function webhook,
  * webhook sẽ khớp "nội dung chuyển khoản = code", cộng xu và đổi status='paid' —
  * app đang poll sẽ tự thấy 'paid' mà KHÔNG cần sửa thêm phía client.
  */
@@ -55,17 +54,31 @@ export async function listTopupOrders(limit = 30): Promise<TopupRow[]> {
   } catch { return []; }
 }
 
-/** Tạo đơn nạp (pending). Bỏ qua êm nếu chưa có backend/bảng. */
-export async function createTopupOrder(code: string, vnd: number, xu: number): Promise<void> {
-  if (!isOnlineMode()) return;
+export type CreateTopupResult =
+  | { ok: true }
+  | { ok: false; reason: 'offline' | 'no_session' | 'duplicate' | 'error'; message: string };
+
+/**
+ * Tạo đơn nạp (pending). PHẢI báo đúng thành công/thất bại: chỉ khi đơn đã được ghi thì mới được hiện QR —
+ * nếu đơn không tồn tại mà khách vẫn chuyển khoản thì webhook báo `not_found` và KHÔNG cộng xu (mất tiền).
+ */
+export async function createTopupOrder(code: string, vnd: number, xu: number): Promise<CreateTopupResult> {
+  if (!isOnlineMode()) return { ok: false, reason: 'offline', message: 'Cần đăng nhập và có mạng để nạp xu.' };
   try {
     const { data } = await supabase.auth.getUser();
     const uid = data.user?.id;
-    if (!uid) return;
-    await supabase.from('topup_orders').insert({
+    if (!uid) return { ok: false, reason: 'no_session', message: 'Phiên đăng nhập đã hết hạn. Hãy mở lại Tuzi rồi thử lại.' };
+    const { error } = await supabase.from('topup_orders').insert({
       user_id: uid, code, amount_vnd: vnd, xu, status: 'pending',
     });
-  } catch { /* chưa có bảng → bỏ qua, vẫn hiển thị QR để chuyển khoản */ }
+    if (error) {
+      if ((error as { code?: string }).code === '23505') return { ok: false, reason: 'duplicate', message: 'Trùng mã đơn, đang tạo lại.' };
+      return { ok: false, reason: 'error', message: 'Chưa tạo được đơn nạp xu. Vui lòng thử lại.' };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'error', message: 'Không kết nối được máy chủ. Vui lòng thử lại.' };
+  }
 }
 
 /** Kiểm tra trạng thái đơn. Trả 'pending' nếu chưa có backend. */

@@ -23,7 +23,7 @@ import ComboOffer from '../components/ComboOffer';
 import type { AstrologyResult } from '../types';
 import { isIapAvailable, initIap, getXuProducts, buyXuPack, endIap } from '../lib/iap';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
-import { isWeb, downloadToCache, saveImageOrDownload } from '../lib/platform';
+import { isWeb, downloadToCache, saveImageOrDownload, copyText } from '../lib/platform';
 import { previewVoucher, redeemGiftVoucher, createTopupWithVoucher, voucherErrorMessage, type VoucherPreview } from '../lib/vouchers';
 
 interface Order { code: string; pack: XuPack; }
@@ -48,6 +48,8 @@ export default function WalletScreen() {
   const [checking, setChecking] = useState(false);
   const [savingQr, setSavingQr] = useState(false);
   const [msg, setMsg] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
+  const startingRef = useRef(false);
   const [history, setHistory] = useState<TopupRow[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -169,11 +171,34 @@ export default function WalletScreen() {
       }
       return;
     }
-    const o = { code, pack };
-    setOrder(o);
-    setStatus('pending');
-    await createTopupOrder(code, pack.vnd, pack.xu);
+    // CHỈ hiện QR khi đơn ĐÃ ghi thành công: nếu đơn không tồn tại mà khách vẫn chuyển khoản thì webhook báo
+    // `not_found` và không cộng xu (mất tiền). Khóa chống bấm đúp để không tạo hai đơn.
+    if (startingRef.current) return;
+    startingRef.current = true;
+    try {
+      let useCode = code;
+      let res = await createTopupOrder(useCode, pack.vnd, pack.xu);
+      for (let i = 0; i < 2 && !res.ok && res.reason === 'duplicate'; i++) {
+        useCode = makeTopupCode();
+        res = await createTopupOrder(useCode, pack.vnd, pack.xu);
+      }
+      if (!res.ok) { setMsg('⚠ ' + res.message); return; }
+      setOrder({ code: useCode, pack });
+      setStatus('pending');
+    } finally { startingRef.current = false; }
   };
+
+  // Sao chép (chỉ web — nhập tay mã chuyển khoản dễ sai, và trong WebView của đối tác nút tải ảnh QR thường không chạy).
+  const doCopy = async (key: string, text: string) => {
+    const ok = await copyText(text);
+    if (ok) { setCopied(key); setTimeout(() => setCopied(c => (c === key ? null : c)), 2000); }
+    else setMsg('⚠ Không sao chép được, bạn hãy chép tay giúp nhé.');
+  };
+  const copyBtn = (key: string, text: string) => (isWeb ? (
+    <TouchableOpacity onPress={() => doCopy(key, text)} accessibilityRole="button" accessibilityLabel="Sao chép" hitSlop={8}>
+      <Text style={styles.copyTxt}>{copied === key ? '✓ Đã chép' : '📋 Chép'}</Text>
+    </TouchableOpacity>
+  ) : null);
 
   const onPaid = async (o: Order) => {
     stopPoll();
@@ -450,10 +475,10 @@ export default function WalletScreen() {
             )}
 
             <View style={styles.kv}><Text style={styles.k}>Ngân hàng</Text><Text style={styles.v}>{BANK.bankLabel}</Text></View>
-            <View style={styles.kv}><Text style={styles.k}>Số tài khoản</Text><Text style={styles.v}>{BANK.accountNo}</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Số tài khoản</Text><View style={styles.copyWrap}><Text style={styles.v}>{BANK.accountNo}</Text>{copyBtn('acc', BANK.accountNo)}</View></View>
             <View style={styles.kv}><Text style={styles.k}>Chủ tài khoản</Text><Text style={styles.v}>{BANK.accountName}</Text></View>
-            <View style={styles.kv}><Text style={styles.k}>Số tiền</Text><Text style={styles.vGold}>{order.pack.vnd.toLocaleString('vi-VN')}đ</Text></View>
-            <View style={styles.kv}><Text style={styles.k}>Nội dung CK</Text><Text style={styles.vGold}>{order.code}</Text></View>
+            <View style={styles.kv}><Text style={styles.k}>Số tiền</Text><View style={styles.copyWrap}><Text style={styles.vGold}>{order.pack.vnd.toLocaleString('vi-VN')}đ</Text>{copyBtn('amt', String(order.pack.vnd))}</View></View>
+            <View style={styles.kv}><Text style={styles.k}>Nội dung CK</Text><View style={styles.copyWrap}><Text style={styles.vGold}>{order.code}</Text>{copyBtn('code', order.code)}</View></View>
 
             <Text style={styles.warn}>
               ⚠ Bắt buộc ghi đúng nội dung <Text style={styles.bold}>{order.code}</Text> để hệ thống tự khớp và cộng xu.
@@ -598,6 +623,8 @@ const styles = StyleSheet.create({
   qrSaveBtn: { alignSelf: 'center', borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, paddingHorizontal: SPACING.md, paddingVertical: 6, backgroundColor: COLORS.gold + '14' },
   qrSaveTxt: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '800' },
   kv: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2 },
+  copyWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  copyTxt: { color: COLORS.gold, fontSize: FONTS.size.sm, fontWeight: '700' },
   k: { color: COLORS.textSecondary, fontSize: FONTS.size.sm },
   v: { color: COLORS.textPrimary, fontSize: FONTS.size.md, fontWeight: '700' },
   vGold: { color: COLORS.gold, fontSize: FONTS.size.md, fontWeight: '800' },
