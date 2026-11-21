@@ -5,9 +5,11 @@
  * (các màn AI lá số vẫn dùng utils/aiAnalysis.ts riêng, có đủ facts lá số).
  * Giới hạn 500 từ CẢ câu hỏi lẫn câu trả lời.
  *
- * Quota: FREE_DAILY_LIMIT lượt/ngày MIỄN PHÍ, đếm qua bảng ai_chat_usage
- * (chỉ đếm số lượt — KHÔNG lưu nội dung chat). Vượt quota → trả 402, client
- * tự hỏi trừ xu rồi gọi lại kèm { paid: true }.
+ * Quota: FREE_DAILY_LIMIT lượt/ngày MIỄN PHÍ, đếm NGUYÊN TỬ qua RPC ai_chat_begin (bảng ai_chat_usage,
+ * chỉ đếm số lượt — KHÔNG lưu nội dung chat). Vượt quota → trả 402 `quota_exceeded`; client hỏi người dùng
+ * rồi gọi lại kèm { paid: true } = "tôi đồng ý trả phí". Cờ này CHỈ là ý định của người dùng: MÁY CHỦ tự
+ * trừ xu (ai_chat_begin, kiểm tra số dư trong cùng giao dịch) và hoàn xu nếu AI lỗi (ai_chat_abort).
+ * Không đủ xu → 402 `insufficient_xu`. (Trước đây máy chủ tin cờ paid → ai cũng dùng AI miễn phí không giới hạn.)
  *
  * Ngữ cảnh hội thoại: client gửi kèm `history` (các lượt hỏi-đáp GẦN NHẤT của
  * PHIÊN CHAT đang mở, lấy từ state trong bộ nhớ máy — mất khi đóng modal chat,
@@ -16,13 +18,15 @@
  * MAX_HISTORY_CHARS ký tự, dùng xong là bỏ — không ghi vào DB.
  *
  * TRIỂN KHAI: supabase functions deploy ai-chat
- * (cần đã chạy supabase_ai_chat.sql để tạo bảng ai_chat_usage.)
+ * (cần đã chạy supabase_ai_chat.sql VÀ supabase_ai_chat_charge.sql; deploy web mới TRƯỚC khi deploy hàm này.)
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const FREE_DAILY_LIMIT = 5;
+// Giá 1 lượt vượt hạn mức (xu) — PHẢI khớp PREMIUM.COST.aiChat ở src/constants/premium.ts. Máy chủ TỰ trừ xu (xem ai_chat_begin).
+const CHAT_COST = 1;
 const MAX_WORDS = 500;
 const MAX_CHART_FACTS_CHARS = 2000; // khối facts gọn, chặn giá trị bất thường từ client
 const MAX_HISTORY_TURNS = 6;    // chỉ giữ N lượt hỏi-đáp GẦN NHẤT trong phiên đang mở
@@ -268,41 +272,54 @@ Deno.serve(async (req) => {
   const history = sanitizeHistory(body?.history);
   const messages: ChatMsg[] = [...history, { role: 'user', content: message }];
 
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: usageRow } = await svc
-    .from('ai_chat_usage').select('msg_count').eq('user_id', uid).eq('usage_date', today).maybeSingle();
-  const currentCount = usageRow?.msg_count ?? 0;
-  const isFree = currentCount < FREE_DAILY_LIMIT;
-
-  if (!isFree && !body?.paid) {
-    return json({ error: 'quota_exceeded', freeLimit: FREE_DAILY_LIMIT, used: currentCount }, 402);
+  // Hạn mức + trừ xu do MÁY CHỦ quyết, nguyên tử (chống gọi song song vượt hạn mức, chống tự khai paid). Ngày theo giờ Việt Nam.
+  const vn = vnToday();
+  const today = `${vn.year}-${String(vn.month).padStart(2, '0')}-${String(vn.day).padStart(2, '0')}`;
+  const ref = `aichat:${uid.slice(0, 8)}:${Date.now()}`;
+  const { data: begun, error: beginErr } = await svc.rpc('ai_chat_begin', {
+    p_user: uid, p_date: today, p_limit: FREE_DAILY_LIMIT, p_cost: CHAT_COST, p_allow_charge: body?.paid === true, p_ref: ref,
+  });
+  if (beginErr || !begun || typeof begun.mode !== 'string') {
+    console.error('[ai-chat] ai_chat_begin lỗi:', beginErr?.message);
+    return json({ error: 'quota_service_error' }, 503);
   }
+  const mode: 'free' | 'paid' = begun.mode === 'paid' ? 'paid' : 'free';
+  if (begun.mode === 'quota') return json({ error: 'quota_exceeded', freeLimit: FREE_DAILY_LIMIT, used: begun.used, cost: CHAT_COST }, 402);
+  if (begun.mode === 'insufficient') return json({ error: 'insufficient_xu', balance: begun.balance, cost: CHAT_COST }, 402);
+  if (begun.mode !== 'free' && begun.mode !== 'paid') return json({ error: 'quota_service_error' }, 503);
+
+  // Từ đây lượt đã được TÍNH (và xu đã trừ nếu 'paid'): mọi lỗi AI phải hoàn lại.
+  const abort = async () => {
+    const { error } = await svc.rpc('ai_chat_abort', { p_user: uid, p_date: today, p_mode: mode, p_cost: CHAT_COST, p_ref: ref });
+    if (error) console.error('[ai-chat] ai_chat_abort lỗi (cần hoàn tay):', uid, ref, error.message);
+  };
 
   // Dùng key dùng chung của app (bảng app_secrets) — GIỐNG utils/aiAnalysis.ts:
   // ưu tiên key trả phí thật (ổn định), free pollinations chỉ là backup cuối
   // cùng (endpoint free hiện hay trả 402 "budget too low", không đáng tin cậy).
-  const { data: secrets } = await svc.from('app_secrets').select('openai_key, claude_key').eq('id', 'ai').maybeSingle();
-  const openaiKey = (secrets?.openai_key as string | undefined)?.trim();
-  const claudeKey = (secrets?.claude_key as string | undefined)?.trim();
-
   let reply = '';
   try {
-    if (openaiKey) reply = await tryOpenAI(messages, openaiKey, systemPrompt);
-    else if (claudeKey) reply = await tryClaude(messages, claudeKey, systemPrompt);
-    else reply = await tryFreePollinations(messages, systemPrompt);
+    const { data: secrets } = await svc.from('app_secrets').select('openai_key, claude_key').eq('id', 'ai').maybeSingle();
+    const openaiKey = (secrets?.openai_key as string | undefined)?.trim();
+    const claudeKey = (secrets?.claude_key as string | undefined)?.trim();
+    try {
+      if (openaiKey) reply = await tryOpenAI(messages, openaiKey, systemPrompt);
+      else if (claudeKey) reply = await tryClaude(messages, claudeKey, systemPrompt);
+      else reply = await tryFreePollinations(messages, systemPrompt);
+    } catch (e) {
+      // Key trả phí lỗi (hết hạn/hết quota) → thử free trước khi báo lỗi hẳn.
+      try { reply = await tryFreePollinations(messages, systemPrompt); }
+      catch { await abort(); return json({ error: 'ai_error', detail: String((e as any)?.message || e).slice(0, 200) }, 502); }
+    }
   } catch (e) {
-    // Key trả phí lỗi (hết hạn/hết quota) → thử free trước khi báo lỗi hẳn.
-    try { reply = await tryFreePollinations(messages, systemPrompt); }
-    catch { return json({ error: 'ai_error', detail: String((e as any)?.message || e).slice(0, 200) }, 502); }
+    await abort();
+    return json({ error: 'ai_error', detail: String((e as any)?.message || e).slice(0, 200) }, 502);
   }
-  if (!reply) return json({ error: 'ai_empty' }, 502);
+  if (!reply) { await abort(); return json({ error: 'ai_empty' }, 502); }
   reply = truncateWords(reply, MAX_WORDS);
 
-  // Cập nhật quota SAU khi có câu trả lời thành công (lỗi AI không tính vào quota).
-  await svc.from('ai_chat_usage').upsert(
-    { user_id: uid, usage_date: today, msg_count: currentCount + 1, updated_at: new Date().toISOString() },
-    { onConflict: 'user_id,usage_date' },
-  );
-
-  return json({ reply, isFree, usedToday: currentCount + 1, freeLimit: FREE_DAILY_LIMIT });
+  return json({
+    reply, isFree: mode === 'free', usedToday: begun.used, freeLimit: FREE_DAILY_LIMIT,
+    ...(mode === 'paid' ? { charged: CHAT_COST, balance: begun.balance } : {}),
+  });
 });

@@ -4,11 +4,12 @@
  *
  * Quota: FREE_DAILY_LIMIT lượt/ngày miễn phí (đếm ở server). Vượt quota →
  * `sendChatMessage` trả về status 'quota' — UI (AiChatBubble) tự quyết định
- * hỏi xác nhận hay tự động trừ xu (nếu người dùng đã tích "không hỏi lại"),
- * rồi gọi `chargeAndSend` để trừ xu + gửi lại.
+ * hỏi xác nhận hay tự động trả phí (nếu người dùng đã tích "không hỏi lại"),
+ * rồi gọi `chargeAndSend`. MÁY CHỦ tự trừ xu (client chỉ báo "đồng ý trả phí" và nhận số dư mới) —
+ * client KHÔNG tự trừ xu để tránh trừ hai lần và để không ai bỏ qua được việc trả phí.
  */
 import { supabase } from './supabase';
-import { chargeAgain, PREMIUM } from '../constants/premium';
+import { PREMIUM, wallet, seedWallet } from '../constants/premium';
 
 export const AI_CHAT_MAX_WORDS = 500;
 // Chỉ gửi kèm N lượt hỏi-đáp GẦN NHẤT của phiên đang mở làm ngữ cảnh (khớp với
@@ -43,25 +44,33 @@ export async function sendChatMessage(message: string, history?: ChatTurn[], cha
   const first = await callChatFn(trimmed, false, history, chartFacts);
   if (first.kind === 'ok') return { status: 'ok', reply: first.reply };
   if (first.kind === 'quota') return { status: 'quota', freeLimit: first.freeLimit, cost: PREMIUM.COST.aiChat };
+  if (first.kind === 'insufficient') return { status: 'error', message: `Số dư không đủ (cần ${first.cost} xu). Nạp thêm trong Menu → Nạp xu.` };
   return { status: 'error', message: first.message };
 }
 
-/** Trừ xu (1 lượt) rồi gửi lại câu hỏi đã vượt quota. Gọi sau khi người dùng đồng ý (hoặc đã tích "không hỏi lại"). */
+/** Gửi lại câu hỏi đã vượt quota với ý định TRẢ PHÍ (người dùng đã đồng ý hoặc đã tích "không hỏi lại"). Máy chủ tự trừ xu và trả số dư mới. */
 export async function chargeAndSend(message: string, history?: ChatTurn[], chartFacts?: string): Promise<ChatSendResult> {
   const cost = PREMIUM.COST.aiChat;
-  const chargeKey = `aichat:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const charge = chargeAgain(chargeKey, 'ai', cost);
-  if (!charge.ok) {
+  // Kiểm tra nhanh phía máy cho đỡ tốn một lượt gọi; nguồn sự thật là máy chủ (có thể báo không đủ xu dù số dư cục bộ chưa cập nhật).
+  if (wallet.balance < cost) {
     return { status: 'error', message: `Số dư không đủ (cần ${cost} xu). Nạp thêm trong Menu → Nạp xu.` };
   }
   const second = await callChatFn(message.trim(), true, history, chartFacts);
-  if (second.kind === 'ok') return { status: 'ok', reply: second.reply };
+  if (second.kind === 'ok') {
+    if (typeof second.balance === 'number') seedWallet({ balance: second.balance });
+    return { status: 'ok', reply: second.reply };
+  }
+  if (second.kind === 'insufficient') {
+    seedWallet({ balance: second.balance });
+    return { status: 'error', message: `Số dư không đủ (cần ${second.cost} xu). Nạp thêm trong Menu → Nạp xu.` };
+  }
   return { status: 'error', message: second.kind === 'error' ? second.message : 'Có lỗi khi xác nhận lượt trả phí, thử lại nhé.' };
 }
 
 type ChatFnResult =
-  | { kind: 'ok'; reply: string }
+  | { kind: 'ok'; reply: string; balance?: number }
   | { kind: 'quota'; freeLimit: number }
+  | { kind: 'insufficient'; balance: number; cost: number }
   | { kind: 'error'; message: string };
 
 async function callChatFn(message: string, paid: boolean, history: ChatTurn[] | undefined, chartFacts?: string): Promise<ChatFnResult> {
@@ -72,13 +81,17 @@ async function callChatFn(message: string, paid: boolean, history: ChatTurn[] | 
       const ctx = (error as any)?.context;
       if (ctx?.status === 402) {
         const body = await safeReadJson(ctx);
+        if (body?.error === 'insufficient_xu') {
+          return { kind: 'insufficient', balance: typeof body.balance === 'number' ? body.balance : 0, cost: typeof body.cost === 'number' ? body.cost : PREMIUM.COST.aiChat };
+        }
         return { kind: 'quota', freeLimit: body?.freeLimit ?? 5 };
       }
       return { kind: 'error', message: 'Tuzi đang bận, bạn thử lại sau ít phút nhé.' };
     }
     const reply = (data as any)?.reply as string | undefined;
     if (!reply) return { kind: 'error', message: 'Không nhận được câu trả lời, bạn thử lại nhé.' };
-    return { kind: 'ok', reply };
+    const balance = (data as any)?.balance;
+    return { kind: 'ok', reply, ...(typeof balance === 'number' ? { balance } : {}) };
   } catch {
     return { kind: 'error', message: 'Không kết nối được, bạn kiểm tra mạng rồi thử lại nhé.' };
   }
