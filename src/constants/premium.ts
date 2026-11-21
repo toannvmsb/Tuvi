@@ -105,7 +105,7 @@ const unlocked = new Set<string>();
 
 // ── Hook đồng bộ với backend (Supabase). walletSync.ts đăng ký các callback này;
 //    premium.ts vẫn đồng bộ với UI, chỉ "bắn" sự kiện ra ngoài để đẩy lên server. ──
-type SpendInfo = { key: string; kind: FeatureKind; cost: number; balance: number };
+type SpendInfo = { key: string; kind: FeatureKind; cost: number; balance: number; again?: boolean };
 type BundleInfo = { keys: string[]; ref: string; cost: number; balance: number };
 let onSpend: ((i: SpendInfo) => void) | null = null;
 let onDeposit: ((amount: number, balance: number) => void) | null = null;
@@ -173,7 +173,7 @@ export function chargeAgain(key: string, kind: FeatureKind, cost: number = PREMI
   }
   wallet.balance -= cost;
   unlocked.add(key);
-  onSpend?.({ key, kind, cost, balance: wallet.balance });
+  onSpend?.({ key, kind, cost, balance: wallet.balance, again: true });
   return { ok: true, charged: cost, alreadyUnlocked: false, balance: wallet.balance };
 }
 

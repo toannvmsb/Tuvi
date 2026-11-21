@@ -5,6 +5,10 @@
 // (OpenAI + Cloudflare) không bao giờ lộ ra client — app chỉ gọi qua
 // supabase.functions.invoke(), tự động kèm JWT người dùng.
 //
+// BẢO MẬT: máy chủ TỰ quyết lượt miễn phí đầu tiên và TỰ TRỪ XU (RPC portrait_begin/portrait_abort, xem supabase_portrait_gate.sql) — trước đây
+// chỉ kiểm tra đã đăng nhập, việc trừ xu làm ở client sau khi vẽ nên ai cũng gọi OpenAI + Cloudflare không giới hạn mà không mất xu.
+// sessionId làm sạch (đi vào đường dẫn lưu ảnh), giới hạn độ dài ngữ cảnh, KHÔNG trả chi tiết lỗi của nhà cung cấp về client.
+//
 // Secrets cần set trước khi deploy (xem README trong plan):
 //   supabase secrets set OPENAI_API_KEY=... CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=...
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -26,6 +30,11 @@ interface PortraitRequest {
   note?: string;
 }
 
+// Giá 1 lần vẽ (xu) — PHẢI khớp PREMIUM.COST.portrait ở src/constants/premium.ts.
+const PORTRAIT_COST = 30;
+const MAX_CONTEXT_CHARS = 4000;
+const SAFE_SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 const HAIR_LABEL: Record<PortraitRequest["hairLength"], string> = {
   short: "short hair",
   medium: "medium-length hair",
@@ -42,6 +51,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // Trạng thái cổng (miễn phí / đã trừ xu) — nằm NGOÀI try để catch hoàn lại khi vẽ lỗi.
+  let gate: { uid: string; mode: "free" | "paid"; ref: string } | null = null;
+  const svcUrl = Deno.env.get("SUPABASE_URL")!;
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false } });
+  const abortGate = async () => {
+    if (!gate) return;
+    const g = gate; gate = null;
+    const { error } = await svc.rpc("portrait_abort", { p_user: g.uid, p_mode: g.mode, p_cost: PORTRAIT_COST, p_ref: g.ref });
+    if (error) console.error("[generate-portrait] portrait_abort lỗi (cần hoàn tay):", g.uid, g.ref, error.message);
+  };
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -63,10 +84,28 @@ Deno.serve(async (req) => {
     }
 
     const body: PortraitRequest = await req.json();
-    const { sessionId, compatibilityContext, gender, hairLength } = body;
+    // sessionId đi vào ĐƯỜNG DẪN lưu ảnh (service role, bỏ qua RLS) → chỉ nhận ký tự an toàn, ngược lại dùng "session".
+    const sessionId = typeof body.sessionId === "string" && SAFE_SESSION_ID.test(body.sessionId) ? body.sessionId : undefined;
+    const compatibilityContext = typeof body.compatibilityContext === "string" ? body.compatibilityContext.slice(0, MAX_CONTEXT_CHARS) : "";
+    const gender = body.gender in GENDER_LABEL ? body.gender : "other";
+    const hairLength = body.hairLength in HAIR_LABEL ? body.hairLength : "medium";
     // Chặn giá trị bất thường: tuổi 18–80, ghi chú tối đa 200 ký tự.
     const ageWanted = Math.min(80, Math.max(18, Math.round(Number(body.ageWanted) || 28)));
     const note = (body.note ?? "").slice(0, 200);
+
+    // CỔNG: lượt miễn phí đầu tiên hoặc TỰ TRỪ XU phía máy chủ (nguyên tử). Từ đây vẽ lỗi phải hoàn lại (abortGate).
+    const ref = `portrait:${user.id.slice(0, 8)}:${Date.now()}`;
+    const { data: begun, error: beginErr } = await svc.rpc("portrait_begin", { p_user: user.id, p_cost: PORTRAIT_COST, p_ref: ref });
+    if (beginErr || !begun || typeof begun.mode !== "string") {
+      console.error("[generate-portrait] portrait_begin lỗi:", beginErr?.message);
+      return new Response(JSON.stringify({ error: "gate_error" }), { status: 503, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+    }
+    if (begun.mode === "insufficient") {
+      return new Response(JSON.stringify({ error: "insufficient_xu", balance: begun.balance, cost: PORTRAIT_COST }), {
+        status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    gate = { uid: user.id, mode: begun.mode === "paid" ? "paid" : "free", ref };
 
     // ---- Bước 1: OpenAI suy luận KHUÔN MẶT tương hợp (1 lần gọi DUY NHẤT) ----
     // App này xem tướng số qua khuôn mặt — khuôn mặt PHẢI là trọng tâm của
@@ -220,8 +259,7 @@ Deno.serve(async (req) => {
     if (!base64Image) throw new Error("Cloudflare không trả về ảnh.");
 
     // ---- Bước 3: Upload ảnh lên Storage (service role — bỏ qua RLS) ----
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    const adminClient = svc;
 
     // Decode base64 → bytes bằng vòng for thuần (KHÔNG dùng Uint8Array.from(str, cb) — mapFn gọi 1
     // callback riêng cho MỖI ký tự, với ảnh 1024x1024 (base64 ~1-2 triệu ký tự) tốn CPU-time đáng
@@ -240,12 +278,19 @@ Deno.serve(async (req) => {
     const { data: publicUrlData } = adminClient.storage.from("portraits").getPublicUrl(path);
     const imageUrl = publicUrlData.publicUrl;
 
-    return new Response(JSON.stringify({ imageUrl }), {
+    const done = gate as { mode: "free" | "paid" } | null;
+    gate = null; // thành công → không hoàn
+    return new Response(JSON.stringify({
+      imageUrl, free: done?.mode === "free",
+      ...(done?.mode === "paid" ? { charged: PORTRAIT_COST, balance: begun.balance } : {}),
+    }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("[generate-portrait]", e);
-    return new Response(JSON.stringify({ error: String(e instanceof Error ? e.message : e) }), {
+    await abortGate();
+    // Không trả chi tiết lỗi của OpenAI/Cloudflare (có thể chứa một phần khóa/thông tin nội bộ) về client.
+    return new Response(JSON.stringify({ error: "portrait_failed" }), {
       status: 500,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

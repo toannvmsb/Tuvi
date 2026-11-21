@@ -7,11 +7,11 @@
  * service role (KHÔNG BAO GIỜ trả lại key cho client) rồi tự gọi OpenAI/Anthropic.
  *
  * Khác với ai-chat (giới hạn 500 từ/lượt, có quota miễn phí/ngày): ở đây bài luận có thể dài
- * tới ~7000 từ, và việc trừ xu đã được xử lý ở client (confirmAndUnlock) TRƯỚC khi gọi hàm
- * này — proxy chỉ xác thực người dùng đã đăng nhập, không tự trừ tiền/đếm quota.
+ * tới ~7000 từ. Giá mỗi phân tích do client trừ (confirmAndUnlock → RPC spend_xu) TRƯỚC khi gọi hàm này; proxy KHÔNG biết giá
+ * từng tính năng nên kiểm soát bằng TÍN DỤNG AI gắn với xu đã trừ thật + trần/ngày (ai_proxy_begin) — người chưa trả phí không gọi được.
  *
  * TRIỂN KHAI: supabase functions deploy ai-proxy
- * (không cần bảng mới — dùng chung app_secrets đã có từ supabase_phase2.sql.)
+ * (cần chạy supabase_ai_proxy_guard.sql; dùng chung app_secrets đã có từ supabase_phase2.sql.) Deploy web mới TRƯỚC.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -27,6 +27,17 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // prompt lớn hơn nhiều — nới rộng lên mức vẫn đủ chặn request giả mạo/bất thường thật sự.
 const MAX_PROMPT_CHARS = 60000;
 
+// TÍN DỤNG AI (vá lỗ hổng: trước đây chỉ kiểm tra đã đăng nhập → ai cũng gọi AI không giới hạn bằng key dùng chung).
+// Mỗi lượt gọi tiêu 1 đơn vị; đơn vị được cấp theo xu ĐÃ TRỪ THẬT phía máy chủ (giao dịch 'ai' ×AI_PER_XU, 'combo' ×COMBO_PER_XU) và có trần/ngày (admin chỉnh được).
+// Xem supabase_ai_proxy_guard.sql. Admin được bỏ qua điều kiện tín dụng (vẫn chịu trần/ngày).
+// Trần lượt/người/ngày do admin chỉnh (app_config.ai_proxy_daily_cap, tuvi-admin → Cài đặt → Giới hạn AI); mặc định này dùng khi chưa cấu hình/đọc lỗi.
+const DEFAULT_DAILY_CAP = 500;
+const CAP_CACHE_MS = 60_000;
+const AI_PER_XU = 1;
+const COMBO_PER_XU = 3;
+// Lệnh trừ xu của client là "gửi rồi quên" nên có thể ghi chậm hơn lượt gọi AI đầu tiên vài trăm ms → thử lại MỘT lần sau chừng này.
+const CREDIT_RETRY_MS = 1500;
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -36,6 +47,20 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } });
 
 const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+
+let capCache: { value: number; at: number } | null = null;
+/** Trần lượt gọi AI mỗi người mỗi ngày — đọc từ app_config (đệm 60 giây), kẹp trong 20..5000. */
+async function getDailyCap(): Promise<number> {
+  if (capCache && Date.now() - capCache.at < CAP_CACHE_MS) return capCache.value;
+  let value = DEFAULT_DAILY_CAP;
+  try {
+    const { data } = await svc.from('app_config').select('value').eq('key', 'ai_proxy_daily_cap').maybeSingle();
+    const n = parseInt(String(data?.value ?? ''), 10);
+    if (Number.isFinite(n)) value = Math.min(5000, Math.max(20, n));
+  } catch { /* dùng mặc định */ }
+  capCache = { value, at: Date.now() };
+  return value;
+}
 
 const STYLE_SUFFIX =
   ' Viết HOÀN TOÀN bằng tiếng Việt có dấu (chữ Quốc ngữ Latin), KHÔNG dùng chữ Hán / tiếng Trung. ' +
@@ -150,6 +175,32 @@ Deno.serve(async (req) => {
   const apiKey = provider === 'claude' ? claudeKey : openaiKey;
   if (!apiKey) return json({ error: 'no_key_configured' }, 503);
 
+  // Tín dụng AI (nguyên tử). Lệnh trừ xu của client có thể ghi chậm vài trăm ms → thử lại một lần.
+  const today = (() => {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return p; // YYYY-MM-DD theo giờ Việt Nam
+  })();
+  const dailyCap = await getDailyCap();
+  const begin = () => svc.rpc('ai_proxy_begin', {
+    p_user: uid, p_date: today, p_daily_cap: dailyCap, p_ai_per_xu: AI_PER_XU, p_combo_per_xu: COMBO_PER_XU,
+  });
+  let { data: gate, error: gateErr } = await begin();
+  if (!gateErr && gate?.mode === 'no_credit') {
+    await new Promise(r => setTimeout(r, CREDIT_RETRY_MS));
+    ({ data: gate, error: gateErr } = await begin());
+  }
+  if (gateErr || !gate || typeof gate.mode !== 'string') {
+    console.error('[ai-proxy] ai_proxy_begin lỗi:', gateErr?.message);
+    return json({ error: 'gate_error' }, 503);
+  }
+  if (gate.mode === 'no_credit') return json({ error: 'ai_credit_required' }, 402);
+  if (gate.mode === 'daily_cap') return json({ error: 'ai_daily_cap' }, 429);
+  if (gate.mode !== 'ok') return json({ error: 'gate_error' }, 503);
+  const abort = async () => {
+    const { error } = await svc.rpc('ai_proxy_abort', { p_user: uid, p_date: today });
+    if (error) console.error('[ai-proxy] ai_proxy_abort lỗi:', uid, error.message);
+  };
+
   const systemPrompt = SYSTEM_PROMPTS[promptKind];
   const maxTokens = MAX_TOKENS[promptKind][provider];
 
@@ -157,9 +208,13 @@ Deno.serve(async (req) => {
     const text = provider === 'claude'
       ? await callAnthropic(prompt, apiKey, systemPrompt, maxTokens)
       : await callOpenAI(prompt, apiKey, systemPrompt, maxTokens);
-    if (!text) return json({ error: 'ai_empty' }, 502);
+    if (!text) { await abort(); return json({ error: 'ai_empty' }, 502); }
     return json({ text });
   } catch (e) {
-    return json({ error: String((e as any)?.message || e).slice(0, 200) }, 502);
+    await abort();
+    // Ghi đầy đủ vào log máy chủ, nhưng chỉ trả MÃ ngắn (vd OPENAI_429) về client — không lộ nội dung lỗi của nhà cung cấp.
+    const full = String((e as any)?.message || e);
+    console.error('[ai-proxy] upstream lỗi:', full.slice(0, 500));
+    return json({ error: (full.split(':')[0] || 'ai_failed').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'ai_failed' }, 502);
   }
 });

@@ -9,6 +9,7 @@
 
 import type { AstrologyResult, TuViHouse } from '../types';
 import { supabase } from '../lib/supabase';
+import { awaitPendingSpends } from '../lib/pendingSpends';
 import { getStarInfo } from '../data/starInfo';
 import { detectCachCucInPalace } from '../data/cachCuc';
 import { scoreDaiVan } from '../core/daiVanScore';
@@ -672,6 +673,8 @@ export interface AIKeys {
  * key bằng service role, KHÔNG BAO GIỜ trả key về client — chỉ trả về đúng đoạn văn bản kết quả.
  */
 async function callAiProxy(prompt: string, provider: 'openai' | 'claude', signal: AbortSignal): Promise<string> {
+  // Chờ lệnh trừ xu (gửi rồi quên) ghi xong: ai-proxy cấp tín dụng AI theo xu đã trừ phía máy chủ.
+  await awaitPendingSpends();
   const { data, error } = await supabase.functions.invoke('ai-proxy', {
     body: { prompt, provider, promptKind: 'natal' },
     signal,

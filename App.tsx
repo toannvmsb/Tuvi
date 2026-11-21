@@ -15,6 +15,8 @@ import AppErrorBoundary from './src/components/AppErrorBoundary';
 import AiChatBubble from './src/components/AiChatBubble';
 import { useAppFonts } from './src/ui/fonts';
 import { signInViaPartner } from './src/lib/partnerAuth';
+import { parseResetToken } from './src/lib/resetLink';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 
 // Web: app fluid — tự fit TRỌN khung màn hình thiết bị (không giới hạn bề rộng).
 // Lá số & biểu đồ fill full chiều ngang cửa sổ; cỡ chữ lá số scale theo.
@@ -43,6 +45,17 @@ function useEmbedParams(): { partnerCode: string; token: string } | null {
   return params;
 }
 
+/** Trang /reset?token=… (web): đọc token MỘT lần rồi xóa khỏi thanh địa chỉ (tránh lọt vào lịch sử/Referer). null = không phải trang reset. */
+function useResetToken(): string | null {
+  const [token] = useState(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+    const t = parseResetToken(window.location.pathname, window.location.search);
+    if (t !== null) window.history.replaceState(null, '', '/reset');
+    return t;
+  });
+  return token;
+}
+
 function EmbedErrorScreen({ message }: { message: string }) {
   return (
     <View style={embedStyles.screen}>
@@ -68,6 +81,7 @@ function Boot() {
   const [showSplash, setShowSplash] = useState(true);
   const fontsReady = useAppFonts();
   const embedParams = useEmbedParams();
+  const resetToken = useResetToken();
   const [ssoPending, setSsoPending] = useState(!!embedParams);
   const [ssoError, setSsoError] = useState('');
   const ssoStarted = useRef(false);
@@ -123,6 +137,8 @@ function Boot() {
 
   const done = langReady && authReady && fontsReady && !ssoPending;
 
+  // Trang đặt lại mật khẩu (từ liên kết email) — hiện ngay, không cần đăng nhập, không qua màn chào.
+  if (resetToken !== null) return <ResetPasswordScreen token={resetToken} />;
   if (showSplash) {
     return <StartupProgress done={done} onFinish={() => setShowSplash(false)} />;
   }

@@ -10,13 +10,13 @@ import ScreenHeader from '../components/ScreenHeader';
 import ChartSwitchLine from '../components/ChartSwitchLine';
 import KeyboardAwareScreen from '../components/KeyboardAwareScreen';
 import { COLORS, FONTS } from '../constants/theme';
-import { PREMIUM, wallet, chargeAgain } from '../constants/premium';
+import { PREMIUM, wallet, seedWallet } from '../constants/premium';
 import { Card, Body, Segmented, GoldButton, OutlineButton, Eyebrow } from '../ui';
 import { useMyResult, NoChartState } from '../hooks/useMyResult';
-import { generatePortrait, buildPortraitContext } from '../lib/portraitGen';
+import { generatePortraitEx, buildPortraitContext } from '../lib/portraitGen';
 import { saveImageOrDownload, PHOTO_PERMISSION_DENIED_MESSAGE } from '../lib/platform';
 import { webAlert } from '../lib/webAlert';
-import { isFreePortraitAvailable, claimFreePortrait } from '../lib/portraitFree';
+import { isFreePortraitAvailable } from '../lib/portraitFree';
 import { addPortrait, listPortraits, galleryKeyOf, type SavedPortrait } from '../lib/portraitStore';
 import type { AstrologyResult } from '../types';
 
@@ -114,19 +114,19 @@ export default function PortraitScreen() {
     );
   };
 
-  const doGenerate = async (free = false) => {
+  const doGenerate = async (_free = false) => {
     setBusy(true); setError(null);
     try {
-      const url = await generatePortrait({
+      // MÁY CHỦ quyết lượt miễn phí đầu tiên và tự trừ xu (hoàn lại nếu vẽ lỗi) — client chỉ cập nhật hiển thị theo kết quả.
+      const res = await generatePortraitEx({
         sessionId: result.birthInfo.chartId,
         compatibilityContext: buildPortraitContext(result),
         ageWanted: Math.min(80, Math.max(18, parseInt(age, 10) || 28)),
         gender, hairLength: hair, note: note.trim() || undefined,
       });
-      // Lượt miễn phí chỉ được ghi nhận SAU khi vẽ thành công; nếu lượt đã bị dùng ở nơi khác thì tính xu như thường.
-      const usedFree = free ? await claimFreePortrait() : false;
-      if (usedFree) setFreeLeft(false);
-      else chargeAgain(`portrait:${Date.now()}`, 'ai', cost);
+      const url = res.url;
+      if (res.free) setFreeLeft(false);
+      else if (typeof res.balance === 'number') seedWallet({ balance: res.balance });
       // Tự lưu offline vào máy (mobile) + ghi vào kho "Chân dung đã vẽ" của lá số này.
       const saved = await addPortrait(galleryKey, url);
       setDrawn(saved);
@@ -135,7 +135,7 @@ export default function PortraitScreen() {
       // Không hiện chi tiết lỗi kỹ thuật (API/server) lên màn hình cho người dùng — chỉ log để
       // debug, còn màn hình luôn hiện 1 câu thân thiện, mời thử lại.
       if (__DEV__) console.warn('[portrait] lỗi vẽ chân dung:', e?.message);
-      setError('Hệ thống chưa tạo được ảnh, mời bạn thử tạo lại.');
+      setError(/insufficient_xu/.test(String(e?.message)) ? `Số dư không đủ (cần ${cost} xu). Nạp thêm trong Menu → Nạp xu.` : 'Hệ thống chưa tạo được ảnh, mời bạn thử tạo lại.');
     } finally {
       setBusy(false);
     }

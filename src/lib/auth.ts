@@ -2,6 +2,7 @@
  * Dịch vụ Đăng nhập / Đăng ký qua Supabase Auth + đồng bộ ví xu & mục đã mở.
  */
 import { supabase } from './supabase';
+import { trackSpend } from './pendingSpends';
 import { SUPABASE_READY } from './supabaseConfig';
 import {
   wallet, seedWallet, seedUnlocked, setWalletListeners,
@@ -51,8 +52,9 @@ export async function sendWelcomeEmail(email: string, displayName: string): Prom
 }
 
 /**
- * QUÊN MẬT KHẨU: yêu cầu hệ thống sinh mật khẩu MỚI và gửi vào email đã đăng ký.
- * Luôn trả về "thành công" (kể cả email không tồn tại) để chống dò email.
+ * QUÊN MẬT KHẨU: yêu cầu hệ thống gửi LIÊN KẾT đặt lại mật khẩu (một lần, hết hạn 30 phút) vào email đã đăng ký.
+ * Mật khẩu CHỈ đổi khi chủ email bấm liên kết và tự đặt mật khẩu mới (xem confirmPasswordReset).
+ * Luôn trả về "thành công" (kể cả email không tồn tại / bị giới hạn tần suất) để chống dò email.
  */
 export async function requestPasswordReset(email: string): Promise<void> {
   const clean = email.trim().toLowerCase();
@@ -154,6 +156,25 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 /**
+ * ĐẶT LẠI MẬT KHẨU — bước xác nhận (trang /reset): đổi mật khẩu bằng token trong liên kết email.
+ * Token hết hạn sau 30 phút, chỉ dùng được một lần.
+ */
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 6) throw new Error('Mật khẩu mới tối thiểu 6 ký tự.');
+  const { data, error } = await supabase.functions.invoke('auth-email', {
+    body: { action: 'confirm_reset', token, newPassword },
+  });
+  let code = (data as any)?.error as string | undefined;
+  if (error && !code) {
+    try { const b = typeof (error as any)?.context?.json === 'function' ? await (error as any).context.json() : null; code = b?.error; } catch { /* bỏ qua */ }
+  }
+  if (!error && (data as any)?.ok === true) return;
+  if (code === 'invalid_token') throw new Error('Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới ở màn Đăng nhập.');
+  if (code === 'weak_password') throw new Error('Mật khẩu mới không hợp lệ (6–72 ký tự).');
+  throw new Error('Không đặt lại được mật khẩu. Vui lòng thử lại.');
+}
+
+/**
  * NÂNG CẤP TÀI KHOẢN (Partner SSO) — bước 1: gửi mã OTP tới email thật muốn gắn vào tài
  * khoản. Chỉ dùng được cho tài khoản vào qua đối tác (`isPartnerAccount`); server tự kiểm
  * tra lại điều kiện này (xem action "request_partner_upgrade" trong auth-email).
@@ -194,6 +215,13 @@ export async function confirmPartnerUpgrade(code: string, newPassword: string): 
   return (data as any).email as string;
 }
 
+/** Đồng bộ số dư hiển thị theo kết quả máy chủ sau khi mở khóa (máy chủ là nguồn đúng; client đã trừ tạm `localCost`). */
+function reconcileBalance(data: any, error: { message?: string } | null, localCost: number): void {
+  if (error) { console.warn('[unlock] máy chủ từ chối/không phản hồi:', error.message); return; }
+  if (data && typeof data.balance === 'number') seedWallet({ balance: data.balance });
+  else if (localCost) console.warn('[unlock] phản hồi không có số dư');
+}
+
 /**
  * Sau khi đăng nhập: tải hồ sơ (số dư xu) + danh sách mục đã mở khóa từ server
  * vào ví cục bộ, đồng thời đăng ký listener để ĐẨY mọi thay đổi (trừ/nạp/mở khóa)
@@ -224,19 +252,23 @@ export async function loadProfileIntoWallet(user: AuthUser): Promise<void> {
 
   // 3) Đăng ký đẩy thay đổi lên server (fire-and-forget)
   setWalletListeners({
-    onSpend: ({ key, kind, cost }) => {
-      // Trừ xu atomic + ghi unlock; lỗi mạng không chặn UI (đã trừ cục bộ).
-      supabase.rpc('spend_xu', { p_amount: cost, p_reason: kind, p_ref: key }).then(() => {});
-      supabase.from('unlocks').insert({ user_id: user.id, unlock_key: key, kind }).then(() => {});
+    onSpend: ({ key, kind, cost, again }) => {
+      // GIÁ DO MÁY CHỦ QUYẾT (RPC unlock_feature): client chỉ gửi khóa + loại, không gửi số xu. Số dư hiển thị được đồng bộ lại theo máy chủ.
+      // "Phân tích lại" = mục đã mở mà vẫn bị trừ → force. trackSpend: ai-proxy cấp tín dụng theo xu đã trừ → các lượt gọi AI chờ lệnh này xong.
+      trackSpend(
+        Promise.resolve(supabase.rpc('unlock_feature', { p_key: key, p_kind: kind, p_force: !!again }))
+          .then(({ data, error }) => { reconcileBalance(data, error, cost); }),
+      );
     },
     onDeposit: (amount) => {
       supabase.rpc('deposit_xu', { p_amount: amount }).then(() => {});
     },
     // Mua combo: trừ xu MỘT lần + ghi NHIỀU dòng mở khóa.
     onBundle: ({ keys, ref, cost }) => {
-      supabase.rpc('spend_xu', { p_amount: cost, p_reason: 'combo', p_ref: ref }).then(() => {});
-      const rows = keys.map(k => ({ user_id: user.id, unlock_key: k, kind: 'ai' }));
-      supabase.from('unlocks').insert(rows).then(() => {});
+      trackSpend(
+        Promise.resolve(supabase.rpc('unlock_bundle', { p_ref: ref, p_keys: keys }))
+          .then(({ data, error }) => { reconcileBalance(data, error, cost); }),
+      );
     },
   });
 }

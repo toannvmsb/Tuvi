@@ -38,6 +38,10 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL = Deno.env.get('AUTH_FROM_EMAIL') ?? 'Tuzi <no-reply@tuzi.vn>';
 const APP_NAME = Deno.env.get('APP_NAME') ?? 'Tuzi — Tử Vi & Bát Tự';
+const APP_URL = (Deno.env.get('APP_URL') ?? 'https://tuzi.vn').replace(/\/+$/, '');
+// Quên mật khẩu: tối đa N yêu cầu / giờ / tài khoản (chống spam thư), liên kết sống RESET_TTL_MIN phút.
+const RESET_MAX_PER_HOUR = 3;
+const RESET_TTL_MIN = 30;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,17 +50,6 @@ const CORS = {
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } });
-
-/** Sinh mật khẩu ngẫu nhiên dễ đọc (bỏ ký tự dễ nhầm: O/0, I/l/1). */
-function genPassword(len = 10): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  const arr = new Uint32Array(len);
-  crypto.getRandomValues(arr);
-  let out = '';
-  for (let i = 0; i < len; i++) out += chars[arr[i] % chars.length];
-  // Đảm bảo có ít nhất 1 số + 1 chữ hoa (cho chắc chắn ≥ yêu cầu phổ biến).
-  return out.slice(0, len - 2) + 'A' + (arr[0] % 9 + 1);
-}
 
 /** Domain email giả dùng cho user vào qua Partner SSO — PHẢI khớp `syntheticEmail()` trong
  *  partner-sso/index.ts. Dùng làm tín hiệu duy nhất để nhận diện "tài khoản cần nâng cấp". */
@@ -115,13 +108,6 @@ const wrap = (title: string, bodyHtml: string) => `
     <p style="font-size:12px;color:#999">Email tự động từ ${esc(APP_NAME)} — vui lòng không trả lời email này. Nếu bạn không thực hiện thao tác này, hãy bỏ qua email.</p>
   </div>`;
 
-const credBox = (email: string, password: string) => `
-  <div style="background:#1a1430;border:1px solid #3a2f5a;border-radius:8px;padding:16px;margin:12px 0">
-    <p style="margin:0 0 8px"><b style="color:#e0b341">Email đăng nhập:</b> ${esc(email)}</p>
-    <p style="margin:0"><b style="color:#e0b341">Mật khẩu:</b> <code style="background:#2a2150;padding:2px 8px;border-radius:4px;font-size:15px">${esc(password)}</code></p>
-  </div>
-  <p style="font-size:13px;color:#f0c97a">🔐 Vì lý do bảo mật, bạn nên đăng nhập rồi đổi mật khẩu trong mục "Thông tin tài khoản".</p>`;
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -171,6 +157,12 @@ Deno.serve(async (req) => {
 
     const code = genOtp();
     const codeHash = await sha256Hex(code);
+    // Chống gửi thư dồn vào một hộp thư: tối thiểu 60 giây giữa hai lần xin mã của cùng một tài khoản.
+    const { data: lastOtp } = await supa.from('partner_upgrade_otps').select('created_at')
+      .eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (lastOtp && Date.now() - new Date(lastOtp.created_at).getTime() < 60_000) {
+      return json({ ok: false, error: 'too_soon' }, 429);
+    }
     await supa.from('partner_upgrade_otps').delete().eq('user_id', user.id);
     const { error: insErr } = await supa.from('partner_upgrade_otps').insert({
       user_id: user.id, new_email: newEmail, code_hash: codeHash,
@@ -180,8 +172,6 @@ Deno.serve(async (req) => {
       console.error('[auth-email] request_partner_upgrade insert lỗi:', insErr.message);
       return json({ ok: false, error: 'internal' }, 500);
     }
-    // Debug tạm: chỉ ra ở log Edge Function (supabase functions logs auth-email), KHÔNG trả về client.
-    console.log('[auth-email] OTP debug (request_partner_upgrade):', code, '→', newEmail);
 
     const html = wrap('Xác nhận email để bảo vệ tài khoản', `
       <p>Bạn vừa yêu cầu gắn email này vào tài khoản Tuzi của mình để khôi phục tài khoản khi cần
@@ -246,14 +236,45 @@ Deno.serve(async (req) => {
     return json({ ok: true, email: otp.new_email });
   }
 
+  // ───────────────────────── XÁC NHẬN ĐẶT LẠI MẬT KHẨU (từ liên kết trong email) ─────────────────────────
+  if (action === 'confirm_reset') {
+    const token = String(body.token ?? '').trim().toLowerCase();
+    const newPassword = String(body.newPassword ?? '');
+    if (!/^[0-9a-f]{64}$/.test(token)) return json({ ok: false, error: 'invalid_token' }, 400);
+    if (newPassword.length < 6 || newPassword.length > 72) return json({ ok: false, error: 'weak_password' }, 400);
+
+    const { data: row } = await supa.from('password_resets').select('id, user_id, expires_at, used_at')
+      .eq('token_hash', await sha256Hex(token)).maybeSingle();
+    if (!row || row.used_at || new Date(row.expires_at).getTime() < Date.now()) return json({ ok: false, error: 'invalid_token' }, 400);
+    // Đánh dấu ĐÃ DÙNG trước (điều kiện used_at is null) → hai lượt song song không cùng dùng được một liên kết.
+    const { data: claimed } = await supa.from('password_resets').update({ used_at: new Date().toISOString() })
+      .eq('id', row.id).is('used_at', null).select('id').maybeSingle();
+    if (!claimed) return json({ ok: false, error: 'invalid_token' }, 400);
+
+    const { error: upErr } = await supa.auth.admin.updateUserById(row.user_id, { password: newPassword });
+    if (upErr) {
+      console.error('[auth-email] confirm_reset updateUserById lỗi:', upErr.message);
+      await supa.from('password_resets').update({ used_at: null }).eq('id', row.id); // cho phép thử lại
+      return json({ ok: false, error: 'update_failed' }, 500);
+    }
+    await supa.from('password_resets').delete().eq('user_id', row.user_id).is('used_at', null); // hủy các liên kết còn lại
+    const { data: ures } = await supa.auth.admin.getUserById(row.user_id);
+    const to = ures?.user?.email;
+    if (to && !to.endsWith(PARTNER_EMAIL_SUFFIX)) {
+      const when = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      void sendEmail(to, `Mật khẩu vừa thay đổi — ${APP_NAME}`, wrap('Mật khẩu đã được thay đổi', `
+        <p>Mật khẩu của tài khoản <b>${esc(to)}</b> vừa được đặt lại thành công lúc <b>${esc(when)}</b> (giờ Việt Nam).</p>
+        <p style="font-size:13px;color:#f0c97a">⚠ Nếu KHÔNG phải bạn thực hiện, hãy liên hệ hỗ trợ ngay.</p>`));
+    }
+    return json({ ok: true });
+  }
+
   // Các action còn lại (welcome/reset) BẮT BUỘC có email hợp lệ trong body.
   if (!email || !email.includes('@')) return json({ error: 'invalid_email' }, 400);
 
   // ───────────────────────── WELCOME ─────────────────────────
   if (action === 'welcome') {
-    const password = String(body.password ?? '');
-    const displayName = String(body.displayName ?? '').trim();
-    if (!password) return json({ error: 'missing_password' }, 400);
+    const displayName = String(body.displayName ?? '').trim().slice(0, 60);
 
     // Chống lạm dụng: chỉ gửi nếu có user với email này VỪA tạo gần đây (≤ 15 phút).
     const { data: uid } = await supa.rpc('find_user_id_by_email', { p_email: email });
@@ -264,36 +285,45 @@ Deno.serve(async (req) => {
       return json({ ok: true, skipped: 'not_recent' });
     }
 
+    // KHÔNG đưa mật khẩu vào email (client cũng không gửi); nội dung do máy chủ quyết, chỉ chèn tên đã escape.
     const hello = displayName ? `Xin chào ${esc(displayName)},` : 'Xin chào,';
     const html = wrap('Đăng ký tài khoản thành công 🎉', `
       <p>${hello}</p>
-      <p>Cảm ơn bạn đã đăng ký <b>${esc(APP_NAME)}</b>. Dưới đây là thông tin đăng nhập của bạn:</p>
-      ${credBox(email, password)}
-      <p style="font-size:13px;color:#bbb">Bạn được tặng <b>50 xu</b> để trải nghiệm các tính năng nâng cao. Chúc bạn khám phá lá số thật thú vị!</p>`);
+      <p>Cảm ơn bạn đã đăng ký <b>${esc(APP_NAME)}</b>. Bạn có thể đăng nhập bằng email <b>${esc(email)}</b> và mật khẩu bạn vừa đặt.</p>
+      <p style="font-size:13px;color:#bbb">Bạn được tặng xu để trải nghiệm các tính năng nâng cao. Chúc bạn khám phá lá số thật thú vị!</p>`);
     const sent = await sendEmail(email, `Chào mừng đến với ${APP_NAME}`, html);
     return json({ ok: sent });
   }
 
   // ───────────────────────── RESET ─────────────────────────
   if (action === 'reset') {
-    // Tìm user; nếu không có vẫn trả về OK chung chung (chống dò email).
+    // Phản hồi LUÔN giống nhau (kể cả email không tồn tại, bị giới hạn tần suất, gửi lỗi) → không dò được email.
+    const generic = json({ ok: true });
+    if (email.endsWith(PARTNER_EMAIL_SUFFIX)) return generic;          // email nội bộ (đối tác) không nhận thư được
     const { data: uid } = await supa.rpc('find_user_id_by_email', { p_email: email });
-    if (!uid) return json({ ok: true });
+    if (!uid) return generic;
 
-    const newPassword = genPassword(10);
-    const { error: upErr } = await supa.auth.admin.updateUserById(uid as string, { password: newPassword });
-    if (upErr) {
-      console.error('updateUserById lỗi:', upErr.message);
-      return json({ ok: false, error: 'update_failed' }, 500);
-    }
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count } = await supa.from('password_resets').select('id', { count: 'exact', head: true })
+      .eq('user_id', uid as string).gte('created_at', since);
+    if ((count ?? 0) >= RESET_MAX_PER_HOUR) return generic;
 
-    const html = wrap('Yêu cầu lấy lại mật khẩu', `
-      <p>Bạn (hoặc ai đó dùng email này) đã yêu cầu lấy lại mật khẩu. Chúng tôi đã tạo <b>mật khẩu mới</b> cho tài khoản của bạn:</p>
-      ${credBox(email, newPassword)}
-      <p style="font-size:13px;color:#bbb">Mật khẩu cũ đã không còn hiệu lực. Hãy dùng mật khẩu mới ở trên để đăng nhập.</p>`);
-    const sent = await sendEmail(email, `Mật khẩu mới — ${APP_NAME}`, html);
-    // Vẫn trả về ok chung chung dù gửi mail lỗi để không lộ trạng thái email.
-    return json({ ok: true, _sent: sent });
+    const raw = crypto.getRandomValues(new Uint8Array(32));
+    const token = Array.from(raw).map((b) => b.toString(16).padStart(2, '0')).join('');
+    await supa.from('password_resets').delete().eq('user_id', uid as string).is('used_at', null); // chỉ giữ liên kết MỚI NHẤT
+    const { error: insErr } = await supa.from('password_resets').insert({
+      user_id: uid, token_hash: await sha256Hex(token), expires_at: new Date(Date.now() + RESET_TTL_MIN * 60 * 1000).toISOString(),
+    });
+    if (insErr) { console.error('[auth-email] reset insert lỗi:', insErr.message); return generic; }
+
+    const link = `${APP_URL}/reset?token=${token}`;
+    const html = wrap('Đặt lại mật khẩu', `
+      <p>Bạn (hoặc ai đó dùng email này) vừa yêu cầu đặt lại mật khẩu. Bấm nút dưới đây để tự đặt mật khẩu mới:</p>
+      <p style="margin:18px 0"><a href="${esc(link)}" style="background:#e0b341;color:#1a0a00;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700">Đặt lại mật khẩu</a></p>
+      <p style="font-size:13px;color:#bbb">Liên kết có hiệu lực ${RESET_TTL_MIN} phút và chỉ dùng được một lần. Nếu nút không mở được, hãy dán địa chỉ sau vào trình duyệt:<br><span style="word-break:break-all">${esc(link)}</span></p>
+      <p style="font-size:13px;color:#f0c97a">Nếu KHÔNG phải bạn yêu cầu, hãy bỏ qua email này — mật khẩu hiện tại của bạn KHÔNG bị thay đổi.</p>`);
+    await sendEmail(email, `Đặt lại mật khẩu — ${APP_NAME}`, html);
+    return generic;
   }
 
   return json({ error: 'unknown_action' }, 400);

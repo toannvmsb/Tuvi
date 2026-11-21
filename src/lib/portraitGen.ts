@@ -46,7 +46,19 @@ export function buildPortraitContext(r: AstrologyResult): string {
   return lines.join('\n');
 }
 
-export async function generatePortrait(params: PortraitParams): Promise<string> {
+export interface PortraitResult {
+  url: string;
+  /** true = đây là lượt MIỄN PHÍ đầu tiên (máy chủ quyết). */
+  free: boolean;
+  /** Số dư xu mới (máy chủ đã TRỪ xu khi vẽ — client KHÔNG tự trừ). Có khi không phải lượt miễn phí. */
+  balance?: number;
+}
+
+/**
+ * Vẽ chân dung. MÁY CHỦ tự quyết lượt miễn phí đầu tiên và tự trừ xu (generate-portrait + RPC portrait_begin) và hoàn lại nếu vẽ lỗi;
+ * client chỉ nhận kết quả. Không đủ xu → ném Error('insufficient_xu').
+ */
+export async function generatePortraitEx(params: PortraitParams): Promise<PortraitResult> {
   const { data, error } = await supabase.functions.invoke('generate-portrait', { body: params });
   if (error) {
     const ctx = (error as { context?: Response }).context;
@@ -59,7 +71,12 @@ export async function generatePortrait(params: PortraitParams): Promise<string> 
     }
     throw new Error(detail || error.message || 'Không gọi được dịch vụ vẽ chân dung.');
   }
-  const imageUrl = (data as { imageUrl?: string; error?: string } | null)?.imageUrl;
-  if (!imageUrl) throw new Error((data as { error?: string } | null)?.error || 'Không nhận được ảnh từ dịch vụ vẽ chân dung.');
-  return imageUrl;
+  const d = data as { imageUrl?: string; error?: string; free?: boolean; balance?: number } | null;
+  if (!d?.imageUrl) throw new Error(d?.error || 'Không nhận được ảnh từ dịch vụ vẽ chân dung.');
+  return { url: d.imageUrl, free: d.free === true, ...(typeof d.balance === 'number' ? { balance: d.balance } : {}) };
+}
+
+/** Giữ tương thích: chỉ lấy URL ảnh. */
+export async function generatePortrait(params: PortraitParams): Promise<string> {
+  return (await generatePortraitEx(params)).url;
 }

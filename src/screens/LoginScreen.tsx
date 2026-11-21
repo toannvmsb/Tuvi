@@ -84,7 +84,7 @@ export default function LoginScreen() {
     }
   };
 
-  /** Quên mật khẩu — gửi mật khẩu mới vào email đã đăng ký. */
+  /** Quên mật khẩu — gửi LIÊN KẾT đặt lại mật khẩu vào email đã đăng ký (mật khẩu chỉ đổi khi chủ email bấm liên kết). */
   const forgotPassword = async () => {
     setErr('');
     if (!isValidEmail(email)) {
@@ -96,7 +96,7 @@ export default function LoginScreen() {
       await requestPasswordReset(email.trim());
       Alert.alert(
         'Đã gửi yêu cầu',
-        'Nếu email này đã đăng ký, chúng tôi đã gửi MẬT KHẨU MỚI vào hộp thư của bạn. Vui lòng kiểm tra (kể cả mục Spam) rồi đăng nhập bằng mật khẩu mới.',
+        'Nếu email này đã đăng ký, chúng tôi đã gửi một LIÊN KẾT đặt lại mật khẩu vào hộp thư của bạn (hiệu lực 30 phút). Hãy kiểm tra email (kể cả mục Spam), bấm liên kết và tự đặt mật khẩu mới. Mật khẩu hiện tại của bạn chưa bị thay đổi.',
       );
     } catch (e: any) {
       setErr(e?.message || 'Không gửi được. Vui lòng thử lại.');

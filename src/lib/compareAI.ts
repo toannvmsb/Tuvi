@@ -6,6 +6,7 @@
  */
 import type { AstrologyResult } from '../types';
 import { supabase } from './supabase';
+import { awaitPendingSpends } from './pendingSpends';
 import { getAiResult, setAiResult } from './aiResults';
 import { confirmAndUnlock, confirmReanalyze } from './confirmCharge';
 import { serializeForAI, type CompareResult, type AnalysisLayer } from '../core/compareCharts';
@@ -175,6 +176,7 @@ async function callFree(prompt: string, signal: AbortSignal): Promise<string> {
  * thay vì đọc thẳng OpenAI/Anthropic key về client — xem cùng cơ chế ở utils/aiAnalysis.ts.
  */
 async function callAiProxy(prompt: string, provider: 'openai' | 'claude', signal: AbortSignal): Promise<string> {
+  await awaitPendingSpends();   // chờ lệnh trừ xu ghi xong (xem lib/pendingSpends.ts)
   const { data, error } = await supabase.functions.invoke('ai-proxy', {
     body: { prompt, provider, promptKind: 'compare' },
     signal,
