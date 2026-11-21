@@ -59,8 +59,18 @@ export const XU_SKUS = XU_SKUS_ANDROID;
 
 /** Sinh MÃ ĐƠN nạp (dùng làm nội dung chuyển khoản để hệ thống tự khớp). */
 export function makeTopupCode(): string {
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `TUVI${rand}`;
+  // LUÔN đúng 6 ký tự [0-9A-Z] (khớp regex của webhook SePay và RPC create_topup_order). Cách cũ
+  // Math.random().toString(36).slice(2, 8) có thể ra ít hơn 6 ký tự → mã không khớp → khách chuyển khoản mà không được cộng xu.
+  const A = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const g = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
+  let s = '';
+  if (g?.getRandomValues) {
+    const b = g.getRandomValues(new Uint8Array(6));
+    for (let i = 0; i < 6; i++) s += A[b[i] % 36];
+  } else {
+    for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * 36)];
+  }
+  return `TUVI${s}`;
 }
 
 /** Tạo URL ảnh QR VietQR cho 1 đơn nạp. */

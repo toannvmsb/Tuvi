@@ -62,17 +62,19 @@ export type CreateTopupResult =
  * Tạo đơn nạp (pending). PHẢI báo đúng thành công/thất bại: chỉ khi đơn đã được ghi thì mới được hiện QR —
  * nếu đơn không tồn tại mà khách vẫn chuyển khoản thì webhook báo `not_found` và KHÔNG cộng xu (mất tiền).
  */
-export async function createTopupOrder(code: string, vnd: number, xu: number): Promise<CreateTopupResult> {
+export async function createTopupOrder(code: string, _vnd: number, xu: number): Promise<CreateTopupResult> {
   if (!isOnlineMode()) return { ok: false, reason: 'offline', message: 'Cần đăng nhập và có mạng để nạp xu.' };
   try {
     const { data } = await supabase.auth.getUser();
     const uid = data.user?.id;
     if (!uid) return { ok: false, reason: 'no_session', message: 'Phiên đăng nhập đã hết hạn. Hãy mở lại Tuzi rồi thử lại.' };
-    const { error } = await supabase.from('topup_orders').insert({
-      user_id: uid, code, amount_vnd: vnd, xu, status: 'pending',
-    });
+    // Đơn do MÁY CHỦ tạo (RPC create_topup_order): giá/gói được kiểm tra phía server — client không tự quyết số xu hay số tiền.
+    // (Số tiền chuyển khoản luôn = xu × 100đ; kiểm tra thêm ở webhook khi đối soát.)
+    const { error } = await supabase.rpc('create_topup_order', { p_order_code: code, p_xu: xu });
     if (error) {
+      const msg = String((error as { message?: string }).message ?? '');
       if ((error as { code?: string }).code === '23505') return { ok: false, reason: 'duplicate', message: 'Trùng mã đơn, đang tạo lại.' };
+      if (msg.includes('too_many_orders')) return { ok: false, reason: 'error', message: 'Bạn đang có quá nhiều đơn chờ thanh toán. Hãy hoàn tất hoặc hủy bớt rồi thử lại.' };
       return { ok: false, reason: 'error', message: 'Chưa tạo được đơn nạp xu. Vui lòng thử lại.' };
     }
     return { ok: true };

@@ -86,23 +86,30 @@ function Boot() {
     return () => { sub.remove(); clearInterval(timer); };
   }, [online]);
 
-  // Đăng nhập tự động qua đối tác (chế độ nhúng /embed) — chỉ chạy 1 lần, sau khi auth đã sẵn
-  // sàng và CHƯA có user (đã có session sẵn, vd tải lại trang, thì khỏi cần SSO lại).
+  // Đăng nhập tự động qua đối tác (chế độ nhúng /embed) — chỉ chạy 1 lần, sau khi auth đã sẵn sàng.
+  // LUÔN đăng nhập theo token vừa nhận, KỂ CẢ khi WebView còn phiên của người khác (người dùng đổi tài khoản
+  // trên app đối tác): nếu bỏ qua token thì user B sẽ thấy dữ liệu của user A. Tải lại trang (URL đã được thay
+  // bằng /embed, không còn token) thì embedParams = null nên vẫn dùng phiên có sẵn như bình thường.
+  const startUserId = useRef<string | null>(null);
   useEffect(() => {
     if (!embedParams || !authReady || ssoStarted.current) return;
-    if (user) { setSsoPending(false); return; }
     ssoStarted.current = true;
+    startUserId.current = user?.id ?? null;
     let settled = false;
-    // An toàn: nếu vì lý do gì đó AuthContext không cập nhật `user` sau khi setSession() xong,
-    // không để màn hình kẹt mãi ở thanh tiến trình — rơi về LoginScreen sau 8s.
-    const timeout = setTimeout(() => { if (!settled) setSsoPending(false); }, 8000);
+    // An toàn: không để màn hình kẹt mãi ở thanh tiến trình. Hết 8s mà chưa có phản hồi → báo lỗi (KHÔNG rơi về
+    // phiên cũ của người khác).
+    const timeout = setTimeout(() => {
+      if (!settled) { setSsoError('Không kết nối được tới máy chủ. Vui lòng thử lại từ ứng dụng đối tác.'); setSsoPending(false); }
+    }, 8000);
     signInViaPartner(embedParams.partnerCode, embedParams.token).then((res) => {
       settled = true;
       clearTimeout(timeout);
       if (res.ok) {
         window.history.replaceState(null, '', '/embed');
-        // KHÔNG setSsoPending(false) ở đây — chờ effect dưới bắt `user` cập nhật từ AuthContext,
-        // tránh chớp màn LoginScreen 1 nhịp giữa lúc setSession() xong và `user` thực sự cập nhật.
+        // Vẫn đúng người đang đăng nhập → không có gì đổi, mở luôn. Ngược lại KHÔNG setSsoPending(false) ở đây:
+        // chờ effect dưới bắt `user` chuyển sang đúng người (tránh chớp màn Đăng nhập/dữ liệu người cũ 1 nhịp).
+        if (res.userId && res.userId === startUserId.current) setSsoPending(false);
+        else setTimeout(() => setSsoPending(false), 4000); // phòng khi `user` không đổi/không cập nhật → không kẹt ở thanh tiến trình
       } else {
         setSsoError(res.message);
         setSsoPending(false);
@@ -111,7 +118,7 @@ function Boot() {
   }, [embedParams, authReady, user]);
 
   useEffect(() => {
-    if (ssoPending && user) setSsoPending(false);
+    if (ssoPending && ssoStarted.current && user && user.id !== startUserId.current) setSsoPending(false);
   }, [user, ssoPending]);
 
   const done = langReady && authReady && fontsReady && !ssoPending;
